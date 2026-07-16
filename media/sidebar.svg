@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Document -->
+  <path d="M5 2.5h9l4 4V21a0.5 0.5 0 0 1-0.5 0.5H5A0.5 0.5 0 0 1 4.5 21V3A0.5 0.5 0 0 1 5 2.5Z"/>
+  <path d="M14 2.5V6.5h4"/>
+  <!-- Link/flow nodes: route -> api -> db -->
+  <circle cx="8.5" cy="11" r="1.4"/>
+  <circle cx="15.5" cy="11" r="1.4"/>
+  <circle cx="12" cy="16.5" r="1.4"/>
+  <path d="M9.9 11h4.2"/>
+  <path d="M8.9 12.3 11.1 15.3"/>
+  <path d="M15.1 12.3 12.9 15.3"/>
+</svg>
