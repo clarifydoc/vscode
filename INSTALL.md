@@ -1,0 +1,173 @@
+# Installing, updating & developing the ClarifyDoc extension
+
+Three ways to run this extension, depending on what you're doing:
+
+| You want to… | Go to |
+|--------------|-------|
+| Use it day-to-day in your normal VS Code | [Install](#1-install-for-everyday-use) |
+| Move to a newer build | [Update](#2-update) |
+| Change the extension's code and see it live | [Develop with hot reload](#3-develop-with-hot-reload) |
+
+---
+
+## Prerequisites
+
+- **VS Code** 1.85 or newer.
+- That's it for *using* a packaged build. The analyzer (and all its tree-sitter
+  WASM grammars) is **bundled inside the extension** and runs isolated — no
+  global install, no `npx`, no repo checkout. It uses `node` from your `PATH` if
+  present, otherwise VS Code's own runtime, so **Node.js is not required**.
+- Analysis output goes to the extension's private storage
+  (`<globalStorage>/analyses/…`), never into your workspace.
+
+*Building the extension from source* additionally needs **Node.js 18+** (to run
+the bundler and esbuild) and a built copy of the parent ClarifyDoc repo — see
+[Develop with hot reload](#3-develop-with-hot-reload).
+
+---
+
+## 1. Install for everyday use
+
+### A. From a packaged `.vsix` (recommended)
+
+A prebuilt package ships in this folder: `clarifydoc-vscode-0.1.0.vsix`.
+
+**From the terminal:**
+
+```bash
+code --install-extension clarifydoc-vscode-0.1.0.vsix
+```
+
+**From the VS Code UI:**
+
+1. Open the **Extensions** view (`Ctrl+Shift+X`).
+2. Click the **⋯** (More Actions) menu at the top of the view.
+3. Choose **Install from VSIX…** and pick the `.vsix` file.
+
+Reload the window when prompted. You'll see a **ClarifyDoc** icon in the Activity
+Bar and a **ClarifyDoc** item in the status bar.
+
+### B. Build the `.vsix` yourself
+
+If there's no `.vsix`, or you changed the source:
+
+```bash
+cd VsCode
+npm install
+npm run package          # runs the build, then writes clarifydoc-vscode-<version>.vsix
+code --install-extension clarifydoc-vscode-0.1.0.vsix
+```
+
+---
+
+## 2. Update
+
+VS Code will not reinstall a package that has the **same version** already
+installed. Pick one:
+
+**Fast path — force-reinstall the same version:**
+
+```bash
+cd VsCode
+npm run package
+code --install-extension clarifydoc-vscode-0.1.0.vsix --force
+```
+
+**Clean path — bump the version, then install:**
+
+1. Increase `"version"` in [package.json](package.json) (e.g. `0.1.0` → `0.1.1`).
+2. Add a note to [CHANGELOG.md](CHANGELOG.md).
+3. Repackage and install:
+
+   ```bash
+   npm run package
+   code --install-extension clarifydoc-vscode-0.1.1.vsix
+   ```
+
+Reload the window (`Developer: Reload Window`) after installing so the new build
+activates.
+
+> To remove it: Extensions view → ClarifyDoc → **Uninstall**, or
+> `code --uninstall-extension clarifydoc.clarifydoc-vscode`.
+
+---
+
+## 3. Develop with hot reload
+
+This is the loop you want while editing the extension's own code.
+
+1. Build the analyzer bundle once (needs the parent repo built first):
+
+   ```bash
+   # repo root
+   npm install && npm run build      # produces ../dist/cli.js
+
+   # extension
+   cd VsCode
+   npm install
+   npm run bundle                    # assembles clarifydoc/ from ../dist + wasm grammars
+   ```
+
+   Re-run `npm run bundle` whenever the analyzer changes. (`npm run build` does
+   the bundle + esbuild together.)
+2. Open the **`VsCode` folder** as the workspace in VS Code.
+3. Press **F5** (or Run → *Run ClarifyDoc Extension*). This:
+   - starts the esbuild **watch** task in the background (`preLaunchTask`), and
+   - launches a second VS Code window — the **Extension Development Host** — with
+     the extension loaded. Its title bar reads `[Extension Development Host]`.
+4. Open any project in that host window and try the commands / sidebar.
+
+### The reload loop
+
+There is no true JS hot-swap for extensions — but the round-trip is a second or
+two:
+
+1. Edit a file under `src/`.
+2. **esbuild rebuilds automatically** (the watch task recompiles `out/extension.js`
+   on every save; you'll see `[watch] build finished` in the Terminal panel).
+3. In the **Extension Development Host** window, reload to pick up the new code:
+   - press **`Ctrl+R`** (`Cmd+R` on macOS), **or**
+   - Command Palette → **Developer: Reload Window**.
+
+The debugger reattaches automatically after the reload, and breakpoints in
+`src/**` keep working thanks to source maps.
+
+> **Changed `package.json`?** Manifest changes (new commands, settings, menus,
+> views) are read at load time, not by esbuild. Fully **restart** the debug
+> session (stop with `Shift+F5`, then `F5` again) rather than just reloading the
+> window.
+>
+> **Changed the analyzer?** The bundled `clarifydoc/` is *not* rebuilt by the
+> watch task. Re-run `npm run bundle` (after rebuilding `../dist`) and reload the
+> host window.
+
+### Manual watch (without F5)
+
+If you'd rather run the build yourself, e.g. to package without launching a host:
+
+```bash
+npm run watch      # rebuilds on every save; Ctrl+C to stop
+```
+
+`npm run compile` does a single one-shot build, and `npm run check-types` runs
+the TypeScript type-checker (esbuild strips types but does not type-check).
+
+---
+
+## Troubleshooting
+
+- **"Could not launch the analyzer runtime"** — the analyzer normally runs on
+  VS Code's own Node runtime with no setup. If you see this, set
+  `clarifydoc.nodePath` to a Node.js executable (**Open Settings** in the
+  ClarifyDoc sidebar overflow menu).
+- **"bundled analyzer not found"** in the output log — you're running from source
+  without the bundle. Run `npm run bundle`, or set `clarifydoc.cliPath` to a
+  `dist/cli.js` / binary.
+- **Report tab is blank** — regenerate it by running **ClarifyDoc: Analyze
+  Workspace**. Check the **ClarifyDoc** output channel (*Show Output Log*) for
+  analyzer errors.
+- **Nothing in the sidebar** — the folder hasn't been analyzed yet; click
+  **Analyze Workspace** in the welcome view.
+- **Where's the output?** In the extension's private storage, not your project.
+  Command Palette → *Developer: Open Extension Logs Folder* is nearby; the data
+  lives under `…/globalStorage/…/analyses/`.

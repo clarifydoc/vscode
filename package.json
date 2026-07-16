@@ -1,0 +1,340 @@
+{
+  "name": "clarifydoc-vscode",
+  "displayName": "ClarifyDoc",
+  "description": "Map any codebase — frontend route → API endpoint → database — straight from source, without leaving VS Code.",
+  "version": "0.1.0",
+  "publisher": "clarifydoc",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "code-analysis",
+    "ast",
+    "reverse-engineering",
+    "documentation",
+    "architecture",
+    "dependency-graph"
+  ],
+  "galleryBanner": {
+    "color": "#006dd7",
+    "theme": "dark"
+  },
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "clarifydoc.analyze",
+        "title": "Analyze Workspace",
+        "category": "ClarifyDoc",
+        "icon": "$(search-fuzzy)"
+      },
+      {
+        "command": "clarifydoc.analyzeFull",
+        "title": "Analyze Workspace (Full Re-scan)",
+        "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.openReport",
+        "title": "Open Report",
+        "category": "ClarifyDoc",
+        "icon": "$(preview)"
+      },
+      {
+        "command": "clarifydoc.openReportExternal",
+        "title": "Open Report in Browser",
+        "category": "ClarifyDoc",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "clarifydoc.detectFrameworks",
+        "title": "Detect Languages & Frameworks",
+        "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.jumpScreens",
+        "title": "Screens & UI for This File",
+        "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.jumpTraces",
+        "title": "Call Traces for This File",
+        "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.jumpBlast",
+        "title": "Blast Radius for This File",
+        "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.jumpArchitecture",
+        "title": "Show in Architecture",
+        "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.jumpRoutes",
+        "title": "Show Routes",
+        "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.impact",
+        "title": "Impact of Current Git Changes",
+        "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.refresh",
+        "title": "Refresh",
+        "category": "ClarifyDoc",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "clarifydoc.showOutput",
+        "title": "Show Output Log",
+        "category": "ClarifyDoc",
+        "icon": "$(output)"
+      },
+      {
+        "command": "clarifydoc.openSettings",
+        "title": "Open Settings",
+        "category": "ClarifyDoc",
+        "icon": "$(gear)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "clarifydoc",
+          "title": "ClarifyDoc",
+          "icon": "media/sidebar.svg"
+        }
+      ]
+    },
+    "views": {
+      "clarifydoc": [
+        {
+          "id": "clarifydoc.summary",
+          "name": "Analysis",
+          "icon": "media/sidebar.svg",
+          "contextualTitle": "ClarifyDoc"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "clarifydoc.summary",
+        "contents": "No analysis yet for this workspace.\n\nClarifyDoc parses your code with tree-sitter to map routes → API → database, with no AI.\n\n[Analyze Workspace](command:clarifydoc.analyze)\n\n[Open Settings](command:clarifydoc.openSettings)"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "clarifydoc.editorContext",
+        "label": "ClarifyDoc"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "submenu": "clarifydoc.editorContext",
+          "group": "navigation@9",
+          "when": "editorTextFocus && resourceScheme == file"
+        }
+      ],
+      "clarifydoc.editorContext": [
+        {
+          "command": "clarifydoc.jumpScreens",
+          "group": "1_file@1"
+        },
+        {
+          "command": "clarifydoc.jumpTraces",
+          "group": "1_file@2"
+        },
+        {
+          "command": "clarifydoc.jumpBlast",
+          "group": "1_file@3"
+        },
+        {
+          "command": "clarifydoc.jumpArchitecture",
+          "group": "2_context@1"
+        },
+        {
+          "command": "clarifydoc.jumpRoutes",
+          "group": "2_context@2"
+        },
+        {
+          "command": "clarifydoc.openReport",
+          "group": "3_report@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "clarifydoc.analyze",
+          "when": "view == clarifydoc.summary",
+          "group": "navigation@1"
+        },
+        {
+          "command": "clarifydoc.openReport",
+          "when": "view == clarifydoc.summary",
+          "group": "navigation@2"
+        },
+        {
+          "command": "clarifydoc.refresh",
+          "when": "view == clarifydoc.summary",
+          "group": "navigation@3"
+        },
+        {
+          "command": "clarifydoc.showOutput",
+          "when": "view == clarifydoc.summary",
+          "group": "overflow@1"
+        },
+        {
+          "command": "clarifydoc.openReportExternal",
+          "when": "view == clarifydoc.summary",
+          "group": "overflow@2"
+        },
+        {
+          "command": "clarifydoc.detectFrameworks",
+          "when": "view == clarifydoc.summary",
+          "group": "overflow@3"
+        },
+        {
+          "command": "clarifydoc.impact",
+          "when": "view == clarifydoc.summary",
+          "group": "overflow@4"
+        },
+        {
+          "command": "clarifydoc.openSettings",
+          "when": "view == clarifydoc.summary",
+          "group": "overflow@5"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "clarifydoc.analyze",
+          "when": "explorerResourceIsFolder",
+          "group": "clarifydoc@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "clarifydoc.refresh",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "ClarifyDoc",
+      "properties": {
+        "clarifydoc.cliPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Advanced. Override the bundled analyzer with your own. Accepts a `dist/cli.js` file (run with Node) or a `clarifydoc` binary. Leave empty to use the analyzer bundled inside the extension. May be absolute or relative to the extension directory.",
+          "scope": "machine-overridable"
+        },
+        "clarifydoc.nodePath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the Node.js executable used to run the analyzer. Leave empty to use `node` from your `PATH`, falling back to VS Code's own runtime (Electron-as-Node) when no `node` is found — so analysis works even with no external Node installed.",
+          "scope": "machine-overridable"
+        },
+        "clarifydoc.incremental": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reuse cached per-file analysis for files whose contents are unchanged (mtime + SHA-256). Much faster on re-runs.",
+          "scope": "resource"
+        },
+        "clarifydoc.enableLsp": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Run the optional layer-2 LSP enhancement to resolve cross-file calls the text linker missed. **Requires Docker.** Off by default.",
+          "scope": "resource"
+        },
+        "clarifydoc.lspTimeout": {
+          "type": "number",
+          "default": 0,
+          "description": "LSP server startup timeout in milliseconds. 0 uses the CLI default. Only used when LSP is enabled.",
+          "scope": "resource"
+        },
+        "clarifydoc.gitHistory": {
+          "type": "boolean",
+          "default": true,
+          "description": "Collect git churn / hotspot history during analysis.",
+          "scope": "resource"
+        },
+        "clarifydoc.maxFiles": {
+          "type": "number",
+          "default": 0,
+          "description": "Maximum number of files to analyze. 0 means unlimited.",
+          "scope": "resource"
+        },
+        "clarifydoc.includeGlobs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional file glob patterns to include.",
+          "scope": "resource"
+        },
+        "clarifydoc.excludeGlobs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional file glob patterns to exclude.",
+          "scope": "resource"
+        },
+        "clarifydoc.openReportAfterAnalyze": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the interactive report automatically after a successful analysis.",
+          "scope": "resource"
+        },
+        "clarifydoc.reportLocation": {
+          "type": "string",
+          "enum": [
+            "editor",
+            "browser"
+          ],
+          "enumDescriptions": [
+            "Show the report inside a VS Code editor tab (webview).",
+            "Open the report in your external web browser."
+          ],
+          "default": "editor",
+          "description": "Where to display the interactive report.",
+          "scope": "resource"
+        },
+        "clarifydoc.analyzeOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Re-analyze the workspace (incrementally) a few seconds after you save a source file.",
+          "scope": "resource"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "bundle": "node scripts/bundle-cli.mjs",
+    "build": "npm run bundle && node esbuild.mjs --production",
+    "watch": "node esbuild.mjs --watch",
+    "compile": "node esbuild.mjs",
+    "check-types": "tsc --noEmit",
+    "package": "npx --yes @vscode/vsce package --no-dependencies --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.23.1",
+    "typescript": "^5.5.4"
+  }
+}

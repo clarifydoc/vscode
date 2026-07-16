@@ -1,0 +1,14 @@
+# Exclude dev scaffolding from the VSIX. NOTE: the bundled analyzer lives under
+# clarifydoc/** and MUST ship — do not add a bare `node_modules` glob here, only
+# the root one below (clarifydoc/node_modules is not matched by `/node_modules`).
+.vscode/**
+.gitignore
+src/**
+scripts/**
+/node_modules/**
+esbuild.mjs
+tsconfig.json
+**/*.map
+src/**/*.ts
+.eslintrc*
+*.vsix
