@@ -12,4 +12,9 @@ export interface ExtensionState {
   /** True while an analysis is running for the given folder path. */
   isRunning(folderPath: string): boolean;
   setRunning(folderPath: string, running: boolean): void;
+  /** Fires after an analysis completes (or the active analysis set changes) so
+   *  data-driven providers (diagnostics, CodeLens, hover, tree) can refresh. */
+  readonly onAnalysisChanged: vscode.Event<void>;
+  /** Notify listeners that on-disk analysis data changed. */
+  fireAnalysisChanged(): void;
 }

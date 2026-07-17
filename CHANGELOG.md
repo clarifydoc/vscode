@@ -1,5 +1,30 @@
 # Change Log
 
+## Unreleased
+
+Deeper, native VS Code integration:
+
+- **Problems panel diagnostics** for security findings, high-complexity
+  functions, and layer violations (squiggles at the reported lines).
+- **CodeLens** above functions (callers / callees / complexity / Traces) and
+  routes (method + path → handler), plus **hover** cards over analyzed symbols.
+- **Drill-down sidebar**: expand Routes / Screens / Security / Complexity
+  hotspots / Sub-projects; click an item to open the source at its line.
+- **Go to…** quick-pick command for routes / screens / issues / hotspots.
+- **Two-way report sync**: clicking a file/symbol in the report reveals the real
+  source in the editor (webview → extension `postMessage`), falling back to
+  `vscode://` links outside VS Code.
+- **Reach & correctness**: `extensionKind: workspace` (runs on remote/WSL/
+  Codespaces hosts), workspace-trust gating, virtual-workspace declined,
+  FileSystemWatcher-based auto-analysis, a Getting-Started walkthrough, default
+  keybindings, and a `@vscode/test-electron` test harness.
+- New settings: `clarifydoc.diagnostics.*`, `clarifydoc.codeLens.enabled`,
+  `clarifydoc.hover.enabled`.
+
+Internals: a shared analysis-data layer resolves the on-disk summary via the
+bundled analyzer's `denormalizeProject` (no re-scan) and refreshes providers on
+an `onAnalysisChanged` event.
+
 ## 0.1.0
 
 Initial release.

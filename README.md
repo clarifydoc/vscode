@@ -32,6 +32,19 @@ child process**:
   **ClarifyDoc** submenu opens the report deep-linked to the current file:
   *Screens & UI*, *Call Traces*, and *Blast Radius* preselect that file; *Show in
   Architecture* and *Show Routes* open the corresponding tab.
+- **Problems panel** — security findings, high-complexity functions, and layer
+  violations appear as diagnostics with squiggles at their exact lines.
+- **CodeLens** — above functions: callers / callees (click to jump), complexity,
+  and *Traces*; above routes: method + path → handler. Above analyzed symbols, a
+  **hover** card summarizes complexity, callers/callees, and findings.
+- **Drill-down sidebar** — expand Routes / Screens / Security / Complexity
+  hotspots / Sub-projects and click any item to open the source at its line.
+- **Go to… quick-pick** (`ClarifyDoc: Go to…`) — fuzzy-jump to any route, screen,
+  security issue, or hotspot.
+- **Two-way report sync** — clicking a file/symbol in the report reveals the real
+  source in the editor beside it (no OS prompt).
+- **Remote & trust aware** — runs on the remote/WSL/Codespaces host, requires a
+  trusted workspace, and declines virtual workspaces.
 - **ClarifyDoc sidebar** — an Activity Bar view showing the last analysis at a
   glance: health grade, headline metrics (files, routes, links, traces, screens,
   entities, security issues…) and detected frameworks. Loads from storage, so it
@@ -57,6 +70,7 @@ All under the **ClarifyDoc** category in the Command Palette:
 | Open Report in Browser | Force the external browser |
 | Screens & UI / Call Traces / Blast Radius for This File | Right-click jump, file preselected |
 | Show in Architecture / Show Routes | Right-click jump to that tab |
+| Go to… | Quick-pick a route / screen / issue / hotspot and jump to it |
 | Detect Languages & Frameworks | Quick detection only |
 | Impact of Current Git Changes | Diff → affected screens/routes/entities |
 | Show Output Log | Reveal the ClarifyDoc output channel |
@@ -65,6 +79,11 @@ All under the **ClarifyDoc** category in the Command Palette:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
+| `clarifydoc.diagnostics.enabled` | `true` | Show findings in the Problems panel |
+| `clarifydoc.diagnostics.include` | all | Categories: `security`, `complexity`, `layers` |
+| `clarifydoc.diagnostics.complexityThreshold` | `15` | Flag functions at/above this complexity |
+| `clarifydoc.codeLens.enabled` | `true` | CodeLens above functions and routes |
+| `clarifydoc.hover.enabled` | `true` | ClarifyDoc hover cards |
 | `clarifydoc.incremental` | `true` | Reuse cache for unchanged files |
 | `clarifydoc.enableLsp` | `false` | Layer-2 LSP enhancement (needs Docker) |
 | `clarifydoc.lspTimeout` | `0` | LSP startup timeout (ms; 0 = analyzer default) |

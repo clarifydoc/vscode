@@ -1,7 +1,9 @@
 import * as vscode from "vscode";
 import * as fs from "fs/promises";
+import * as path from "path";
 import { reportPath, projectName } from "./paths";
 import { ExtensionState } from "./state";
+import { openSourceAt } from "./reveal";
 
 /** One reusable webview panel per workspace folder path. */
 const panels = new Map<string, vscode.WebviewPanel>();
@@ -75,6 +77,18 @@ export async function openReport(
   );
   panel.iconPath = vscode.Uri.file(state.context.asAbsolutePath("media/icon.png"));
   panel.webview.html = html;
+
+  // Two-way sync: a click on a file/symbol in the report reveals it in the editor,
+  // resolved against this folder (the report's file paths are folder-relative).
+  panel.webview.onDidReceiveMessage(
+    (msg: { type?: string; file?: string; line?: number }) => {
+      if (msg?.type !== "clarifydoc:open" || !msg.file) return;
+      const abs = path.isAbsolute(msg.file) ? msg.file : path.join(folder.uri.fsPath, msg.file);
+      void openSourceAt(abs, msg.line, vscode.ViewColumn.Beside);
+    },
+    undefined,
+    state.context.subscriptions,
+  );
 
   panels.set(key, panel);
   panel.onDidDispose(() => {
