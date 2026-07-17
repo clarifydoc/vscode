@@ -10,12 +10,21 @@ import { jumpToFileView } from "./jump";
 import { SummaryTreeProvider } from "./treeView";
 import { StatusBar } from "./statusBar";
 import { pickWorkspaceFolder } from "./workspace";
+import { DiagnosticsManager } from "./diagnostics";
+import { ClarifyDocCodeLensProvider } from "./codeLens";
+import { ClarifyDocHoverProvider } from "./hover";
+import { openReportForFile, showLinkedSymbols } from "./navCommands";
+import { gotoQuickPick } from "./goto";
+import { openSourceAt } from "./reveal";
+import { registerAutoAnalyze } from "./watch";
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("ClarifyDoc");
   context.subscriptions.push(output);
 
   const running = new Set<string>();
+  const analysisChanged = new vscode.EventEmitter<void>();
+  context.subscriptions.push(analysisChanged);
 
   // Forward-declared so the state's refresh() can reach the views created below.
   let tree: SummaryTreeProvider | undefined;
@@ -33,13 +42,22 @@ export function activate(context: vscode.ExtensionContext): void {
       if (on) running.add(p);
       else running.delete(p);
     },
+    onAnalysisChanged: analysisChanged.event,
+    fireAnalysisChanged: () => analysisChanged.fire(),
   };
 
   tree = new SummaryTreeProvider(state);
   statusBar = new StatusBar(state);
 
+  // Editor-integration providers (data-driven, refresh on analysis change).
+  const diagnostics = new DiagnosticsManager(state);
+  void diagnostics.refresh();
+  context.subscriptions.push(state.onAnalysisChanged(() => tree?.refresh()));
+
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("clarifydoc.summary", tree),
+    vscode.languages.registerCodeLensProvider({ scheme: "file" }, new ClarifyDocCodeLensProvider(state)),
+    vscode.languages.registerHoverProvider({ scheme: "file" }, new ClarifyDocHoverProvider(state)),
   );
 
   // ── Commands ──────────────────────────────────────────────────────────
@@ -54,6 +72,12 @@ export function activate(context: vscode.ExtensionContext): void {
     const folder = await pickWorkspaceFolder(target);
     if (folder) await showReport(state, folder);
   });
+  // Open the report deep-linked to a Health sub-section (#health/<section>).
+  // Invoked from the sidebar's Health drill-down.
+  register("clarifydoc.openReportSection", async (target, section?: string) => {
+    const folder = await pickWorkspaceFolder(target);
+    if (folder) await showReport(state, folder, { hash: section ? `health/${section}` : "health" });
+  });
   register("clarifydoc.openReportExternal", async (target) => {
     const folder = await pickWorkspaceFolder(target);
     if (folder) await showReport(state, folder, { location: "browser" });
@@ -67,6 +91,13 @@ export function activate(context: vscode.ExtensionContext): void {
   register("clarifydoc.jumpBlast", () => jumpToFileView(state, "blast"));
   register("clarifydoc.jumpArchitecture", () => jumpToFileView(state, "links"));
   register("clarifydoc.jumpRoutes", () => jumpToFileView(state, "routes"));
+
+  // Navigation commands (invoked from CodeLens, hover, and the sidebar).
+  register("clarifydoc.goto", () => gotoQuickPick(state));
+  register("clarifydoc.openReportForFile", (uri, tab) => openReportForFile(state, uri, tab));
+  register("clarifydoc.showCallers", (uri: string, symbol: string) => showLinkedSymbols(state, uri, symbol, "callers"));
+  register("clarifydoc.showCallees", (uri: string, symbol: string) => showLinkedSymbols(state, uri, symbol, "callees"));
+  register("clarifydoc.revealSource", (absPath: string, line?: number) => openSourceAt(absPath, line));
   register("clarifydoc.refresh", () => {
     resetCliResolution();
     state.refresh();
@@ -87,7 +118,10 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidChangeWorkspaceFolders(() => state.refresh()),
   );
 
-  registerAnalyzeOnSave(context, state);
+  // Debounced auto re-analysis via a FileSystemWatcher (opt-in: analyzeOnSave).
+  registerAutoAnalyze(state, (folder) =>
+    void analyzeWorkspace(state, folder).then(() => refreshOpenReport(state.context, folder)),
+  );
 
   // The analyzer is bundled inside the extension; warn once if the bundle is
   // absent (e.g. running from source without `npm run bundle`) unless a custom
@@ -104,35 +138,4 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {
   /* nothing to tear down beyond the disposables registered above */
-}
-
-/**
- * Debounced re-analysis on save. Only fires for files inside a workspace folder
- * and skips output written under the analysis directory to avoid feedback loops.
- */
-function registerAnalyzeOnSave(
-  context: vscode.ExtensionContext,
-  state: ExtensionState,
-): void {
-  const timers = new Map<string, NodeJS.Timeout>();
-  context.subscriptions.push(
-    vscode.workspace.onDidSaveTextDocument((doc) => {
-      const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
-      if (!folder) return;
-      if (!getConfig(folder.uri).analyzeOnSave) return;
-      // Output lives in isolated global storage, never in the workspace, so a
-      // saved workspace file can't feed back into the analysis.
-      if (state.isRunning(folder.uri.fsPath)) return;
-
-      const key = folder.uri.fsPath;
-      clearTimeout(timers.get(key));
-      timers.set(
-        key,
-        setTimeout(() => {
-          timers.delete(key);
-          void analyzeWorkspace(state, folder).then(() => refreshOpenReport(state.context, folder));
-        }, 2500),
-      );
-    }),
-  );
 }

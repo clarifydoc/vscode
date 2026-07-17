@@ -30,6 +30,23 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "ClarifyDoc runs a bundled analyzer process. Analysis is blocked until you trust the workspace.",
+      "restrictedConfigurations": [
+        "clarifydoc.cliPath",
+        "clarifydoc.nodePath"
+      ]
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "ClarifyDoc analyzes files on disk and cannot run in a virtual workspace."
+    }
+  },
   "contributes": {
     "commands": [
       {
@@ -59,6 +76,12 @@
         "command": "clarifydoc.detectFrameworks",
         "title": "Detect Languages & Frameworks",
         "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.goto",
+        "title": "Go to Route / Screen / Issue…",
+        "category": "ClarifyDoc",
+        "icon": "$(search)"
       },
       {
         "command": "clarifydoc.jumpScreens",
@@ -191,6 +214,11 @@
           "group": "navigation@3"
         },
         {
+          "command": "clarifydoc.goto",
+          "when": "view == clarifydoc.summary",
+          "group": "overflow@0"
+        },
+        {
           "command": "clarifydoc.showOutput",
           "when": "view == clarifydoc.summary",
           "group": "overflow@1"
@@ -230,6 +258,77 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "clarifydoc.analyze",
+        "key": "ctrl+alt+d a",
+        "mac": "cmd+alt+d a",
+        "when": "workspaceFolderCount != 0"
+      },
+      {
+        "command": "clarifydoc.openReport",
+        "key": "ctrl+alt+d r",
+        "mac": "cmd+alt+d r",
+        "when": "workspaceFolderCount != 0"
+      },
+      {
+        "command": "clarifydoc.goto",
+        "key": "ctrl+alt+d g",
+        "mac": "cmd+alt+d g",
+        "when": "workspaceFolderCount != 0"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "clarifydoc.gettingStarted",
+        "title": "Get started with ClarifyDoc",
+        "description": "Map routes → API → database from your code — no AI, nothing installed, nothing written to your workspace.",
+        "steps": [
+          {
+            "id": "analyze",
+            "title": "Analyze your workspace",
+            "description": "ClarifyDoc parses your code with tree-sitter and builds a map of routes, screens, data access and more.\n[Analyze Workspace](command:clarifydoc.analyze)",
+            "media": {
+              "image": "media/icon.png",
+              "altText": "ClarifyDoc"
+            },
+            "completionEvents": [
+              "onCommand:clarifydoc.analyze"
+            ]
+          },
+          {
+            "id": "report",
+            "title": "Open the interactive report",
+            "description": "Explore screens, call traces, architecture, the data model and health in an interactive report.\n[Open Report](command:clarifydoc.openReport)",
+            "media": {
+              "image": "media/icon.png",
+              "altText": "ClarifyDoc report"
+            },
+            "completionEvents": [
+              "onCommand:clarifydoc.openReport"
+            ]
+          },
+          {
+            "id": "jump",
+            "title": "Jump from code to the report",
+            "description": "Right-click any source file → **ClarifyDoc** to open the report focused on that file's screens, call traces or blast radius. Findings also appear in the Problems panel and as CodeLens.",
+            "media": {
+              "image": "media/icon.png",
+              "altText": "Right-click jump"
+            }
+          },
+          {
+            "id": "settings",
+            "title": "Tune it",
+            "description": "Toggle diagnostics/CodeLens, enable analyze-on-change, or point at a custom analyzer.\n[Open Settings](command:clarifydoc.openSettings)",
+            "media": {
+              "image": "media/icon.png",
+              "altText": "Settings"
+            }
+          }
+        ]
+      }
+    ],
     "configuration": {
       "title": "ClarifyDoc",
       "properties": {
@@ -244,6 +343,48 @@
           "default": "",
           "markdownDescription": "Path to the Node.js executable used to run the analyzer. Leave empty to use `node` from your `PATH`, falling back to VS Code's own runtime (Electron-as-Node) when no `node` is found — so analysis works even with no external Node installed.",
           "scope": "machine-overridable"
+        },
+        "clarifydoc.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Surface analysis findings (security, complexity, layer violations) in the Problems panel.",
+          "scope": "resource"
+        },
+        "clarifydoc.diagnostics.include": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "security",
+              "complexity",
+              "layers"
+            ]
+          },
+          "default": [
+            "security",
+            "complexity",
+            "layers"
+          ],
+          "description": "Which finding categories to report as diagnostics.",
+          "scope": "resource"
+        },
+        "clarifydoc.diagnostics.complexityThreshold": {
+          "type": "number",
+          "default": 15,
+          "description": "Report functions whose cyclomatic complexity is at or above this value.",
+          "scope": "resource"
+        },
+        "clarifydoc.codeLens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show CodeLens above functions (callers/callees/complexity/traces) and routes.",
+          "scope": "resource"
+        },
+        "clarifydoc.hover.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a ClarifyDoc hover card (complexity, callers/callees, findings) over analyzed symbols.",
+          "scope": "resource"
         },
         "clarifydoc.incremental": {
           "type": "boolean",
@@ -329,12 +470,18 @@
     "watch": "node esbuild.mjs --watch",
     "compile": "node esbuild.mjs",
     "check-types": "tsc --noEmit",
+    "compile-tests": "tsc -p ./tsconfig.test.json",
+    "pretest": "npm run compile-tests && npm run compile",
+    "test": "node ./out/test/runTest.js",
     "package": "npx --yes @vscode/vsce package --no-dependencies --allow-missing-repository"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.7",
     "@types/node": "^20.14.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.4.1",
     "esbuild": "^0.23.1",
+    "mocha": "^10.7.3",
     "typescript": "^5.5.4"
   }
 }

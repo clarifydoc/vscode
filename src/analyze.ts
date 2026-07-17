@@ -43,6 +43,18 @@ export async function analyzeWorkspace(
   const folder = await pickWorkspaceFolder(target);
   if (!folder) return;
 
+  // The analyzer runs a bundled child process; require a trusted workspace.
+  if (!vscode.workspace.isTrusted) {
+    const choice = await vscode.window.showWarningMessage(
+      "ClarifyDoc needs a trusted workspace to run the analyzer.",
+      "Manage Trust",
+    );
+    if (choice === "Manage Trust") {
+      await vscode.commands.executeCommand("workbench.trust.manage");
+    }
+    return;
+  }
+
   const folderPath = folder.uri.fsPath;
   if (state.isRunning(folderPath)) {
     void vscode.window.showInformationMessage(
@@ -94,6 +106,7 @@ export async function analyzeWorkspace(
         }
 
         state.refresh();
+        state.fireAnalysisChanged();
 
         if (cfg.openReportAfterAnalyze) {
           progress.report({ message: "generating report…" });
