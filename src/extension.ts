@@ -17,6 +17,7 @@ import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
 import { registerAutoAnalyze } from "./watch";
+import { registerMcpProvider } from "./mcp";
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("ClarifyDoc");
@@ -117,6 +118,10 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => state.refresh()),
   );
+
+  // Publish the analysis to AI agents over MCP (VS Code 1.101+; no-op below
+  // that, where "Copy MCP Server Config" covers external agents).
+  registerMcpProvider(state);
 
   // Debounced auto re-analysis via a FileSystemWatcher (opt-in: analyzeOnSave).
   registerAutoAnalyze(state, (folder) =>

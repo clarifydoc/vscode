@@ -126,6 +126,12 @@
         "icon": "$(output)"
       },
       {
+        "command": "clarifydoc.copyMcpConfig",
+        "title": "Copy MCP Server Config (for external agents)",
+        "category": "ClarifyDoc",
+        "icon": "$(clippy)"
+      },
+      {
         "command": "clarifydoc.openSettings",
         "title": "Open Settings",
         "category": "ClarifyDoc",
@@ -239,9 +245,14 @@
           "group": "overflow@4"
         },
         {
-          "command": "clarifydoc.openSettings",
+          "command": "clarifydoc.copyMcpConfig",
           "when": "view == clarifydoc.summary",
           "group": "overflow@5"
+        },
+        {
+          "command": "clarifydoc.openSettings",
+          "when": "view == clarifydoc.summary",
+          "group": "overflow@6"
         }
       ],
       "explorer/context": [
@@ -315,6 +326,15 @@
             "media": {
               "image": "media/icon.png",
               "altText": "Right-click jump"
+            }
+          },
+          {
+            "id": "mcp",
+            "title": "Let your AI agent read the map",
+            "description": "ClarifyDoc publishes the analysis over MCP, so Copilot agent mode (VS Code 1.101+) can ask for routes, call traces, blast radius and the data model. For other agents, copy a ready-made config.\n[Copy MCP Server Config](command:clarifydoc.copyMcpConfig)",
+            "media": {
+              "image": "media/icon.png",
+              "altText": "ClarifyDoc MCP"
             }
           },
           {
@@ -459,9 +479,27 @@
           "default": false,
           "description": "Re-analyze the workspace (incrementally) a few seconds after you save a source file.",
           "scope": "resource"
+        },
+        "clarifydoc.mcp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Publish this workspace's analysis to AI agents over the **Model Context Protocol**, so chat/agent modes can query routes, call traces, blast radius and the data model instead of guessing. Requires VS Code 1.101 or newer; on older builds use the *Copy MCP Server Config* command instead. The server runs the bundled analyzer and reads only the analysis this extension already produced.",
+          "scope": "window"
+        },
+        "clarifydoc.mcp.allowAnalyze": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Let an agent trigger a re-analysis through the MCP server's `clarifydoc_analyze` tool. Off by default: this extension owns analysis runs, and two processes writing one analysis directory can race. With it off, agents read the latest analysis and are told to run *ClarifyDoc: Analyze Workspace* when it is missing.",
+          "scope": "window"
         }
       }
-    }
+    },
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "clarifydoc.mcp",
+        "label": "ClarifyDoc"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run build",

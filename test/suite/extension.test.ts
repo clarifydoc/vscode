@@ -25,6 +25,7 @@ suite("ClarifyDoc extension", () => {
       "clarifydoc.goto",
       "clarifydoc.showCallers",
       "clarifydoc.revealSource",
+      "clarifydoc.copyMcpConfig",
     ]) {
       assert.ok(cmds.includes(c), `missing command ${c}`);
     }
@@ -38,5 +39,16 @@ suite("ClarifyDoc extension", () => {
     assert.ok(props["clarifydoc.hover.enabled"], "missing hover.enabled");
     assert.strictEqual(pkg.capabilities.virtualWorkspaces.supported, false);
     assert.deepStrictEqual(pkg.extensionKind, ["workspace"]);
+  });
+
+  test("publishes an MCP server provider", () => {
+    const pkg = vscode.extensions.getExtension(EXT_ID)!.packageJSON;
+    assert.deepStrictEqual(pkg.contributes.mcpServerDefinitionProviders, [
+      { id: "clarifydoc.mcp", label: "ClarifyDoc" },
+    ]);
+    const props = pkg.contributes.configuration.properties;
+    assert.strictEqual(props["clarifydoc.mcp.enabled"].default, true);
+    // Agents read the analysis; only the extension runs one, unless opted in.
+    assert.strictEqual(props["clarifydoc.mcp.allowAnalyze"].default, false);
   });
 });

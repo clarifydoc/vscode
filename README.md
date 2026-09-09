@@ -58,6 +58,23 @@ child process**:
 - **Analyze on save** *(opt-in)* — incrementally re-analyze a few seconds after
   you save.
 
+## Your AI agent can read the map too (MCP)
+
+The extension publishes the workspace analysis as a **Model Context Protocol** server, so Copilot's agent mode can ask
+ClarifyDoc for routes, call traces, blast radius, the data model and the impact of the current diff — grounded in
+parsed code, with `path:line` references — instead of inferring it from a few open files.
+
+- **Zero configuration.** One server per workspace folder, pointed at the analysis this extension already produced.
+  Needs VS Code 1.101+ (older builds are unaffected: nothing is registered).
+- **Read-only by default.** Agents read the latest analysis; they cannot trigger a scan unless you turn on
+  `clarifydoc.mcp.allowAnalyze`. Turn the whole thing off with `clarifydoc.mcp.enabled`.
+- **Other agents** (Claude Code, Cursor, …): run **ClarifyDoc: Copy MCP Server Config** and paste the snippet into
+  that agent's MCP config — it points at the analyzer bundled in this extension and the same analysis directory.
+
+Tools: `clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_screens`,
+`clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_blast_radius`, `clarifydoc_data_model`,
+`clarifydoc_data_flows`, `clarifydoc_health`, `clarifydoc_impact`, `clarifydoc_analyze`.
+
 ## Commands
 
 All under the **ClarifyDoc** category in the Command Palette:
