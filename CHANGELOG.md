@@ -4,6 +4,11 @@
 
 Deeper, native VS Code integration:
 
+- **MCP server for AI agents**: the workspace analysis is published over the Model Context Protocol
+  (VS Code 1.101+), giving chat/agent modes twelve read-only tools — routes, screens, per-file facts,
+  call traces, blast radius, data model, data flows, health and git impact. Read-only by default
+  (`clarifydoc.mcp.allowAnalyze` opts into agent-triggered scans; `clarifydoc.mcp.enabled` turns it off),
+  plus a **Copy MCP Server Config** command for agents outside VS Code.
 - **Problems panel diagnostics** for security findings, high-complexity
   functions, and layer violations (squiggles at the reported lines).
 - **CodeLens** above functions (callers / callees / complexity / Traces) and

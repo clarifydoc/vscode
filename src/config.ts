@@ -18,6 +18,8 @@ export interface ClarifyDocConfig {
   openReportAfterAnalyze: boolean;
   reportLocation: "editor" | "browser";
   analyzeOnSave: boolean;
+  mcpEnabled: boolean;
+  mcpAllowAnalyze: boolean;
 }
 
 export function getConfig(scope?: vscode.Uri): ClarifyDocConfig {
@@ -35,5 +37,7 @@ export function getConfig(scope?: vscode.Uri): ClarifyDocConfig {
     openReportAfterAnalyze: c.get<boolean>("openReportAfterAnalyze") ?? true,
     reportLocation: c.get<"editor" | "browser">("reportLocation") ?? "editor",
     analyzeOnSave: c.get<boolean>("analyzeOnSave") ?? false,
+    mcpEnabled: c.get<boolean>("mcp.enabled") ?? true,
+    mcpAllowAnalyze: c.get<boolean>("mcp.allowAnalyze") ?? false,
   };
 }
