@@ -9,12 +9,21 @@ const SRC_GLOB =
 
 const DEBOUNCE_MS = 2500;
 
+/** Anything ClarifyDoc itself wrote — never a reason to re-analyze. */
+function isAnalysisArtifact(uri: vscode.Uri): boolean {
+  return /[\\/]\.clarifydoc(-viewer)?[\\/]/.test(uri.fsPath);
+}
+
 /**
  * Auto-re-analysis driven by a `FileSystemWatcher` (a superset of save events —
  * it also catches external edits, branch switches, generated files). Opt-in via
  * `clarifydoc.analyzeOnSave`; debounced per folder; skipped while a run is in
- * flight. Analyzer output lives in global storage (outside the workspace), so a
- * re-analysis never re-triggers the watcher.
+ * flight.
+ *
+ * Analyzer output now lands in `.clarifydoc/` inside the workspace, and the
+ * report viewer unpacks .js assets in there — which SRC_GLOB matches. Changes
+ * under that directory are therefore ignored explicitly, or a re-analysis would
+ * re-trigger the watcher and never stop.
  */
 export function registerAutoAnalyze(
   state: ExtensionState,
@@ -31,7 +40,8 @@ export function registerAutoAnalyze(
       const watcher = vscode.workspace.createFileSystemWatcher(
         new vscode.RelativePattern(folder, SRC_GLOB),
       );
-      const schedule = () => {
+      const schedule = (changed: vscode.Uri) => {
+        if (isAnalysisArtifact(changed)) return;
         const key = folder.uri.fsPath;
         if (state.isRunning(key)) return;
         clearTimeout(timers.get(key));

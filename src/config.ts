@@ -6,6 +6,7 @@ import * as vscode from "vscode";
  * without a reload; the `scope` argument lets per-folder settings win.
  */
 export interface ClarifyDocConfig {
+  storage: "workspace" | "global";
   cliPath: string;
   nodePath: string;
   incremental: boolean;
@@ -25,6 +26,7 @@ export interface ClarifyDocConfig {
 export function getConfig(scope?: vscode.Uri): ClarifyDocConfig {
   const c = vscode.workspace.getConfiguration("clarifydoc", scope ?? null);
   return {
+    storage: c.get<"workspace" | "global">("storage") ?? "workspace",
     cliPath: (c.get<string>("cliPath") ?? "").trim(),
     nodePath: (c.get<string>("nodePath") ?? "").trim(),
     incremental: c.get<boolean>("incremental") ?? true,
