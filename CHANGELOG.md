@@ -1,6 +1,92 @@
 # Change Log
 
+## 0.1.1
+
+Making the MCP server easy to use for agents outside this editor:
+
+- **The analysis now lives in the project**, at `.clarifydoc/<name>/` — the same place `clarifydoc analyze` and
+  `clarifydoc mcp` use by default. An external agent therefore needs no path at all, one config entry works in every
+  repo, and a CLI run shares one copy (and one incremental cache) with the extension. The directory ignores itself
+  (a `.gitignore` containing `*`), so nothing appears in `git status` and your own ignore file is untouched. Set
+  `clarifydoc.storage` to `global` for the previous behaviour; that also happens automatically when the workspace is
+  untrusted or read-only.
+- **Set Up MCP for an AI Agent…** — a new command that writes the config for Claude Code (`claude mcp add`), Cursor
+  or Windsurf, merging into whatever is already there, instead of leaving you to paste a snippet. Offered once,
+  unprompted, in a workspace that already configures MCP agents.
+- **Configs that survive updates.** Agent configs now point at `<globalStorage>/bin/clarifydoc-mcp`, a launcher
+  rewritten on every activation, rather than at the version-stamped extension directory — which used to break
+  silently on every extension update. It also carries the Node runtime, so the agent needs none of its own.
+- **No more dead ends before the first analysis.** A read-only MCP server now analyzes a project that has never been
+  analyzed, once, on demand; an advisory lock in the analysis directory keeps that from colliding with a run started
+  here or from the CLI.
+- Auto-analysis ignores changes under `.clarifydoc/`, so writing the report cannot re-trigger it.
+- **Fixed:** the analyzer failed with `unknown command '…/cli.js'` when run on VS Code's own runtime — the fallback
+  used on machines with no Node.js installed. Commander was sniffing `process.versions.electron` and parsing argv
+  Electron-style; the CLI now states `from: "node"`.
+
 ## Unreleased
+
+A real data model for Delphi codebases:
+
+- **Delphi tables, columns and relationships** in the Data Model tab (and over MCP). A Delphi/Firebird project
+  keeps no schema in the repo — no DDL, no migrations, no ORM classes — so this view used to show, at best, a
+  scatter of bare table names read out of raw SQL. The analyzer now reconstructs the schema from what the IDE
+  persists in every `.dfm`: a dataset's single-table `UpdateSQL`/`InsertSQL`/`DeleteSQL` names the table and
+  enumerates its columns, its persistent `TField` children give each column's type and width, and join
+  predicates give the foreign keys. On a 200-form codebase that is ~70 tables with ~580 typed columns and ~60
+  relationships where there were none.
+- Columns are taken from a dataset's single-table DML rather than its field list, because a `SelectSQL` is
+  usually a join — so a column borrowed from a joined table is no longer attributed to the table being edited.
+  Firebird **selectable stored procedures** (`FROM SP_VENTELISTE(:ID)`) are no longer mistaken for tables.
+- **Fixed:** tables that are only ever seen in a query (no schema anywhere) rendered with a lowercased name and
+  an unopenable `inferred:123` location. They now carry the real name and a `path:line` into the file that
+  queries them.
+- **`.clarifydoc/ignore` — exclude code from the map.** Gitignore syntax (negation, comments, anchored and
+  unanchored patterns), kept with the analysis rather than as another dotfile at the project root, with patterns
+  relative to the directory holding `.clarifydoc/` so `/Library/*` reads the way it looks. The existing root-level
+  `.clarifydocignore` keeps working; the new file is read second in each directory and wins on an equal match.
+
+  The exclusion reaches everything, not just file discovery: **framework detection** and **sub-project detection**
+  honour it too, so an ignored directory cannot report frameworks the project never uses or spawn scanned roots of
+  its own. `.clarifydoc/` now also counts as a project-root marker when walking up for ignore files — without it a
+  tree with no VCS directory (a Delphi checkout exported from source control) silently failed to inherit the root's
+  ignore file into its sub-project scans. On a ~3,800-file Delphi repo, ignoring the vendored `Library/`: 678 files
+  analyzed, sub-projects 81 → 4, and the framework list went from 11 (including FireMonkey, Lazarus and Qt, none of
+  which the project uses) to the 6 it actually has.
+- **The main form is identified.** A Delphi `.dpr` states it outright and in order — the FIRST
+  `Application.CreateForm` is the window the app opens on launch, later ones are created at startup but shown on
+  demand — so Screens & UI now badges them **main** and **startup**, and the main form counts as a page whatever
+  its form class is called. Since the form class is an *argument*, not part of the call chain, the call table could
+  not carry it; the project file's source is kept for this, the way route files already are. The screen graph is
+  rooted as a result: on one codebase `Main.dfm` opens 46 screens directly and reaches 85 of 221 transitively, and
+  a project with several `.dpr`s gets a main form per application.
+- **Screen-to-screen navigation for Delphi.** The Screens tab's *opens* / *opened by* links were derived only from
+  JavaScript dynamic imports, so a VCL app — which navigates by constructing a form class rather than importing it —
+  showed no relationships at all. The `.dfm` is an authoritative registry for this: its root object names both the
+  form class and the global instance, so `TfrmRelationer.Create` and `frmWait.Show` each identify a specific screen
+  file with no guessing (and the far more numerous `TpFIBQuery.Create` / `TFileStream.Create` are excluded because
+  they are not forms). Dialog-opener helpers that build the form declared by their own unit (`ShowPupilsWindow`,
+  `VisKlasser`) are credited to their CALLERS, resolved through the symbol-link table so a launcher named `Execute`
+  attributes only where the linker actually resolved it.
+- **Fixed: half of a Delphi project's database accesses were recorded against invented tables.** `Query.FieldByName`
+  / `dsLaerer.Open` is `component.method`, but the engine read it as the `Model.findOne` shape and named the
+  RECEIVER as the table — inventing `DataSet` (1,766 hits on one codebase), `Query`, `ADataSet`, `Qry`. Worse, that
+  bogus name *blocked* the real link, since the form's component→table map is only consulted while the entity is
+  still unset. Delphi dataset/connection API calls no longer claim an entity, so the physical table gets attached
+  instead: phantom ER nodes fell from ~292 to 0 and attribution to real tables went UP.
+- **Fixed: table-valued functions were recorded as tables.** Firebird selectable stored procedures
+  (`FROM SP_VENTELISTE(:ID, :DATO)`) — and Postgres set-returning functions like `generate_series` — are callable
+  routines, not stored relations. 146 of them had become tables; now 3.
+- **Delphi third-party stacks are detected.** Framework detection sampled only the first 10 `.pas` files of a
+  project (arbitrary on a 3,000-unit codebase) and matched unit names case-sensitively, even though Pascal is
+  case-insensitive. It also only knew scoped unit names (`Vcl.Forms`), so every pre-XE2 codebase — most Delphi
+  still in service — showed no VCL at all. Now a wider sample, case-insensitive matching, classic unit names, and
+  rules for FIBPlus, IBX, FireDAC, DevExpress VCL, JVCL and Indy.
+- **Fixed:** two `.dfm` parsing bugs that silently corrupted the data model. `UpdateSQL` was never read (only
+  IBX's `ModifySQL` was), hiding both the UPDATE and the table's column list on every FIBPlus dataset; and a
+  long SQL line split across source lines with `+` was rejoined with a space, splitting identifiers
+  (`KONT1.POST` + `NR`). Vendor field classes (`TFIBStringField`, `TIBBCDField`, `TFDDateTimeField`) are now
+  typed like their plain `TField` counterparts.
 
 Deeper, native VS Code integration:
 
@@ -40,6 +126,8 @@ Initial release.
   external Node.js required (falls back to VS Code's own runtime).
 - **Workspace stays clean.** All analysis output is written to the extension's
   private global storage (`<globalStorage>/analyses/…`), never into the project.
+  (Changed in 0.1.1: the analysis lives in a self-ignoring `.clarifydoc/` in the
+  project by default; `clarifydoc.storage: "global"` restores this behaviour.)
 - Analyze a workspace folder with cancellable progress.
 - Interactive report rendered in a webview editor tab (or the external browser).
 - **Right-click a file → jump to its view** in the report (editor context menu):
