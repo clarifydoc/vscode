@@ -18,6 +18,7 @@ import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
 import { registerAutoAnalyze } from "./watch";
 import { registerMcpProvider } from "./mcp";
+import { maybeOfferMcpInstall } from "./mcpInstall";
 import { outputBaseDir, resetStorageResolution, storageFor } from "./paths";
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -155,6 +156,13 @@ export function activate(context: vscode.ExtensionContext): void {
   // Where each folder's analysis lives, so the output log explains it without
   // the user having to go looking.
   logStorage();
+
+  // Offer to wire up external agents, once, in a workspace that already has
+  // MCP configured.
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    void maybeOfferMcpInstall(state, folder);
+    break;
+  }
 
   // Populate the views from any existing on-disk analysis.
   state.refresh();

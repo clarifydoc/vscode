@@ -126,6 +126,12 @@
         "icon": "$(output)"
       },
       {
+        "command": "clarifydoc.installMcpServer",
+        "title": "Set Up MCP for an AI Agent…",
+        "category": "ClarifyDoc",
+        "icon": "$(plug)"
+      },
+      {
         "command": "clarifydoc.copyMcpConfig",
         "title": "Copy MCP Server Config (for external agents)",
         "category": "ClarifyDoc",
@@ -245,14 +251,19 @@
           "group": "overflow@4"
         },
         {
-          "command": "clarifydoc.copyMcpConfig",
+          "command": "clarifydoc.installMcpServer",
           "when": "view == clarifydoc.summary",
           "group": "overflow@5"
         },
         {
-          "command": "clarifydoc.openSettings",
+          "command": "clarifydoc.copyMcpConfig",
           "when": "view == clarifydoc.summary",
           "group": "overflow@6"
+        },
+        {
+          "command": "clarifydoc.openSettings",
+          "when": "view == clarifydoc.summary",
+          "group": "overflow@7"
         }
       ],
       "explorer/context": [
@@ -331,7 +342,7 @@
           {
             "id": "mcp",
             "title": "Let your AI agent read the map",
-            "description": "ClarifyDoc publishes the analysis over MCP, so Copilot agent mode (VS Code 1.101+) can ask for routes, call traces, blast radius and the data model. For other agents, copy a ready-made config.\n[Copy MCP Server Config](command:clarifydoc.copyMcpConfig)",
+            "description": "ClarifyDoc publishes the analysis over MCP, so Copilot agent mode (VS Code 1.101+) can ask for routes, call traces, blast radius and the data model — no setup. For Claude Code, Cursor or Windsurf, one command writes their config for you.\n[Set Up MCP for an AI Agent](command:clarifydoc.installMcpServer)",
             "media": {
               "image": "media/icon.png",
               "altText": "ClarifyDoc MCP"
@@ -503,7 +514,7 @@
         "clarifydoc.mcp.allowAnalyze": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "Let an agent trigger a re-analysis through the MCP server's `clarifydoc_analyze` tool. Off by default: this extension owns analysis runs, and two processes writing one analysis directory can race. With it off, agents read the latest analysis and are told to run *ClarifyDoc: Analyze Workspace* when it is missing.",
+          "markdownDescription": "Let an agent trigger a re-analysis through the MCP server's `clarifydoc_analyze` tool. Off by default: this extension owns analysis runs. Even with it off an agent is never stuck — a project with no analysis at all is analyzed once, on demand, and a directory lock keeps that from colliding with a run started here or from the CLI.",
           "scope": "window"
         }
       }
