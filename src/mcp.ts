@@ -2,6 +2,8 @@ import * as vscode from "vscode";
 import { getConfig } from "./config";
 import { bundleAvailable, resolveCli, type ResolvedCli } from "./cli";
 import { resultsDir } from "./paths";
+import { configJson, installMcpServer, serverEntry } from "./mcpInstall";
+import { writeMcpShim } from "./shim";
 import { ExtensionState } from "./state";
 
 /**
@@ -28,6 +30,9 @@ function serverArgs(
   cli: ResolvedCli,
 ): string[] {
   const cfg = getConfig(folder.uri);
+  // Explicit, even though `.clarifydoc` in the project is the CLI's own default:
+  // this definition must keep working if the user switches
+  // `clarifydoc.storage` to the extension's private directory.
   const args = [
     ...cli.baseArgs,
     "mcp",
@@ -75,6 +80,22 @@ export function registerMcpProvider(state: ExtensionState): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("clarifydoc.copyMcpConfig", () => copyMcpConfig(state)),
+    vscode.commands.registerCommand("clarifydoc.installMcpServer", async () => {
+      const folder = await pickFolder();
+      if (folder) await installMcpServer(state, folder);
+    }),
+  );
+
+  // The launcher external agents point at. Refreshed on every activation so it
+  // survives extension updates, and after a settings change that moves the
+  // analyzer or the Node runtime.
+  void writeMcpShim(context, output);
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("clarifydoc.cliPath") || e.affectsConfiguration("clarifydoc.nodePath")) {
+        void writeMcpShim(context, output);
+      }
+    }),
   );
 
   if (!apiAvailable()) {
@@ -140,39 +161,29 @@ export function registerMcpProvider(state: ExtensionState): void {
   output.appendLine(`[mcp] published MCP server provider "${MCP_PROVIDER_ID}"`);
 }
 
-/**
- * Put a ready-to-paste stdio server entry on the clipboard, for agents that
- * read their own config file (Claude Code, Cursor, …) rather than VS Code's
- * MCP registry. Uses the same bundled analyzer and analysis directory the
- * in-editor server uses.
- */
-async function copyMcpConfig(state: ExtensionState): Promise<void> {
-  const { context, output } = state;
+/** The workspace folder to configure, asking only when it is ambiguous. */
+async function pickFolder(): Promise<vscode.WorkspaceFolder | undefined> {
   const folders = vscode.workspace.workspaceFolders ?? [];
   if (folders.length === 0) {
     void vscode.window.showWarningMessage("ClarifyDoc: open a folder first.");
-    return;
+    return undefined;
   }
-  const folder =
-    folders.length === 1
-      ? folders[0]
-      : await vscode.window.showWorkspaceFolderPick({ placeHolder: "Which folder?" });
+  if (folders.length === 1) return folders[0];
+  return vscode.window.showWorkspaceFolderPick({ placeHolder: "Which folder?" });
+}
+
+/**
+ * Put a ready-to-paste stdio server entry on the clipboard, for an agent this
+ * extension cannot write the config for itself. Points at the stable launcher
+ * (see shim.ts), so the copied snippet keeps working across updates.
+ */
+async function copyMcpConfig(state: ExtensionState): Promise<void> {
+  const { context, output } = state;
+  const folder = await pickFolder();
   if (!folder) return;
 
-  const cli = resolveCli(context.extensionPath);
-  const args = serverArgs(context, folder, cli);
-  const config = {
-    mcpServers: {
-      clarifydoc: {
-        command: cli.electronAsNode ? "node" : cli.command,
-        args,
-        ...(cli.electronAsNode
-          ? { comment: "Set command to your node executable — VS Code's Electron runtime is not reusable here." }
-          : {}),
-      },
-    },
-  };
-  const json = JSON.stringify(config, null, 2);
+  await writeMcpShim(context, output);
+  const json = configJson(serverEntry(state, folder));
   await vscode.env.clipboard.writeText(json);
   output.appendLine(`[mcp] copied config for ${folder.name}:\n${json}`);
   const choice = await vscode.window.showInformationMessage(

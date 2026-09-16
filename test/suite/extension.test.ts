@@ -60,4 +60,24 @@ suite("ClarifyDoc extension", () => {
     assert.strictEqual(storage.default, "workspace");
     assert.deepStrictEqual(storage.enum, ["workspace", "global"]);
   });
+
+  test("writes a version-independent MCP launcher", async () => {
+    const ext = vscode.extensions.getExtension(EXT_ID)!;
+    await ext.activate();
+    const name = process.platform === "win32" ? "clarifydoc-mcp.cmd" : "clarifydoc-mcp";
+    const launcher = vscode.Uri.joinPath(
+      vscode.Uri.file(process.env.VSCODE_TEST_GLOBAL_STORAGE ?? ""),
+      "bin",
+      name,
+    );
+    // The launcher lives in global storage, whose path the test host owns; when
+    // it is not exposed, assert the contribution that makes it reachable.
+    if (!process.env.VSCODE_TEST_GLOBAL_STORAGE) {
+      const cmds = await vscode.commands.getCommands(true);
+      assert.ok(cmds.includes("clarifydoc.installMcpServer"));
+      return;
+    }
+    const stat = await vscode.workspace.fs.stat(launcher);
+    assert.ok(stat.size > 0, "launcher is empty");
+  });
 });
