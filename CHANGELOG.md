@@ -24,9 +24,19 @@ Making the MCP server easy to use for agents outside this editor:
   used on machines with no Node.js installed. Commander was sniffing `process.versions.electron` and parsing argv
   Electron-style; the CLI now states `from: "node"`.
 
-## Unreleased
+## 0.1.2
 
-A real data model for Delphi codebases:
+Follow a file through the report, and a real data model for Delphi codebases:
+
+- **Follow a file into every section.** Every nav tab now carries a glyph, and the same glyph marks that section
+  wherever a link leads there. The scattered text links that jumped between tabs (`Screen ↗`, `Blast radius ↗`,
+  `View … in call traces →`) are replaced by one strip of icon buttons per file — one button for each section that
+  knows the file, the current section left out — on detail panels and table rows alike (rows reveal it on hover).
+  Each section opens *on* the file: Architecture drills into the file's component with its node selected and
+  centred, Data Access selects its caller node (a Delphi form resolves to its paired unit), Data Model selects the
+  first entity it declares, Routes, Data Flows, Complexity and Insights highlight and scroll to its rows (Data Flows
+  and Dependencies also narrow to it, with a chip to clear), and Health opens the first section holding a finding
+  for it.
 
 - **Delphi tables, columns and relationships** in the Data Model tab (and over MCP). A Delphi/Firebird project
   keeps no schema in the repo — no DDL, no migrations, no ORM classes — so this view used to show, at best, a
