@@ -18,6 +18,7 @@ import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
 import { registerAutoAnalyze } from "./watch";
 import { registerMcpProvider } from "./mcp";
+import { outputBaseDir, resetStorageResolution, storageFor } from "./paths";
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("ClarifyDoc");
@@ -114,9 +115,23 @@ export function activate(context: vscode.ExtensionContext): void {
       if (e.affectsConfiguration("clarifydoc.cliPath") || e.affectsConfiguration("clarifydoc.nodePath")) {
         resetCliResolution();
       }
+      if (e.affectsConfiguration("clarifydoc.storage")) {
+        resetStorageResolution();
+        logStorage();
+      }
       state.refresh();
     }),
-    vscode.workspace.onDidChangeWorkspaceFolders(() => state.refresh()),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      resetStorageResolution();
+      state.refresh();
+    }),
+    // Trust unlocks writing into the project, which is where the analysis goes
+    // by default — re-probe rather than staying in the fallback layout.
+    vscode.workspace.onDidGrantWorkspaceTrust(() => {
+      resetStorageResolution();
+      logStorage();
+      state.refresh();
+    }),
   );
 
   // Publish the analysis to AI agents over MCP (VS Code 1.101+; no-op below
@@ -137,8 +152,22 @@ export function activate(context: vscode.ExtensionContext): void {
     );
   }
 
+  // Where each folder's analysis lives, so the output log explains it without
+  // the user having to go looking.
+  logStorage();
+
   // Populate the views from any existing on-disk analysis.
   state.refresh();
+
+  function logStorage(): void {
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      const { mode, reason } = storageFor(folder);
+      output.appendLine(
+        `[storage] ${folder.name}: ${mode}${reason ? ` (${reason})` : ""} — ` +
+          `analysis in ${outputBaseDir(context, folder)}`,
+      );
+    }
+  }
 }
 
 export function deactivate(): void {

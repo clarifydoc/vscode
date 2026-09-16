@@ -36,7 +36,7 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "ClarifyDoc runs a bundled analyzer process. Analysis is blocked until you trust the workspace.",
+      "description": "ClarifyDoc runs a bundled analyzer process, and writes its analysis into the project. Both are blocked until you trust the workspace; in restricted mode the analysis goes to private storage instead.",
       "restrictedConfigurations": [
         "clarifydoc.cliPath",
         "clarifydoc.nodePath"
@@ -352,6 +352,20 @@
     "configuration": {
       "title": "ClarifyDoc",
       "properties": {
+        "clarifydoc.storage": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "global"
+          ],
+          "enumDescriptions": [
+            "Write the analysis to `.clarifydoc/` in the project. The directory ignores itself, so it never shows up in git. AI agents and the `clarifydoc` CLI find it with no configuration.",
+            "Write the analysis to the extension's private global storage, leaving the project tree untouched. External agents then need the exact path (use \"Set Up MCP for an AI Agent\")."
+          ],
+          "default": "workspace",
+          "markdownDescription": "Where analysis artifacts (`project-summary.json`, `report.html`, per-file JSON) are written.\n\n`workspace` puts them in `.clarifydoc/` inside the project — the same place `clarifydoc analyze` and `clarifydoc mcp` use by default, so any AI agent opened on the project finds the map with no setup, and a CLI run shares one copy and one incremental cache with this extension. A self-ignoring `.gitignore` is written into that directory, so nothing appears in `git status` and your own `.gitignore` is untouched.\n\nFalls back to `global` automatically when the workspace is untrusted or not writable.",
+          "scope": "resource"
+        },
         "clarifydoc.cliPath": {
           "type": "string",
           "default": "",

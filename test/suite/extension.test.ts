@@ -26,6 +26,7 @@ suite("ClarifyDoc extension", () => {
       "clarifydoc.showCallers",
       "clarifydoc.revealSource",
       "clarifydoc.copyMcpConfig",
+      "clarifydoc.installMcpServer",
     ]) {
       assert.ok(cmds.includes(c), `missing command ${c}`);
     }
@@ -50,5 +51,13 @@ suite("ClarifyDoc extension", () => {
     assert.strictEqual(props["clarifydoc.mcp.enabled"].default, true);
     // Agents read the analysis; only the extension runs one, unless opted in.
     assert.strictEqual(props["clarifydoc.mcp.allowAnalyze"].default, false);
+  });
+
+  test("stores the analysis in the project, so agents find it unaided", () => {
+    const pkg = vscode.extensions.getExtension(EXT_ID)!.packageJSON;
+    const storage = pkg.contributes.configuration.properties["clarifydoc.storage"];
+    assert.ok(storage, "missing clarifydoc.storage");
+    assert.strictEqual(storage.default, "workspace");
+    assert.deepStrictEqual(storage.enum, ["workspace", "global"]);
   });
 });
