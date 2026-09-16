@@ -2,7 +2,7 @@
   "name": "clarifydoc-vscode",
   "displayName": "ClarifyDoc",
   "description": "Map any codebase — frontend route → API endpoint → database — straight from source, without leaving VS Code.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "clarifydoc",
   "license": "MIT",
   "icon": "media/icon.png",
