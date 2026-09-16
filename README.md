@@ -15,9 +15,57 @@ child process**:
   VSIX.
 - **No Node.js required.** It uses `node` from your `PATH` if present, otherwise
   falls back to VS Code's own runtime — so it works out of the box.
-- **Your workspace stays untouched.** All output is written to the extension's
-  private storage (`<globalStorage>/analyses/…`), never into your project tree.
-  No `.clarifydoc/` folder appears in your repo.
+- **Your source files are never modified.** The analyzer only reads them. What it
+  writes goes to one directory, `.clarifydoc/` in the project — see below.
+
+## Where the analysis lives
+
+`<project>/.clarifydoc/<name>/` holds `project-summary.json`, `report.html` and
+the per-file JSON. That location is deliberate: it is exactly where
+`clarifydoc analyze` writes and where `clarifydoc mcp` looks, so **any AI agent
+opened on your project finds the map with no configuration**, and a CLI run
+shares one copy — and one incremental cache — with this extension.
+
+It stays out of your way:
+
+- **Invisible to git.** The analyzer drops a `.gitignore` containing `*` inside
+  that directory, so it ignores itself. Nothing shows up in `git status`, and
+  your own `.gitignore` is never touched. (Want to commit the map so teammates
+  and CI agents get it without scanning? Empty that file — it is only written
+  when absent.)
+- **Invisible to search.** VS Code's search and Quick Open honour ignore files,
+  so the report never turns up in results.
+- **Never analyzed.** `.clarifydoc/` is excluded from discovery, so a scan
+  cannot eat its own output.
+
+## Excluding code from the map
+
+Put a `.clarifydoc/ignore` file next to the analysis and list what to leave out,
+in ordinary **gitignore syntax** — patterns relative to the project root,
+`!` to re-include, `#` for comments:
+
+```gitignore
+# Vendored third-party source: Delphi has no package manager, so component
+# libraries live in the tree — their demos and tests are not this project.
+/Library/mORMot-master/*
+
+# …but keep our own patched fork.
+!/Library/mORMot-master/OurFork/**
+```
+
+Ignored files are not analyzed at all: they contribute no symbols, screens,
+data sources or tables, and the directory is also skipped by framework and
+sub-project detection — so vendored code stops diluting the report, the health
+score and the MCP answers.
+
+A `.clarifydocignore` at the project root works too; both files are inherited
+from parent directories, and `.clarifydoc/ignore` is read second in each
+directory so it has the final say.
+
+Prefer the project tree completely untouched? Set `clarifydoc.storage` to
+`global` and everything goes to the extension's private storage
+(`<globalStorage>/analyses/…`) instead. That also happens automatically when the
+workspace is untrusted or read-only, so analysis still works there.
 
 ## Features
 
@@ -64,12 +112,26 @@ The extension publishes the workspace analysis as a **Model Context Protocol** s
 ClarifyDoc for routes, call traces, blast radius, the data model and the impact of the current diff — grounded in
 parsed code, with `path:line` references — instead of inferring it from a few open files.
 
-- **Zero configuration.** One server per workspace folder, pointed at the analysis this extension already produced.
-  Needs VS Code 1.101+ (older builds are unaffected: nothing is registered).
-- **Read-only by default.** Agents read the latest analysis; they cannot trigger a scan unless you turn on
-  `clarifydoc.mcp.allowAnalyze`. Turn the whole thing off with `clarifydoc.mcp.enabled`.
-- **Other agents** (Claude Code, Cursor, …): run **ClarifyDoc: Copy MCP Server Config** and paste the snippet into
-  that agent's MCP config — it points at the analyzer bundled in this extension and the same analysis directory.
+- **Zero configuration in this editor.** One server per workspace folder, pointed at the analysis this extension
+  already produced. Needs VS Code 1.101+ (older builds are unaffected: nothing is registered).
+- **One command for other agents.** Run **ClarifyDoc: Set Up MCP for an AI Agent…** and pick Claude Code, Cursor or
+  Windsurf — it writes that agent's config for you, merging into whatever is already there. (**Copy MCP Server
+  Config** still puts the snippet on your clipboard for anything else.)
+- **Configs that keep working.** They point at a launcher in the extension's storage whose path never changes, not at
+  the version-stamped extension directory — so an extension update cannot silently break your agent. It also carries
+  the Node runtime, so the agent needs no Node install of its own.
+- **Nothing to point at a path.** Because the analysis lives in the project, the entry is just a command:
+
+  ```json
+  { "mcpServers": { "clarifydoc": { "command": "<globalStorage>/bin/clarifydoc-mcp" } } }
+  ```
+
+  The server serves whichever project its working directory sits in, walking up to the project root — so one
+  user-level entry covers every repo you open.
+- **Read-only by default, but never a dead end.** Agents read the latest analysis and cannot re-scan unless you turn
+  on `clarifydoc.mcp.allowAnalyze`. A project with *no* analysis at all is analyzed once, on demand, so an agent is
+  useful immediately; a directory lock keeps that run from colliding with one started here or from the CLI. Turn the
+  whole thing off with `clarifydoc.mcp.enabled`.
 
 Tools: `clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_screens`,
 `clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_blast_radius`, `clarifydoc_data_model`,
@@ -90,12 +152,15 @@ All under the **ClarifyDoc** category in the Command Palette:
 | Go to… | Quick-pick a route / screen / issue / hotspot and jump to it |
 | Detect Languages & Frameworks | Quick detection only |
 | Impact of Current Git Changes | Diff → affected screens/routes/entities |
+| Set Up MCP for an AI Agent… | Write the MCP config for Claude Code / Cursor / Windsurf |
+| Copy MCP Server Config | Put the MCP config on the clipboard for any other agent |
 | Show Output Log | Reveal the ClarifyDoc output channel |
 
 ## Settings
 
 | Setting | Default | Description |
 |---------|---------|-------------|
+| `clarifydoc.storage` | `workspace` | `workspace` (`.clarifydoc/` in the project, self-ignoring) or `global` (extension storage) |
 | `clarifydoc.diagnostics.enabled` | `true` | Show findings in the Problems panel |
 | `clarifydoc.diagnostics.include` | all | Categories: `security`, `complexity`, `layers` |
 | `clarifydoc.diagnostics.complexityThreshold` | `15` | Flag functions at/above this complexity |
@@ -111,6 +176,8 @@ All under the **ClarifyDoc** category in the Command Palette:
 | `clarifydoc.openReportAfterAnalyze` | `true` | Auto-open the report after analysis |
 | `clarifydoc.reportLocation` | `editor` | `editor` (webview) or `browser` |
 | `clarifydoc.analyzeOnSave` | `false` | Re-analyze shortly after each save |
+| `clarifydoc.mcp.enabled` | `true` | Publish the analysis to AI agents over MCP |
+| `clarifydoc.mcp.allowAnalyze` | `false` | Let an agent trigger a re-analysis |
 | `clarifydoc.nodePath` | *(auto)* | Node.js executable to run the analyzer |
 | `clarifydoc.cliPath` | *(bundled)* | Advanced: override the bundled analyzer |
 

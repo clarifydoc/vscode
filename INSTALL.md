@@ -7,6 +7,7 @@ Three ways to run this extension, depending on what you're doing:
 | Use it day-to-day in your normal VS Code | [Install](#1-install-for-everyday-use) |
 | Move to a newer build | [Update](#2-update) |
 | Change the extension's code and see it live | [Develop with hot reload](#3-develop-with-hot-reload) |
+| Let an AI agent outside VS Code read the map | [Set up MCP](#4-set-up-mcp-for-an-ai-agent) |
 
 ---
 
@@ -17,8 +18,10 @@ Three ways to run this extension, depending on what you're doing:
   WASM grammars) is **bundled inside the extension** and runs isolated — no
   global install, no `npx`, no repo checkout. It uses `node` from your `PATH` if
   present, otherwise VS Code's own runtime, so **Node.js is not required**.
-- Analysis output goes to the extension's private storage
-  (`<globalStorage>/analyses/…`), never into your workspace.
+- Analysis output goes to `.clarifydoc/` in the project, which ignores itself so
+  it never appears in `git status`. Set `clarifydoc.storage` to `global` to keep
+  it in the extension's private storage (`<globalStorage>/analyses/…`) instead —
+  which also happens automatically in untrusted or read-only workspaces.
 
 *Building the extension from source* additionally needs **Node.js 18+** (to run
 the bundler and esbuild) and a built copy of the parent ClarifyDoc repo — see
@@ -30,12 +33,12 @@ the bundler and esbuild) and a built copy of the parent ClarifyDoc repo — see
 
 ### A. From a packaged `.vsix` (recommended)
 
-A prebuilt package ships in this folder: `clarifydoc-vscode-0.1.0.vsix`.
+A prebuilt package ships in this folder: `clarifydoc-vscode-0.1.1.vsix`.
 
 **From the terminal:**
 
 ```bash
-code --install-extension clarifydoc-vscode-0.1.0.vsix
+code --install-extension clarifydoc-vscode-0.1.1.vsix
 ```
 
 **From the VS Code UI:**
@@ -55,7 +58,7 @@ If there's no `.vsix`, or you changed the source:
 cd VsCode
 npm install
 npm run package          # runs the build, then writes clarifydoc-vscode-<version>.vsix
-code --install-extension clarifydoc-vscode-0.1.0.vsix
+code --install-extension clarifydoc-vscode-0.1.1.vsix
 ```
 
 ---
@@ -70,18 +73,18 @@ installed. Pick one:
 ```bash
 cd VsCode
 npm run package
-code --install-extension clarifydoc-vscode-0.1.0.vsix --force
+code --install-extension clarifydoc-vscode-0.1.1.vsix --force
 ```
 
 **Clean path — bump the version, then install:**
 
-1. Increase `"version"` in [package.json](package.json) (e.g. `0.1.0` → `0.1.1`).
+1. Increase `"version"` in [package.json](package.json) (e.g. `0.1.1` → `0.1.2`).
 2. Add a note to [CHANGELOG.md](CHANGELOG.md).
 3. Repackage and install:
 
    ```bash
    npm run package
-   code --install-extension clarifydoc-vscode-0.1.1.vsix
+   code --install-extension clarifydoc-vscode-0.1.2.vsix
    ```
 
 Reload the window (`Developer: Reload Window`) after installing so the new build
@@ -154,6 +157,36 @@ the TypeScript type-checker (esbuild strips types but does not type-check).
 
 ---
 
+## 4. Set up MCP for an AI agent
+
+Copilot's agent mode in this editor needs nothing — the extension publishes the
+server itself (VS Code 1.101+). For an agent with its own config file:
+
+1. Command Palette → **ClarifyDoc: Set Up MCP for an AI Agent…**
+2. Pick **Claude Code**, **Cursor** or **Windsurf** (or *Copy the config* for
+   anything else). The entry is merged into that agent's config; nothing else in
+   the file is touched.
+3. Restart the agent — MCP servers are read at startup.
+
+What gets written is a single command, with no paths to keep in sync:
+
+```json
+{ "mcpServers": { "clarifydoc": { "command": "<globalStorage>/bin/clarifydoc-mcp" } } }
+```
+
+That launcher is regenerated on every activation, so extension updates cannot
+break it, and it carries the Node runtime, so the agent needs no Node of its
+own. The server serves whichever project its working directory is in and reads
+that project's `.clarifydoc/`, which is why one entry — `claude mcp add
+--scope user`, for instance — covers every repo you open. If the project has
+never been analyzed, the server analyzes it once itself.
+
+With `clarifydoc.storage: "global"`, the analysis is outside the project and the
+written entry spells out that folder's path instead, so re-run the command after
+changing that setting.
+
+---
+
 ## Troubleshooting
 
 - **"Could not launch the analyzer runtime"** — the analyzer normally runs on
@@ -168,6 +201,16 @@ the TypeScript type-checker (esbuild strips types but does not type-check).
   analyzer errors.
 - **Nothing in the sidebar** — the folder hasn't been analyzed yet; click
   **Analyze Workspace** in the welcome view.
-- **Where's the output?** In the extension's private storage, not your project.
-  Command Palette → *Developer: Open Extension Logs Folder* is nearby; the data
-  lives under `…/globalStorage/…/analyses/`.
+- **Where's the output?** In `.clarifydoc/<project-name>/` inside the project
+  (the ClarifyDoc output channel logs the exact path on activation). With
+  `clarifydoc.storage: "global"`, or in an untrusted / read-only workspace, it is
+  under `…/globalStorage/…/analyses/` instead.
+- **An agent can't see the analysis** — check the ClarifyDoc output channel for
+  the `[storage]` line. If it says `global`, external agents need the explicit
+  path: re-run *ClarifyDoc: Set Up MCP for an AI Agent…*, which writes it for
+  them. Also restart the agent after installing: MCP servers are read at
+  startup.
+- **"Another ClarifyDoc analysis is writing …"** — a CLI run, this extension and
+  an agent all share one analysis directory now, and only one may write it. Wait
+  for the other run; if it crashed, delete the `.analysis-lock.json` the message
+  names.
