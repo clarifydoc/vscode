@@ -61,6 +61,12 @@
         "category": "ClarifyDoc"
       },
       {
+        "command": "clarifydoc.showControlFlow",
+        "title": "Show Control Flow",
+        "category": "ClarifyDoc",
+        "icon": "$(type-hierarchy)"
+      },
+      {
         "command": "clarifydoc.openReport",
         "title": "Open Report",
         "category": "ClarifyDoc",
@@ -184,6 +190,10 @@
         }
       ],
       "clarifydoc.editorContext": [
+        {
+          "command": "clarifydoc.showControlFlow",
+          "group": "1_file@0"
+        },
         {
           "command": "clarifydoc.jumpScreens",
           "group": "1_file@1"
@@ -529,9 +539,10 @@
   "scripts": {
     "vscode:prepublish": "npm run build",
     "bundle": "node scripts/bundle-cli.mjs",
-    "build": "npm run bundle && node esbuild.mjs --production",
+    "vendor": "node scripts/copy-mermaid.mjs",
+    "build": "npm run bundle && npm run vendor && node esbuild.mjs --production",
     "watch": "node esbuild.mjs --watch",
-    "compile": "node esbuild.mjs",
+    "compile": "npm run vendor && node esbuild.mjs",
     "check-types": "tsc --noEmit",
     "compile-tests": "tsc -p ./tsconfig.test.json",
     "pretest": "npm run compile-tests && npm run compile",
@@ -544,6 +555,7 @@
     "@types/vscode": "^1.85.0",
     "@vscode/test-electron": "^2.4.1",
     "esbuild": "^0.23.1",
+    "mermaid": "^12.0.0",
     "mocha": "^10.7.3",
     "typescript": "^5.5.4"
   }

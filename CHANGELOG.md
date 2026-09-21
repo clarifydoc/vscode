@@ -1,5 +1,22 @@
 # Change Log
 
+## Unreleased
+
+- **Show Control Flow.** The `$(flame) complexity 47` CodeLens used to open the Complexity tab, which told you again
+  that the function was bad. It now draws the function: a control-flow graph rendered as a Mermaid flowchart in a
+  side panel, with the shape of the problem spelled out above it ("6 decisions · 3 loops · 11 exit points"). The
+  graph is built on demand by a new `clarifydoc cfg` command that reads one file and writes nothing, so it works on
+  a file the analyzer has never seen and the analysis artifact does not grow.
+  - Click a node to jump to its source; move the cursor in the editor and the node it sits in is highlighted.
+  - A statement that hides branches in its expressions — ternaries, `&&`/`||`, a callback the graph does not descend
+    into — carries a `(+n)` badge, because that is complexity you cannot see by reading the shape.
+  - **Every language the analyzer parses to an AST**: TypeScript/JavaScript (including Vue and Svelte single-file
+    components), C#, Python, PHP, Java, Kotlin and Pascal/Delphi. The rest are extracted by regex and have no syntax
+    tree to read, so their flame lens keeps opening the Complexity report as before rather than leading somewhere
+    that cannot help.
+  - Also available from the editor context menu and as **ClarifyDoc: Show Control Flow** in the command palette.
+
+
 ## 0.1.1
 
 Making the MCP server easy to use for agents outside this editor:
