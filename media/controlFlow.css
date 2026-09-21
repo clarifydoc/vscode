@@ -1,0 +1,181 @@
+/*
+ * Control-flow webview styling.
+ *
+ * Colours come from the editor's own theme tokens rather than a fixed palette,
+ * which is why the engine is asked for the diagram without its `classDef`
+ * table (`cfg --no-styled`): the category classes arrive, the colours are
+ * decided here, and the view follows the editor between light and dark.
+ */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--vscode-font-family, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  color: var(--vscode-foreground, #d4d4d4);
+  background: var(--vscode-editor-background, #1e1e1e);
+}
+
+.cf-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 12px 16px 10px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+}
+
+.cf-header h1 {
+  margin: 0 0 2px;
+  font-size: 1.15em;
+  font-weight: 600;
+}
+
+.cf-meta,
+.cf-shape,
+.cf-note,
+.cf-hint {
+  margin: 2px 0 0;
+  font-size: 0.9em;
+}
+
+.cf-meta {
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.cf-shape {
+  color: var(--vscode-foreground, #d4d4d4);
+  font-weight: 600;
+}
+
+.cf-note {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.cf-hint {
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-style: italic;
+}
+
+.cf-link {
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  font-family: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.cf-link:hover {
+  color: var(--vscode-textLink-activeForeground, #4daafc);
+}
+
+.cf-graph {
+  padding: 16px;
+  overflow: auto;
+}
+
+.cf-graph svg {
+  max-width: none;
+}
+
+.cf-message {
+  padding: 24px;
+  max-width: 60em;
+}
+
+.cf-message h2 {
+  margin-top: 0;
+  font-size: 1.1em;
+}
+
+.cf-message p {
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  white-space: pre-wrap;
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+/* ── Node categories ───────────────────────────────────────────────────── */
+
+/*
+ * Mermaid writes its theme colours straight onto the shape as presentation
+ * attributes, so these have to win explicitly.
+ *
+ * The scheme is a shape filled with the editor's own background, outlined and
+ * labelled in the colour of its category. Tinting the fill instead (a category
+ * colour at low opacity) reads well on exactly one background and turns to
+ * unreadable pale-on-pale on the other, because the result depends on what is
+ * behind it; an opaque fill with a coloured edge does not care. Every variable
+ * carries a literal fallback for the same reason — a webview that has not been
+ * given the theme tokens should still be legible.
+ */
+.cf-graph .node > :is(rect, polygon, path, circle, ellipse) {
+  fill: var(--vscode-editor-background, #1e1e1e) !important;
+  stroke: var(--vscode-descriptionForeground, #9d9d9d) !important;
+  stroke-width: 1.5px !important;
+}
+
+.cf-graph .node :is(text, tspan) {
+  fill: var(--vscode-editor-foreground, #d4d4d4) !important;
+  font-family: var(--vscode-editor-font-family, monospace) !important;
+}
+
+.cf-graph .node:is(.cfDecision, .cfLoop) > :is(rect, polygon, path, circle, ellipse) {
+  stroke: var(--vscode-editorWarning-foreground, #cca700) !important;
+}
+.cf-graph .node:is(.cfDecision, .cfLoop) :is(text, tspan) {
+  fill: var(--vscode-editorWarning-foreground, #cca700) !important;
+}
+
+.cf-graph .node:is(.cfThrow, .cfCatch) > :is(rect, polygon, path, circle, ellipse) {
+  stroke: var(--vscode-editorError-foreground, #f14c4c) !important;
+}
+.cf-graph .node:is(.cfThrow, .cfCatch) :is(text, tspan) {
+  fill: var(--vscode-editorError-foreground, #f14c4c) !important;
+}
+
+.cf-graph .node:is(.cfReturn, .cfJump) > :is(rect, polygon, path, circle, ellipse) {
+  stroke: var(--vscode-textLink-foreground, #3794ff) !important;
+}
+.cf-graph .node:is(.cfReturn, .cfJump) :is(text, tspan) {
+  fill: var(--vscode-textLink-foreground, #3794ff) !important;
+}
+
+.cf-graph .node:is(.cfEntry, .cfExit) > :is(rect, polygon, path, circle, ellipse) {
+  stroke: var(--vscode-charts-green, #89d185) !important;
+  stroke-width: 2px !important;
+}
+.cf-graph .node:is(.cfEntry, .cfExit) :is(text, tspan) {
+  fill: var(--vscode-charts-green, #89d185) !important;
+}
+
+/* Edges and their labels, which Mermaid also colours from its own theme. */
+.cf-graph :is(.edgePath, .flowchart-link) path,
+.cf-graph path.flowchart-link {
+  stroke: var(--vscode-descriptionForeground, #9d9d9d) !important;
+}
+
+.cf-graph .edgeLabel :is(text, tspan, span, p) {
+  color: var(--vscode-descriptionForeground, #9d9d9d) !important;
+  fill: var(--vscode-descriptionForeground, #9d9d9d) !important;
+  background: var(--vscode-editor-background, #1e1e1e) !important;
+}
+
+.cf-graph .cf-clickable {
+  cursor: pointer;
+}
+
+.cf-graph .cf-clickable:hover > :is(rect, polygon, path, circle, ellipse) {
+  fill: var(--vscode-list-hoverBackground, #2a2d2e) !important;
+}
+
+/* The node the editor's cursor is currently inside. */
+.cf-graph .node.cf-current > :is(rect, polygon, path, circle, ellipse) {
+  stroke: var(--vscode-focusBorder, #007fd4) !important;
+  stroke-width: 3px !important;
+  fill: var(--vscode-list-activeSelectionBackground, #04395e) !important;
+}

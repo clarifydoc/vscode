@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
 import { loadAnalysis, relPathOf, FileFacts } from "./analysisData";
+import { supportsControlFlow } from "./controlFlowSupport";
 
 function enabled(scope: vscode.Uri): boolean {
   return vscode.workspace.getConfiguration("clarifydoc.codeLens", scope).get<boolean>("enabled") ?? true;
@@ -44,7 +45,7 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     const lenses: vscode.CodeLens[] = [];
     const uriArg = document.uri.toString();
 
-    this.functionLenses(facts, document, uriArg, threshold, lenses);
+    this.functionLenses(facts, document, uriArg, threshold, lenses, supportsControlFlow(document));
     this.routeLenses(facts, document, lenses);
     return lenses;
   }
@@ -55,6 +56,7 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     uriArg: string,
     threshold: number,
     out: vscode.CodeLens[],
+    canDrawControlFlow: boolean,
   ): void {
     for (const fn of facts.functions) {
       const callers = facts.inbound.filter((l) => l.targetSymbol === fn.functionName).length;
@@ -78,11 +80,24 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
         }));
       }
       if (hot) {
-        out.push(new vscode.CodeLens(range, {
-          title: `$(flame) complexity ${fn.complexity}`,
-          command: "clarifydoc.openReportForFile",
-          arguments: [doc.uri, "complexity"],
-        }));
+        // The number alone tells a reader the function is bad, not where, so
+        // the lens goes to the control-flow view — the same number with its
+        // structure attached (the Complexity tab is a click away inside it).
+        //
+        // Not every language can be drawn: a graph needs an AST, and most of
+        // the 35 are extracted by regex. Those keep the lens they always had
+        // rather than one that leads to a view saying it cannot help.
+        out.push(new vscode.CodeLens(range, canDrawControlFlow
+          ? {
+              title: `$(flame) complexity ${fn.complexity}`,
+              command: "clarifydoc.showControlFlow",
+              arguments: [uriArg, fn.functionName, fn.line],
+            }
+          : {
+              title: `$(flame) complexity ${fn.complexity}`,
+              command: "clarifydoc.openReportForFile",
+              arguments: [doc.uri, "complexity"],
+            }));
       }
       out.push(new vscode.CodeLens(range, {
         title: "$(list-tree) Traces",

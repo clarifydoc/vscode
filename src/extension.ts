@@ -4,6 +4,8 @@ import { resetCliResolution, bundleAvailable } from "./cli";
 import { getConfig } from "./config";
 import { analyzeWorkspace } from "./analyze";
 import { showReport } from "./report";
+import { showControlFlow } from "./controlFlowPanel";
+import { primeControlFlowSupport, resetControlFlowSupport } from "./controlFlowSupport";
 import { refreshOpenReport } from "./reportPanel";
 import { detectFrameworks, impactOfChanges } from "./extraCommands";
 import { jumpToFileView } from "./jump";
@@ -98,11 +100,16 @@ export function activate(context: vscode.ExtensionContext): void {
   // Navigation commands (invoked from CodeLens, hover, and the sidebar).
   register("clarifydoc.goto", () => gotoQuickPick(state));
   register("clarifydoc.openReportForFile", (uri, tab) => openReportForFile(state, uri, tab));
+  register("clarifydoc.showControlFlow", (uri?: string | vscode.Uri, fn?: string, line?: number) =>
+    showControlFlow(state, uri, fn, line),
+  );
   register("clarifydoc.showCallers", (uri: string, symbol: string) => showLinkedSymbols(state, uri, symbol, "callers"));
   register("clarifydoc.showCallees", (uri: string, symbol: string) => showLinkedSymbols(state, uri, symbol, "callees"));
   register("clarifydoc.revealSource", (absPath: string, line?: number) => openSourceAt(absPath, line));
   register("clarifydoc.refresh", () => {
     resetCliResolution();
+    resetControlFlowSupport();
+    primeControlFlowSupport(context, output, () => state.fireAnalysisChanged());
     state.refresh();
   });
   register("clarifydoc.showOutput", () => output.show(true));
@@ -110,11 +117,19 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.executeCommand("workbench.action.openSettings", "clarifydoc"),
   );
 
+  // Which files can have their control flow drawn, asked once, in the
+  // background: the CodeLens needs the answer before anyone clicks it.
+  primeControlFlowSupport(context, output, () => state.fireAnalysisChanged());
+
   // ── Reactivity ────────────────────────────────────────────────────────
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("clarifydoc.cliPath") || e.affectsConfiguration("clarifydoc.nodePath")) {
         resetCliResolution();
+        // Which languages can be drawn is the analyzer's answer, so a
+        // different analyzer may give a different one.
+        resetControlFlowSupport();
+        primeControlFlowSupport(context, output, () => state.fireAnalysisChanged());
       }
       if (e.affectsConfiguration("clarifydoc.storage")) {
         resetStorageResolution();
