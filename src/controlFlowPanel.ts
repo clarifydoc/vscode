@@ -31,6 +31,7 @@ interface CfgNode {
 }
 
 interface Cfg {
+  approximate?: boolean;
   functionName: string;
   filePath: string;
   language: string;
@@ -210,6 +211,7 @@ class ControlFlowPanel {
     <h1>${escapeHtml(cfg.functionName)}</h1>
     <p class="cf-meta">${escapeHtml(cfg.filePath)}:${cfg.line}–${cfg.endLine} · ${escapeHtml(language)}</p>
     <p class="cf-shape">${escapeHtml(shape)}</p>
+    ${cfg.approximate ? `<p class="cf-approx">Approximate — ${escapeHtml(language)} has no parser here, so this was read off the source text.</p>` : ""}
     ${note ? `<p class="cf-note">${escapeHtml(note)}.</p>` : ""}
     <p class="cf-hint">Click a node to jump to it. Move the cursor in the editor to highlight the node it is in.</p>
     <button type="button" id="cf-report" class="cf-link">Open the Complexity report for this file</button>
