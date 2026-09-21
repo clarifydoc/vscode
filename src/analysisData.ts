@@ -36,6 +36,10 @@ export interface SymbolLink {
   targetLine: number;
   confidence?: string;
   resolvedBy?: string;
+  /** Which resolution strategy produced the link (see SymbolLinkStrategy). */
+  strategy?: string;
+  /** What kind of edge it is (see SymbolLinkRelation). */
+  relation?: string;
 }
 export interface ScreenInfo {
   filePath: string;
@@ -177,6 +181,8 @@ function index(p: any): ResolvedAnalysis {
       targetLine: num(l.targetLine) ?? 0,
       confidence: l.confidence,
       resolvedBy: l.resolvedBy,
+      strategy: l.strategy,
+      relation: l.relation,
     };
     facts(link.sourceFile).outbound.push(link);
     facts(link.targetFile).inbound.push(link);
