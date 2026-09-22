@@ -1,6 +1,6 @@
 # Change Log
 
-## Unreleased
+## 0.1.3
 
 - **Show Control Flow.** The `$(flame) complexity 47` CodeLens used to open the Complexity tab, which told you again
   that the function was bad. It now draws the function: a control-flow graph rendered as a Mermaid flowchart in a
@@ -22,29 +22,13 @@
   - Also available from the editor context menu and as **ClarifyDoc: Show Control Flow** in the command palette.
 
 
-## 0.1.1
-
-Making the MCP server easy to use for agents outside this editor:
-
-- **The analysis now lives in the project**, at `.clarifydoc/<name>/` — the same place `clarifydoc analyze` and
-  `clarifydoc mcp` use by default. An external agent therefore needs no path at all, one config entry works in every
-  repo, and a CLI run shares one copy (and one incremental cache) with the extension. The directory ignores itself
-  (a `.gitignore` containing `*`), so nothing appears in `git status` and your own ignore file is untouched. Set
-  `clarifydoc.storage` to `global` for the previous behaviour; that also happens automatically when the workspace is
-  untrusted or read-only.
-- **Set Up MCP for an AI Agent…** — a new command that writes the config for Claude Code (`claude mcp add`), Cursor
-  or Windsurf, merging into whatever is already there, instead of leaving you to paste a snippet. Offered once,
-  unprompted, in a workspace that already configures MCP agents.
-- **Configs that survive updates.** Agent configs now point at `<globalStorage>/bin/clarifydoc-mcp`, a launcher
-  rewritten on every activation, rather than at the version-stamped extension directory — which used to break
-  silently on every extension update. It also carries the Node runtime, so the agent needs none of its own.
-- **No more dead ends before the first analysis.** A read-only MCP server now analyzes a project that has never been
-  analyzed, once, on demand; an advisory lock in the analysis directory keeps that from colliding with a run started
-  here or from the CLI.
-- Auto-analysis ignores changes under `.clarifydoc/`, so writing the report cannot re-trigger it.
-- **Fixed:** the analyzer failed with `unknown command '…/cli.js'` when run on VS Code's own runtime — the fallback
-  used on machines with no Node.js installed. Commander was sniffing `process.versions.electron` and parsing argv
-  Electron-style; the CLI now states `from: "node"`.
+- **Search that answers a question asked in words.** `clarifydoc_search` — the tool an agent reaches for first, and
+  the one behind **Set Up MCP for an AI Agent…** — matched a query as one literal substring printed into six fixed
+  sections. So `user login` found nothing at all (the whole phrase had to appear contiguously), `getUserById` was
+  unreachable from `user id`, and what ranked first was whatever section printed first rather than whatever matched
+  best. It now splits both the query and every candidate on camelCase and on `_ - / .`, requires every term, and
+  ranks everything it found — routes, screens, symbols, entities, files — in one list, best first. Accuracy against
+  the hand-labelled benchmark repos went from 0.845 to **1.000**: every labelled query now answers at rank 1.
 
 ## 0.1.2
 
@@ -147,6 +131,30 @@ Deeper, native VS Code integration:
 Internals: a shared analysis-data layer resolves the on-disk summary via the
 bundled analyzer's `denormalizeProject` (no re-scan) and refreshes providers on
 an `onAnalysisChanged` event.
+
+## 0.1.1
+
+Making the MCP server easy to use for agents outside this editor:
+
+- **The analysis now lives in the project**, at `.clarifydoc/<name>/` — the same place `clarifydoc analyze` and
+  `clarifydoc mcp` use by default. An external agent therefore needs no path at all, one config entry works in every
+  repo, and a CLI run shares one copy (and one incremental cache) with the extension. The directory ignores itself
+  (a `.gitignore` containing `*`), so nothing appears in `git status` and your own ignore file is untouched. Set
+  `clarifydoc.storage` to `global` for the previous behaviour; that also happens automatically when the workspace is
+  untrusted or read-only.
+- **Set Up MCP for an AI Agent…** — a new command that writes the config for Claude Code (`claude mcp add`), Cursor
+  or Windsurf, merging into whatever is already there, instead of leaving you to paste a snippet. Offered once,
+  unprompted, in a workspace that already configures MCP agents.
+- **Configs that survive updates.** Agent configs now point at `<globalStorage>/bin/clarifydoc-mcp`, a launcher
+  rewritten on every activation, rather than at the version-stamped extension directory — which used to break
+  silently on every extension update. It also carries the Node runtime, so the agent needs none of its own.
+- **No more dead ends before the first analysis.** A read-only MCP server now analyzes a project that has never been
+  analyzed, once, on demand; an advisory lock in the analysis directory keeps that from colliding with a run started
+  here or from the CLI.
+- Auto-analysis ignores changes under `.clarifydoc/`, so writing the report cannot re-trigger it.
+- **Fixed:** the analyzer failed with `unknown command '…/cli.js'` when run on VS Code's own runtime — the fallback
+  used on machines with no Node.js installed. Commander was sniffing `process.versions.electron` and parsing argv
+  Electron-style; the CLI now states `from: "node"`.
 
 ## 0.1.0
 
