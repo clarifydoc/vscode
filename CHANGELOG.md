@@ -1,5 +1,38 @@
 # Change Log
 
+## 0.1.4
+
+- **Routes keep their attribute layer, in every framework.** A route now carries who may call it (`auth`: policies,
+  roles, schemes, or an anonymous marker), which API versions it serves and which are deprecated, and every
+  parameter with where it binds from (body, query, route, header, form, or a framework-injected object) — declared
+  bindings as such, framework defaults marked `inferred`. The Routes tab shows them as chips; `clarifydoc_routes`
+  prints them. Covered: ASP.NET (C# and VB), Spring, JAX-RS, Micronaut, Ktor, NestJS, Express/Koa/Fastify,
+  FastAPI, Flask, Django REST decorators, Laravel, Symfony, CodeIgniter, Go (gin, echo, chi, net/http, gorilla),
+  Rust (axum, actix, Rocket), Vapor, shelf, Play (its `conf/routes` file is now analysed), Rails, Sinatra, Catalyst,
+  Mojolicious, Dancer, Phoenix, Compojure and reitit, plus the contract formats — OpenAPI (parameters, security,
+  requestBody, deprecated), GraphQL (arguments, directives), WSDL (message parts), JSight — and Blazor
+  `@attribute [Authorize]`, Spring Web Flow `<secured>` and Delphi RAD Server `[ResourceSuffix]` endpoints.
+  A route whose handler lives in another file (Express, Laravel, Rails, Go, Vapor, Phoenix…) gets its parameters
+  from that handler's signature and from what its body reads (`req.body.name`, `c.ShouldBindJSON(&input)`,
+  `params.require(:user).permit(...)`). Decorators in the per-file JSON keep their arguments everywhere.
+- **One route per service and version.** The project route map keyed routes on method + path across the whole
+  repository, so a monorepo hosting the same endpoint in two services kept one and attributed the other service's
+  route to it, and a V2 and a V3 controller for one path collapsed into whichever had more calls. Identity is now
+  sub-project + method + path + version set. `clarifydoc_routes` takes a `project` filter.
+- **Version-aware SPA → API links.** A client calling `/api/v5/…` is linked to the controller that declares serving
+  version 5, not the first twin at that path. A version no route declares is flagged `version-mismatch` instead of
+  silently landing on the wrong controller.
+- **Request schema per endpoint.** A route with a body parameter now carries an OpenAPI-shaped `requestSchema`:
+  the parameter's class flattened through its base classes, property names as serialized, types mapped to JSON
+  with nullability, `required` and enums. Mappings exist for C#, VB, Java, Kotlin, TypeScript, Python (Pydantic
+  and dataclasses), PHP (typed DTOs and Laravel FormRequest rules), Go (struct tags), Rust (serde), Swift, Dart,
+  Scala case classes, Perl Moose, Elixir Ecto schemas, Clojure Malli/Schema, and the OpenAPI/GraphQL/WSDL/JSight
+  type definitions. Where only body fields are known (`req.body.email`, `validate([...])`), the schema is built from
+  them. `clarifydoc_routes` returns it with `schema: true`; the Routes tab shows it on the body chip.
+- **LSP enhancement works from the extension.** The bundled analyzer never shipped the Docker build contexts, so
+  every language server failed to build and the run silently continued without LSP. They are bundled now, a
+  missing context is named outright, and when LSP is enabled but skipped the extension says so.
+
 ## 0.1.3
 
 - **Show Control Flow.** The `$(flame) complexity 47` CodeLens used to open the Complexity tab, which told you again

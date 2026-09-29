@@ -102,6 +102,15 @@ cpSync(distSrc, join(dest, "dist"), {
   filter: (src) => !src.endsWith(".map") && !src.endsWith(".d.ts"),
 });
 
+// ── docker/ — LSP build contexts ──────────────────────────────────────────
+// `dist/lsp-configs` resolves each language server's Dockerfile one level
+// above dist/ (`clarifydoc/docker/<lang>`). Without this copy every LSP run
+// failed to build its image and the analysis silently continued with
+// `lspStats.serversUsed: []` — 44 KB of Dockerfiles for a working layer 2.
+const dockerSrc = join(repoRoot, "docker");
+if (!existsSync(dockerSrc)) fail(`LSP docker contexts not found at ${dockerSrc}`);
+cpSync(dockerSrc, join(dest, "docker"), { recursive: true });
+
 // ── Dependencies ───────────────────────────────────────────────────────────
 let copied = 0;
 const missingGrammarWasm = [];
