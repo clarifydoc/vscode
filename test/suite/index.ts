@@ -14,7 +14,7 @@ function findTests(dir: string): string[] {
 }
 
 export function run(): Promise<void> {
-  const mocha = new Mocha({ ui: "bdd", color: true, timeout: 120000 });
+  const mocha = new Mocha({ ui: "tdd", color: true, timeout: 120000 });
   const testsRoot = __dirname;
   for (const file of findTests(testsRoot)) mocha.addFile(file);
 
