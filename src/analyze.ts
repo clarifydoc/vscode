@@ -85,17 +85,37 @@ export async function analyzeWorkspace(
         cancellable: true,
       },
       async (progress, token) => {
+        const lspFailures: string[] = [];
         const result = await runClarifyDoc(cli, args, {
           cwd: folderPath,
           token,
           onOutput: (chunk) => {
             state.output.append(chunk);
+            // The analyzer only warns when a language server cannot start and
+            // then continues without it; when the user asked for LSP, that is
+            // a result they need to see, not a line in the output channel.
+            for (const m of chunk.matchAll(/Failed to start LSP server '([^']+)'/g)) lspFailures.push(m[1]);
+            if (/Docker is not available/.test(chunk)) lspFailures.push("docker");
             const line = lastMeaningfulLine(chunk);
             if (line) progress.report({ message: line });
           },
         }).catch((err) => reportSpawnError(err, cli));
 
         if (!result) return; // cancelled or spawn error already surfaced
+
+        if (cfg.enableLsp && lspFailures.length > 0) {
+          const what = lspFailures.includes("docker")
+            ? "Docker is not available"
+            : `the ${[...new Set(lspFailures)].join(", ")} language server(s) failed to start`;
+          void vscode.window
+            .showWarningMessage(
+              `ClarifyDoc: LSP enhancement was skipped — ${what}. The analysis completed without it.`,
+              "Show Output",
+            )
+            .then((choice) => {
+              if (choice === "Show Output") state.output.show(true);
+            });
+        }
 
         if (result.code !== 0) {
           state.output.show(true);
