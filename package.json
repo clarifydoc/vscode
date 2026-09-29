@@ -550,13 +550,13 @@
     "package": "npx --yes @vscode/vsce package --no-dependencies --allow-missing-repository"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.7",
-    "@types/node": "^20.14.0",
-    "@types/vscode": "^1.85.0",
-    "@vscode/test-electron": "^2.4.1",
-    "esbuild": "^0.23.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^26.6.3",
+    "@types/vscode": "^1.138.0",
+    "@vscode/test-electron": "^3.1.0",
+    "esbuild": "^0.28.2",
     "mermaid": "^12.0.0",
-    "mocha": "^10.7.3",
-    "typescript": "^5.5.4"
+    "mocha": "^12.0.2",
+    "typescript": "^7.0.2"
   }
 }
