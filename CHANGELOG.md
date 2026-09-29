@@ -29,6 +29,12 @@
   Scala case classes, Perl Moose, Elixir Ecto schemas, Clojure Malli/Schema, and the OpenAPI/GraphQL/WSDL/JSight
   type definitions. Where only body fields are known (`req.body.email`, `validate([...])`), the schema is built from
   them. `clarifydoc_routes` returns it with `schema: true`; the Routes tab shows it on the body chip.
+- **MCP answers questions about the attribute layer.** `clarifydoc_routes` filters by `policy`, `role`, `scheme`,
+  `anonymous`, `version`, `deprecated` and `bodyType`; `clarifydoc_search` matches policies, roles, schemes and
+  versions; the file, screens and trace tools mark each route they mention with its guard and versions and each
+  frontend call with a `version-mismatch` when the called version is not served. New `clarifydoc_contract` returns
+  one endpoint as an OpenAPI-shaped operation — security, parameters with their location, request body schema — for
+  an agent that intends to call it.
 - **LSP enhancement works from the extension.** The bundled analyzer never shipped the Docker build contexts, so
   every language server failed to build and the run silently continued without LSP. They are bundled now, a
   missing context is named outright, and when LSP is enabled but skipped the extension says so.
