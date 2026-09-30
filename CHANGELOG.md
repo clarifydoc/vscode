@@ -2,6 +2,22 @@
 
 ## 0.1.4
 
+- **SPA → API links through service-class URL builders.** A frontend whose every request goes through a method on
+  a config singleton (`configService.APIUrl("logout.json")`) had no links at all: the URL template was only captured
+  for free functions, only from a top-level `return`, and the resolver did not recognise a `receiver.method(...)`
+  call. Class methods now carry templates; `if`/`else` branches and both arms of a returned ternary are followed,
+  a literal origin or a runtime config base (`store.state.config.API_URL`) is dropped rather than left as a `{}`
+  segment, and a helper that returns a different path per branch (`/api/staff/…` for employees, `/api/…` for
+  admins) gives the call one URL per branch — the link follows the first branch that reaches a route
+  (`targetAlternatives` on the api-call). On a Rails + Quasar repository this took the joined calls from 5 of 166 to 159.
+- **Rails namespaced controllers keep their namespace.** A controller declared inside `module Staff` (or named
+  `Staff::DutiesController`) was emitted as `/duties` with a bare `DutiesController#index` handler, colliding
+  with the top-level controller of the same name — an admin call was traced into the employee controller. The
+  convention routes now carry the module's path and qualified name, `namespace :x` verb and `resources` routes name
+  the `X::` class, a directory in a controller token (`admin/users#index`) becomes a module, `get 'presence', on:
+  :collection` / `on: :member` hangs off the enclosing resource with that resource's controller, and a `resources`
+  block nested in another is served under the parent's member (`/employees/:employee_id/contact_informations`).
+
 - **Routes keep their attribute layer, in every framework.** A route now carries who may call it (`auth`: policies,
   roles, schemes, or an anonymous marker), which API versions it serves and which are deprecated, and every
   parameter with where it binds from (body, query, route, header, form, or a framework-injected object) — declared
