@@ -18,7 +18,7 @@
 // Run via `npm run bundle` (also invoked by `npm run build`). Requires the repo
 // to have been built first (`npm run build` at the repo root → ../dist/cli.js).
 
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,6 +28,7 @@ const extRoot = resolve(here, "..");
 const repoRoot = resolve(extRoot, "..");
 const distSrc = join(repoRoot, "dist");
 const dest = join(extRoot, "clarifydoc");
+const rootVersion = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")).version;
 
 /** Grammar packages loaded as WASM — only their package.json + *.wasm are read. */
 const WASM_GRAMMARS = new Set([
@@ -142,7 +143,10 @@ if (missingGrammarWasm.length) {
 // ── ESM marker so Node treats dist/*.js as modules under Electron-as-node ──
 writeFileSync(
   join(dest, "package.json"),
-  JSON.stringify({ name: "clarifydoc-bundled", private: true, type: "module" }, null, 2) + "\n",
+  // The analyzer's own version: `TOOL_VERSION` walks up from dist/ and stops
+  // here, so the bundled engine (its MCP serverInfo, every artifact's
+  // provenance) reports the engine release it is, not the extension's.
+  JSON.stringify({ name: "clarifydoc-bundled", version: rootVersion, private: true, type: "module" }, null, 2) + "\n",
 );
 
 console.log(`[bundle-cli] bundled analyzer → clarifydoc/  (${humanSize(dirSize(dest))}, ${copied} deps)`);
