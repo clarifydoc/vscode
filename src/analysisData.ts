@@ -277,9 +277,13 @@ export async function loadAnalysis(
 
 // ─── Per-file definitions and links ──────────────────────────────────────────
 
-/** A function or method in one file, spelled the way symbolLinks spell it: `fn`, `Class.method`. */
+/**
+ * A function, method or class defined in one file, spelled the way
+ * symbolLinks spell it: `fn`, `Class.method`, `Class`.
+ */
 export interface Definition {
   symbol: string;
+  kind: "function" | "class";
   line: number; // 1-based
   /** Only where the analyzer measured it: complexity needs a syntax tree, so
    *  the regex-extracted languages (Ruby, Go, Rust, …) never have one. */
@@ -315,7 +319,7 @@ function definitionsOf(raw: any, measured: FnComplexity[]): Definition[] {
   for (const fn of Array.isArray(raw?.functions) ? raw.functions : []) {
     // `<setup>` and kin stand for top-level code, not something written as a function.
     if (typeof fn?.name === "string" && !fn.name.startsWith("<") && num(fn.line) !== undefined) {
-      defs.push({ symbol: fn.name, line: fn.line });
+      defs.push({ symbol: fn.name, kind: "function", line: fn.line });
     }
   }
   // A method can be credited to more than one owner (Ruby lists a nested
@@ -324,12 +328,13 @@ function definitionsOf(raw: any, measured: FnComplexity[]): Definition[] {
   const methods = new Map<string, { def: Definition; ownerLine: number }>();
   for (const cls of Array.isArray(raw?.classes) ? raw.classes : []) {
     if (typeof cls?.name !== "string" || num(cls.line) === undefined) continue;
+    defs.push({ symbol: cls.name, kind: "class", line: cls.line });
     for (const m of Array.isArray(cls.methods) ? cls.methods : []) {
       if (typeof m?.name !== "string" || num(m.line) === undefined) continue;
       const key = `${m.line}:${m.name}`;
       const prev = methods.get(key);
       if (prev && prev.ownerLine >= cls.line) continue;
-      methods.set(key, { def: { symbol: `${cls.name}.${m.name}`, line: m.line }, ownerLine: cls.line });
+      methods.set(key, { def: { symbol: `${cls.name}.${m.name}`, kind: "function", line: m.line }, ownerLine: cls.line });
     }
   }
   for (const { def } of methods.values()) defs.push(def);
@@ -338,7 +343,7 @@ function definitionsOf(raw: any, measured: FnComplexity[]): Definition[] {
   for (const fn of measured) {
     const def = byKey.get(`${fn.line}:${fn.functionName}`);
     if (def) def.complexity = fn.complexity;
-    else defs.push({ symbol: fn.functionName, line: fn.line, complexity: fn.complexity });
+    else defs.push({ symbol: fn.functionName, kind: "function", line: fn.line, complexity: fn.complexity });
   }
   return defs.sort((a, b) => a.line - b.line);
 }
@@ -404,11 +409,19 @@ function count(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
-/** A definition's caller/callee commands, worded once for both the CodeLens and the hover card. */
+/**
+ * A definition's caller/callee commands — references, for a class — worded
+ * once for both the CodeLens and the hover card.
+ */
 export function linkCommands(idx: FileIndex, def: Definition, uriArg: string): vscode.Command[] {
   const callers = idx.callers.get(def.symbol)?.length ?? 0;
-  const callees = idx.callees.get(def.symbol)?.length ?? 0;
   const out: vscode.Command[] = [];
+  if (def.kind === "class") {
+    // Who uses the class: `new X`, `extends X`, type positions.
+    if (callers > 0) out.push({ title: `$(references) ${count(callers, "reference")}`, command: "clarifydoc.showCallers", arguments: [uriArg, def.symbol] });
+    return out;
+  }
+  const callees = idx.callees.get(def.symbol)?.length ?? 0;
   if (callers > 0) out.push({ title: `$(arrow-left) ${count(callers, "caller")}`, command: "clarifydoc.showCallers", arguments: [uriArg, def.symbol] });
   if (callees > 0) out.push({ title: `$(arrow-right) ${count(callees, "callee")}`, command: "clarifydoc.showCallees", arguments: [uriArg, def.symbol] });
   return out;
