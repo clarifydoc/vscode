@@ -113,7 +113,7 @@ ClarifyDoc for routes, call traces, blast radius, the data model and the impact 
 parsed code, with `path:line` references — instead of inferring it from a few open files.
 
 - **Zero configuration in this editor.** One server per workspace folder, pointed at the analysis this extension
-  already produced. Needs VS Code 1.101+ (older builds are unaffected: nothing is registered).
+  already produced.
 - **One command for other agents.** Run **ClarifyDoc: Set Up MCP for an AI Agent…** and pick Claude Code, Cursor or
   Windsurf — it writes that agent's config for you, merging into whatever is already there. (**Copy MCP Server
   Config** still puts the snippet on your clipboard for anything else.)
@@ -197,7 +197,13 @@ npm run build     # runs scripts/bundle-cli.mjs (assembles clarifydoc/) then esb
 ```
 
 Then press **F5** ("Run ClarifyDoc Extension") to launch an Extension
-Development Host. See `INSTALL.md` for install, update, and hot-reload details.
+Development Host. See [INSTALL.md](INSTALL.md) for install, update, and hot-reload details.
+
+## Support
+
+- Website: [clarifydoc.com](https://clarifydoc.com)
+- Issues and source: [github.com/clarifydoc/vscode](https://github.com/clarifydoc/vscode/issues)
+- Email: [support@clarifydoc.com](mailto:support@clarifydoc.com)
 
 ## License
 

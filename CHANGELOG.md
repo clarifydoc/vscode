@@ -1,5 +1,44 @@
 # Change Log
 
+## 0.1.5
+
+Bundles analyzer 0.2.0 (`clarifydoc --version`; the MCP server's `serverInfo` and every artifact's provenance
+now name the analyzer release itself, not the extension's).
+
+- **Which screen touches which table.** Data Flows used to start only at API routes; screens are entries now, and
+  each reaches through its own code, its child components and the HTTP calls into the backend. On the RealWorld
+  React + Express app a profile page now reaches the `User` and `Article` tables three hops away. The tab gains
+  a SCREEN badge, an entry filter and "Screens reaching a write"; `clarifydoc_data_flows` with
+  `entryKind: "screen"` — which had always answered "no data flows" — answers.
+- **Express backends with inline handlers are crossed.** `router.get("/x", auth, async (req, res) => …)` has no
+  named function at the route, so no frontend call was ever linked into such a backend: RealWorld had 0
+  frontend → backend trace links, now 22.
+- **A browser component no longer "writes the database".** A call recognised as ORM access by its method name
+  (`agent.Comments.create(…)`) but resolving into the project's own code — an API client, a service, an
+  in-memory store — is not database access; the function it calls is. ORM model and interface methods (an
+  ActiveRecord scope, a Spring Data finder) still count.
+- **API clients written as objects are symbols.** `const Profile = { get: (u) => … }`, default-exported objects
+  and `module.exports = {…}`: their members are functions now, so `agent.Profile.get(…)` links and its API call
+  belongs to a function. On a rule engine built from `export const visitor = { visit() {…} }` objects this added
+  1,834 call links.
+- **Every page reached by a JSX route has its route.** `<Route component={Profile}>`, `element={<Page />}`
+  (unwrapping `<RequireAuth>`/`<Suspense>`), `lazy(() => import(…))`, `render=` and v5 children — on RealWorld 8
+  of 8 pages, was 1. A `pages/` folder in a React Router or Vue app no longer invents a route per file; only
+  Next.js and Nuxt route by file.
+- **Python relative imports link.** `from .graph import x` was read as a file named `.graph`, so none of those
+  calls linked (0 of 276 on one package, now 241); imports inside functions, `try/except ImportError` and
+  `if TYPE_CHECKING:` are read too.
+- **Fewer false calls and links.** A variable or parameter passed as an argument (`save(user)`) is no longer a
+  "call" — a quarter of all calls on three real repositories were these, and some linked to unrelated
+  functions. Calls into the file's own code (`this.exec()`, an injected `this.users.findOne()`) are no longer
+  read as database calls by name, which had kept them from linking; NestJS controllers now link to their
+  services.
+- **Symlinks stay inside the project.** Analysis no longer follows a link out of the workspace, and a
+  self-referencing link no longer repeats the tree dozens of levels deep; refused links are listed in the
+  summary. `site-packages/` and `bower_components/` are skipped like `node_modules/`.
+- **Requires VS Code 1.101 or newer** (was 1.85) — the release that finalized the MCP provider API the extension
+  publishes its analysis through.
+
 ## 0.1.4
 
 - **SPA → API links through service-class URL builders.** A frontend whose every request goes through a method on

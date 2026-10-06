@@ -13,7 +13,7 @@ Three ways to run this extension, depending on what you're doing:
 
 ## Prerequisites
 
-- **VS Code** 1.85 or newer.
+- **VS Code** 1.101 or newer.
 - That's it for *using* a packaged build. The analyzer (and all its tree-sitter
   WASM grammars) is **bundled inside the extension** and runs isolated — no
   global install, no `npx`, no repo checkout. It uses `node` from your `PATH` if
@@ -33,12 +33,12 @@ the bundler and esbuild) and a built copy of the parent ClarifyDoc repo — see
 
 ### A. From a packaged `.vsix` (recommended)
 
-A prebuilt package ships in this folder: `clarifydoc-vscode-0.1.3.vsix`.
+A prebuilt package ships in this folder: `clarifydoc-vscode-0.1.5.vsix`.
 
 **From the terminal:**
 
 ```bash
-code --install-extension clarifydoc-vscode-0.1.3.vsix
+code --install-extension clarifydoc-vscode-0.1.5.vsix
 ```
 
 **From the VS Code UI:**
@@ -58,7 +58,7 @@ If there's no `.vsix`, or you changed the source:
 cd VsCode
 npm install
 npm run package          # runs the build, then writes clarifydoc-vscode-<version>.vsix
-code --install-extension clarifydoc-vscode-0.1.3.vsix
+code --install-extension clarifydoc-vscode-0.1.5.vsix
 ```
 
 ---
@@ -73,18 +73,18 @@ installed. Pick one:
 ```bash
 cd VsCode
 npm run package
-code --install-extension clarifydoc-vscode-0.1.3.vsix --force
+code --install-extension clarifydoc-vscode-0.1.5.vsix --force
 ```
 
 **Clean path — bump the version, then install:**
 
-1. Increase `"version"` in [package.json](package.json) (e.g. `0.1.3` → `0.1.4`).
+1. Increase `"version"` in [package.json](package.json) (e.g. `0.1.5` → `0.1.6`).
 2. Add a note to [CHANGELOG.md](CHANGELOG.md).
 3. Repackage and install:
 
    ```bash
    npm run package
-   code --install-extension clarifydoc-vscode-0.1.3.vsix
+   code --install-extension clarifydoc-vscode-0.1.5.vsix
    ```
 
 Reload the window (`Developer: Reload Window`) after installing so the new build
