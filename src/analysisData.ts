@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { pathToFileURL } from "url";
-import { summaryPath } from "./paths";
+import { resultsDir, summaryPath } from "./paths";
 
 // ─── Shapes we consume (a loose view of the analyzer's ProjectAnalysis) ──────
 export interface FnComplexity {
@@ -56,7 +56,9 @@ export interface LayerViolation {
 
 /** Everything a source file needs, pre-indexed for the providers. */
 export interface FileFacts {
-  functions: FnComplexity[];
+  /** The functions the analyzer measured (tree-sitter languages only) — not
+   *  the file's function list; that is `FileIndex.defs`. */
+  complexity: FnComplexity[];
   routes: RouteInfo[];
   security: SecurityIssue[];
   /** Links whose call site is in this file (this file calls out). */
@@ -116,7 +118,7 @@ function index(p: any): ResolvedAnalysis {
   const byFile = new Map<string, FileFacts>();
   const facts = (f: string): FileFacts => {
     let e = byFile.get(f);
-    if (!e) { e = { functions: [], routes: [], security: [], outbound: [], inbound: [] }; byFile.set(f, e); }
+    if (!e) { e = { complexity: [], routes: [], security: [], outbound: [], inbound: [] }; byFile.set(f, e); }
     return e;
   };
 
@@ -134,7 +136,7 @@ function index(p: any): ResolvedAnalysis {
         line: fn.line,
         endLine: num(fn.endLine),
       };
-      facts(filePath).functions.push(entry);
+      facts(filePath).complexity.push(entry);
       hotspots.push({ ...entry, filePath });
     }
   }
@@ -279,7 +281,9 @@ export async function loadAnalysis(
 export interface Definition {
   symbol: string;
   line: number; // 1-based
-  complexity: number;
+  /** Only where the analyzer measured it: complexity needs a syntax tree, so
+   *  the regex-extracted languages (Ruby, Go, Rust, …) never have one. */
+  complexity?: number;
 }
 
 /** The other end of a link: a caller's call site, or a callee's definition. */
@@ -296,6 +300,47 @@ export interface FileIndex {
   callers: Map<string, LinkEnd[]>;
   /** symbol → its callees, one per definition. */
   callees: Map<string, LinkEnd[]>;
+}
+
+/**
+ * Every definition in a file, from the per-file JSON the analyzer writes next
+ * to the summary, with measured complexity attached. The summary itself lists
+ * functions only inside `complexity`, which is tree-sitter-only — reading
+ * definitions from there left every regex-extracted file without a single lens
+ * or hover. A measured function with no matching definition (no per-file JSON,
+ * say) is kept, so nothing the summary alone could show is lost.
+ */
+function definitionsOf(raw: any, measured: FnComplexity[]): Definition[] {
+  const defs: Definition[] = [];
+  for (const fn of Array.isArray(raw?.functions) ? raw.functions : []) {
+    // `<setup>` and kin stand for top-level code, not something written as a function.
+    if (typeof fn?.name === "string" && !fn.name.startsWith("<") && num(fn.line) !== undefined) {
+      defs.push({ symbol: fn.name, line: fn.line });
+    }
+  }
+  // A method can be credited to more than one owner (Ruby lists a nested
+  // class's methods under its module too). It is one definition; keep the
+  // innermost owner, the one that starts last.
+  const methods = new Map<string, { def: Definition; ownerLine: number }>();
+  for (const cls of Array.isArray(raw?.classes) ? raw.classes : []) {
+    if (typeof cls?.name !== "string" || num(cls.line) === undefined) continue;
+    for (const m of Array.isArray(cls.methods) ? cls.methods : []) {
+      if (typeof m?.name !== "string" || num(m.line) === undefined) continue;
+      const key = `${m.line}:${m.name}`;
+      const prev = methods.get(key);
+      if (prev && prev.ownerLine >= cls.line) continue;
+      methods.set(key, { def: { symbol: `${cls.name}.${m.name}`, line: m.line }, ownerLine: cls.line });
+    }
+  }
+  for (const { def } of methods.values()) defs.push(def);
+
+  const byKey = new Map(defs.map((d) => [`${d.line}:${d.symbol}`, d]));
+  for (const fn of measured) {
+    const def = byKey.get(`${fn.line}:${fn.functionName}`);
+    if (def) def.complexity = fn.complexity;
+    else defs.push({ symbol: fn.functionName, line: fn.line, complexity: fn.complexity });
+  }
+  return defs.sort((a, b) => a.line - b.line);
 }
 
 /** Group links by the symbol at this file's end, one row per far end — the rows
@@ -320,20 +365,36 @@ function indexLinks(
   return out;
 }
 
+async function buildFileIndex(perFileJson: string, facts: FileFacts): Promise<FileIndex> {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await fs.readFile(perFileJson, "utf8"));
+  } catch {
+    raw = undefined; // no per-file JSON: the measured functions still show
+  }
+  return {
+    defs: definitionsOf(raw, facts.complexity),
+    callers: indexLinks(facts.inbound, (l) => l.targetSymbol, (l) => ({ file: l.sourceFile, line: l.sourceLine, symbol: l.sourceSymbol })),
+    callees: indexLinks(facts.outbound, (l) => l.sourceSymbol, (l) => ({ file: l.targetFile, line: l.targetLine, symbol: l.targetSymbol })),
+  };
+}
+
 // Keyed on the summary's FileFacts: a re-analysis writes a new summary, which
 // makes new FileFacts, so the index rebuilds and the old one goes with the old
-// summary.
-const fileIndexes = new WeakMap<FileFacts, FileIndex>();
+// summary. The analyzer writes every per-file JSON before the summary, so the
+// summary's mtime covers them too — no per-hover stat of the per-file JSON.
+const fileIndexes = new WeakMap<FileFacts, Promise<FileIndex>>();
 
 /** The file's definitions and links, built once per file per analysis. */
-export function fileIndex(facts: FileFacts): FileIndex {
+export function loadFileIndex(
+  context: vscode.ExtensionContext,
+  folder: vscode.WorkspaceFolder,
+  rel: string,
+  facts: FileFacts,
+): Promise<FileIndex> {
   let idx = fileIndexes.get(facts);
   if (!idx) {
-    idx = {
-      defs: facts.functions.map((fn) => ({ symbol: fn.functionName, line: fn.line, complexity: fn.complexity })),
-      callers: indexLinks(facts.inbound, (l) => l.targetSymbol, (l) => ({ file: l.sourceFile, line: l.sourceLine, symbol: l.sourceSymbol })),
-      callees: indexLinks(facts.outbound, (l) => l.sourceSymbol, (l) => ({ file: l.targetFile, line: l.targetLine, symbol: l.targetSymbol })),
-    };
+    idx = buildFileIndex(path.join(resultsDir(context, folder), `${rel}.json`), facts);
     fileIndexes.set(facts, idx);
   }
   return idx;

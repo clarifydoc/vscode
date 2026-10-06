@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
 import { showReport } from "./report";
-import { loadAnalysis, fileIndex, relPathOf } from "./analysisData";
+import { loadAnalysis, loadFileIndex, relPathOf } from "./analysisData";
 import { openSourceAt, absFor } from "./reveal";
 
 const FILE_TABS = new Set(["ui", "traces", "blast"]);
@@ -35,7 +35,8 @@ export async function showLinkedSymbols(
   const facts = (await loadAnalysis(state.context, folder))?.byFile.get(rel);
   if (!facts) return;
 
-  const items = (fileIndex(facts)[direction].get(symbol) ?? []).map((e) => (
+  const idx = await loadFileIndex(state.context, folder, rel, facts);
+  const items = (idx[direction].get(symbol) ?? []).map((e) => (
     { label: e.symbol || "(anonymous)", description: `${e.file}:${e.line}`, file: e.file, line: e.line }
   ));
 

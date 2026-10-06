@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { loadAnalysis, fileIndex, linkCommands, relPathOf, FileFacts, FileIndex } from "./analysisData";
+import { loadAnalysis, loadFileIndex, linkCommands, relPathOf, FileFacts, FileIndex } from "./analysisData";
 import { supportsControlFlow } from "./controlFlowSupport";
 
 function enabled(scope: vscode.Uri): boolean {
@@ -45,7 +45,8 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     const lenses: vscode.CodeLens[] = [];
     const uriArg = document.uri.toString();
 
-    this.functionLenses(fileIndex(facts), document, uriArg, threshold, lenses, supportsControlFlow(document));
+    const idx = await loadFileIndex(this.state.context, folder, rel, facts);
+    this.functionLenses(idx, document, uriArg, threshold, lenses, supportsControlFlow(document));
     this.routeLenses(facts, document, lenses);
     return lenses;
   }
@@ -60,7 +61,7 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
   ): void {
     for (const def of idx.defs) {
       const links = linkCommands(idx, def, uriArg);
-      const hot = def.complexity >= threshold;
+      const hot = def.complexity !== undefined && def.complexity >= threshold;
       if (links.length === 0 && !hot) continue; // keep trivial functions clean
 
       const range = new vscode.Range(Math.max(0, def.line - 1), 0, Math.max(0, def.line - 1), 0);
