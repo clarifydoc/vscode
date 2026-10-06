@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
 import { showReport } from "./report";
-import { loadAnalysis, relPathOf } from "./analysisData";
+import { loadAnalysis, fileIndex, relPathOf } from "./analysisData";
 import { openSourceAt, absFor } from "./reveal";
 
 const FILE_TABS = new Set(["ui", "traces", "blast"]);
@@ -31,28 +31,13 @@ export async function showLinkedSymbols(
   const folder = vscode.workspace.getWorkspaceFolder(uri);
   if (!folder) return;
   const rel = relPathOf(folder, uri);
-  const analysis = await loadAnalysis(state.context, folder);
-  const facts = rel ? analysis?.byFile.get(rel) : undefined;
+  if (!rel) return;
+  const facts = (await loadAnalysis(state.context, folder))?.byFile.get(rel);
   if (!facts) return;
 
-  const links = direction === "callers"
-    ? facts.inbound.filter((l) => l.targetSymbol === symbol)
-    : facts.outbound.filter((l) => l.sourceSymbol === symbol);
-
-  const seen = new Set<string>();
-  const items = links
-    .map((l) => {
-      const file = direction === "callers" ? l.sourceFile : l.targetFile;
-      const line = direction === "callers" ? l.sourceLine : l.targetLine;
-      const sym = direction === "callers" ? l.sourceSymbol : l.targetSymbol;
-      return { label: sym || "(anonymous)", description: `${file}:${line}`, file, line };
-    })
-    .filter((it) => {
-      const k = `${it.file}:${it.line}`;
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
+  const items = (fileIndex(facts)[direction].get(symbol) ?? []).map((e) => (
+    { label: e.symbol || "(anonymous)", description: `${e.file}:${e.line}`, file: e.file, line: e.line }
+  ));
 
   if (items.length === 0) {
     void vscode.window.showInformationMessage(`ClarifyDoc: no ${direction} found for ${symbol}.`);

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { loadAnalysis, relPathOf } from "./analysisData";
+import { loadAnalysis, fileIndex, linkCommands, relPathOf } from "./analysisData";
 
 function enabled(scope: vscode.Uri): boolean {
   return vscode.workspace.getConfiguration("clarifydoc.hover", scope).get<boolean>("enabled") ?? true;
@@ -23,8 +23,8 @@ export class ClarifyDocHoverProvider implements vscode.HoverProvider {
     const folder = vscode.workspace.getWorkspaceFolder(document.uri);
     if (!folder) return undefined;
     const rel = relPathOf(folder, document.uri);
-    const analysis = rel ? await loadAnalysis(this.state.context, folder) : undefined;
-    const facts = rel ? analysis?.byFile.get(rel) : undefined;
+    if (!rel) return undefined;
+    const facts = (await loadAnalysis(this.state.context, folder))?.byFile.get(rel);
     if (!facts) return undefined;
 
     const wordRange = document.getWordRangeAtPosition(position);
@@ -36,24 +36,21 @@ export class ClarifyDocHoverProvider implements vscode.HoverProvider {
     md.supportThemeIcons = true;
     let any = false;
 
-    const fn = facts.functions.find((f) => f.functionName === word)
-      ?? facts.functions.find((f) => f.line === line1);
-    if (fn) {
+    const idx = fileIndex(facts);
+    const def = idx.defs.find((d) => d.symbol === word) ?? idx.defs.find((d) => d.line === line1);
+    const uriArg = document.uri.toString();
+    if (def) {
       any = true;
-      const callers = facts.inbound.filter((l) => l.targetSymbol === fn.functionName).length;
-      const callees = facts.outbound.filter((l) => l.sourceSymbol === fn.functionName).length;
-      md.appendMarkdown(`**$(symbol-method) ${fn.functionName}** — complexity **${fn.complexity}**\n\n`);
-      const links: string[] = [];
-      if (callers > 0) links.push(`[$(arrow-left) ${callers} callers](${cmd("clarifydoc.showCallers", [document.uri.toString(), fn.functionName])})`);
-      if (callees > 0) links.push(`[$(arrow-right) ${callees} callees](${cmd("clarifydoc.showCallees", [document.uri.toString(), fn.functionName])})`);
-      links.push(`[$(list-tree) Traces](${cmd("clarifydoc.openReportForFile", [document.uri.toString(), "traces"])})`);
-      md.appendMarkdown(links.join(" · "));
+      md.appendMarkdown(`**$(symbol-method) ${def.symbol}** — complexity **${def.complexity}**\n\n`);
+      const parts = linkCommands(idx, def, uriArg).map((c) => `[${c.title}](${cmd(c.command, c.arguments ?? [])})`);
+      parts.push(`[$(list-tree) Traces](${cmd("clarifydoc.openReportForFile", [uriArg, "traces"])})`);
+      md.appendMarkdown(parts.join(" · "));
     }
 
     const issues = facts.security.filter((s) => s.line === line1);
     if (issues.length) {
+      if (any) md.appendMarkdown("\n\n");
       any = true;
-      if (fn) md.appendMarkdown("\n\n");
       for (const s of issues) {
         md.appendMarkdown(`\n\n$(shield) **${s.severity}** ${s.category}: ${s.message}`);
       }
