@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { loadAnalysis, fileIndex, linkCommands, relPathOf } from "./analysisData";
+import { loadAnalysis, loadFileIndex, linkCommands, relPathOf } from "./analysisData";
 
 function enabled(scope: vscode.Uri): boolean {
   return vscode.workspace.getConfiguration("clarifydoc.hover", scope).get<boolean>("enabled") ?? true;
@@ -12,8 +12,8 @@ function cmd(command: string, args: unknown[]): string {
 
 /**
  * On hover, show a compact ClarifyDoc card for the symbol under the cursor:
- * complexity, caller/callee counts, and any security finding on this line, with
- * command links into the report / caller-callee pickers.
+ * complexity (where measured), caller/callee counts, and any security finding
+ * on this line, with command links into the report / caller-callee pickers.
  */
 export class ClarifyDocHoverProvider implements vscode.HoverProvider {
   constructor(private readonly state: ExtensionState) {}
@@ -36,12 +36,13 @@ export class ClarifyDocHoverProvider implements vscode.HoverProvider {
     md.supportThemeIcons = true;
     let any = false;
 
-    const idx = fileIndex(facts);
+    const idx = await loadFileIndex(this.state.context, folder, rel, facts);
     const def = idx.defs.find((d) => d.symbol === word) ?? idx.defs.find((d) => d.line === line1);
     const uriArg = document.uri.toString();
     if (def) {
       any = true;
-      md.appendMarkdown(`**$(symbol-method) ${def.symbol}** — complexity **${def.complexity}**\n\n`);
+      const complexity = def.complexity !== undefined ? ` — complexity **${def.complexity}**` : "";
+      md.appendMarkdown(`**$(symbol-method) ${def.symbol}**${complexity}\n\n`);
       const parts = linkCommands(idx, def, uriArg).map((c) => `[${c.title}](${cmd(c.command, c.arguments ?? [])})`);
       parts.push(`[$(list-tree) Traces](${cmd("clarifydoc.openReportForFile", [uriArg, "traces"])})`);
       md.appendMarkdown(parts.join(" · "));
