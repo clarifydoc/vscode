@@ -12,8 +12,9 @@ function cmd(command: string, args: unknown[]): string {
 
 /**
  * On hover, show a compact ClarifyDoc card for the symbol under the cursor:
- * complexity (where measured), caller/callee counts, and any security finding
- * on this line, with command links into the report / caller-callee pickers.
+ * complexity (where measured), caller/callee or reference counts, and any
+ * security finding on this line, with command links into the report /
+ * caller-callee pickers.
  */
 export class ClarifyDocHoverProvider implements vscode.HoverProvider {
   constructor(private readonly state: ExtensionState) {}
@@ -39,12 +40,15 @@ export class ClarifyDocHoverProvider implements vscode.HoverProvider {
     const idx = await loadFileIndex(this.state.context, folder, rel, facts);
     const def = idx.defs.find((d) => d.symbol === word) ?? idx.defs.find((d) => d.line === line1);
     const uriArg = document.uri.toString();
-    if (def) {
+    const links = def ? linkCommands(idx, def, uriArg) : [];
+    // A class card is only its references, so it shows when there are some.
+    if (def && (def.kind !== "class" || links.length > 0)) {
       any = true;
+      const icon = def.kind === "class" ? "symbol-class" : "symbol-method";
       const complexity = def.complexity !== undefined ? ` — complexity **${def.complexity}**` : "";
-      md.appendMarkdown(`**$(symbol-method) ${def.symbol}**${complexity}\n\n`);
-      const parts = linkCommands(idx, def, uriArg).map((c) => `[${c.title}](${cmd(c.command, c.arguments ?? [])})`);
-      parts.push(`[$(list-tree) Traces](${cmd("clarifydoc.openReportForFile", [uriArg, "traces"])})`);
+      md.appendMarkdown(`**$(${icon}) ${def.symbol}**${complexity}\n\n`);
+      const parts = links.map((c) => `[${c.title}](${cmd(c.command, c.arguments ?? [])})`);
+      if (def.kind !== "class") parts.push(`[$(list-tree) Traces](${cmd("clarifydoc.openReportForFile", [uriArg, "traces"])})`);
       md.appendMarkdown(parts.join(" · "));
     }
 

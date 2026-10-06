@@ -11,9 +11,10 @@ function complexityThreshold(scope: vscode.Uri): number {
 }
 
 /**
- * CodeLens above functions (callers / callees / complexity / open-traces) and
- * routes (method + path + handler → open the report). Lenses only appear where
- * the analyzer has something to say, so trivial code stays uncluttered.
+ * CodeLens above functions (callers / callees / complexity / open-traces),
+ * classes (references) and routes (method + path + handler → open the report).
+ * Lenses only appear where the analyzer has something to say, so trivial code
+ * stays uncluttered.
  */
 export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
   private readonly emitter = new vscode.EventEmitter<void>();
@@ -46,12 +47,12 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     const uriArg = document.uri.toString();
 
     const idx = await loadFileIndex(this.state.context, folder, rel, facts);
-    this.functionLenses(idx, document, uriArg, threshold, lenses, supportsControlFlow(document));
+    this.definitionLenses(idx, document, uriArg, threshold, lenses, supportsControlFlow(document));
     this.routeLenses(facts, document, lenses);
     return lenses;
   }
 
-  private functionLenses(
+  private definitionLenses(
     idx: FileIndex,
     doc: vscode.TextDocument,
     uriArg: string,
@@ -62,10 +63,11 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     for (const def of idx.defs) {
       const links = linkCommands(idx, def, uriArg);
       const hot = def.complexity !== undefined && def.complexity >= threshold;
-      if (links.length === 0 && !hot) continue; // keep trivial functions clean
+      if (links.length === 0 && !hot) continue; // keep trivial code clean
 
       const range = new vscode.Range(Math.max(0, def.line - 1), 0, Math.max(0, def.line - 1), 0);
       for (const command of links) out.push(new vscode.CodeLens(range, command));
+      if (def.kind === "class") continue;
       if (hot) {
         // The number alone tells a reader the function is bad, not where, so
         // the lens goes to the control-flow view — the same number with its
