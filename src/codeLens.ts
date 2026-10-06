@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { loadAnalysis, relPathOf, FileFacts } from "./analysisData";
+import { loadAnalysis, fileIndex, linkCommands, relPathOf, FileFacts, FileIndex } from "./analysisData";
 import { supportsControlFlow } from "./controlFlowSupport";
 
 function enabled(scope: vscode.Uri): boolean {
@@ -45,40 +45,26 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     const lenses: vscode.CodeLens[] = [];
     const uriArg = document.uri.toString();
 
-    this.functionLenses(facts, document, uriArg, threshold, lenses, supportsControlFlow(document));
+    this.functionLenses(fileIndex(facts), document, uriArg, threshold, lenses, supportsControlFlow(document));
     this.routeLenses(facts, document, lenses);
     return lenses;
   }
 
   private functionLenses(
-    facts: FileFacts,
+    idx: FileIndex,
     doc: vscode.TextDocument,
     uriArg: string,
     threshold: number,
     out: vscode.CodeLens[],
     canDrawControlFlow: boolean,
   ): void {
-    for (const fn of facts.functions) {
-      const callers = facts.inbound.filter((l) => l.targetSymbol === fn.functionName).length;
-      const callees = facts.outbound.filter((l) => l.sourceSymbol === fn.functionName).length;
-      const hot = fn.complexity >= threshold;
-      if (callers === 0 && callees === 0 && !hot) continue; // keep trivial functions clean
+    for (const def of idx.defs) {
+      const links = linkCommands(idx, def, uriArg);
+      const hot = def.complexity >= threshold;
+      if (links.length === 0 && !hot) continue; // keep trivial functions clean
 
-      const range = new vscode.Range(Math.max(0, fn.line - 1), 0, Math.max(0, fn.line - 1), 0);
-      if (callers > 0) {
-        out.push(new vscode.CodeLens(range, {
-          title: `$(arrow-left) ${callers} caller${callers === 1 ? "" : "s"}`,
-          command: "clarifydoc.showCallers",
-          arguments: [uriArg, fn.functionName],
-        }));
-      }
-      if (callees > 0) {
-        out.push(new vscode.CodeLens(range, {
-          title: `$(arrow-right) ${callees} callee${callees === 1 ? "" : "s"}`,
-          command: "clarifydoc.showCallees",
-          arguments: [uriArg, fn.functionName],
-        }));
-      }
+      const range = new vscode.Range(Math.max(0, def.line - 1), 0, Math.max(0, def.line - 1), 0);
+      for (const command of links) out.push(new vscode.CodeLens(range, command));
       if (hot) {
         // The number alone tells a reader the function is bad, not where, so
         // the lens goes to the control-flow view — the same number with its
@@ -89,12 +75,12 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
         // rather than one that leads to a view saying it cannot help.
         out.push(new vscode.CodeLens(range, canDrawControlFlow
           ? {
-              title: `$(flame) complexity ${fn.complexity}`,
+              title: `$(flame) complexity ${def.complexity}`,
               command: "clarifydoc.showControlFlow",
-              arguments: [uriArg, fn.functionName, fn.line],
+              arguments: [uriArg, def.symbol, def.line],
             }
           : {
-              title: `$(flame) complexity ${fn.complexity}`,
+              title: `$(flame) complexity ${def.complexity}`,
               command: "clarifydoc.openReportForFile",
               arguments: [doc.uri, "complexity"],
             }));

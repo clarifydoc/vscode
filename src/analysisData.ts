@@ -273,6 +273,86 @@ export async function loadAnalysis(
   return data;
 }
 
+// ─── Per-file definitions and links ──────────────────────────────────────────
+
+/** A function or method in one file, spelled the way symbolLinks spell it: `fn`, `Class.method`. */
+export interface Definition {
+  symbol: string;
+  line: number; // 1-based
+  complexity: number;
+}
+
+/** The other end of a link: a caller's call site, or a callee's definition. */
+export interface LinkEnd {
+  file: string;
+  line: number;
+  symbol: string;
+}
+
+/** What the lens, hover and caller/callee picker read for one file. */
+export interface FileIndex {
+  defs: Definition[];
+  /** symbol → its callers, one per call site. */
+  callers: Map<string, LinkEnd[]>;
+  /** symbol → its callees, one per definition. */
+  callees: Map<string, LinkEnd[]>;
+}
+
+/** Group links by the symbol at this file's end, one row per far end — the rows
+ *  the picker lists, so a lens's count matches it. */
+function indexLinks(
+  links: SymbolLink[],
+  near: (l: SymbolLink) => string,
+  far: (l: SymbolLink) => LinkEnd,
+): Map<string, LinkEnd[]> {
+  const out = new Map<string, LinkEnd[]>();
+  const seen = new Set<string>();
+  for (const l of links) {
+    const symbol = near(l);
+    const end = far(l);
+    const key = `${symbol}\0${end.file}:${end.line}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const rows = out.get(symbol);
+    if (rows) rows.push(end);
+    else out.set(symbol, [end]);
+  }
+  return out;
+}
+
+// Keyed on the summary's FileFacts: a re-analysis writes a new summary, which
+// makes new FileFacts, so the index rebuilds and the old one goes with the old
+// summary.
+const fileIndexes = new WeakMap<FileFacts, FileIndex>();
+
+/** The file's definitions and links, built once per file per analysis. */
+export function fileIndex(facts: FileFacts): FileIndex {
+  let idx = fileIndexes.get(facts);
+  if (!idx) {
+    idx = {
+      defs: facts.functions.map((fn) => ({ symbol: fn.functionName, line: fn.line, complexity: fn.complexity })),
+      callers: indexLinks(facts.inbound, (l) => l.targetSymbol, (l) => ({ file: l.sourceFile, line: l.sourceLine, symbol: l.sourceSymbol })),
+      callees: indexLinks(facts.outbound, (l) => l.sourceSymbol, (l) => ({ file: l.targetFile, line: l.targetLine, symbol: l.targetSymbol })),
+    };
+    fileIndexes.set(facts, idx);
+  }
+  return idx;
+}
+
+function count(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+/** A definition's caller/callee commands, worded once for both the CodeLens and the hover card. */
+export function linkCommands(idx: FileIndex, def: Definition, uriArg: string): vscode.Command[] {
+  const callers = idx.callers.get(def.symbol)?.length ?? 0;
+  const callees = idx.callees.get(def.symbol)?.length ?? 0;
+  const out: vscode.Command[] = [];
+  if (callers > 0) out.push({ title: `$(arrow-left) ${count(callers, "caller")}`, command: "clarifydoc.showCallers", arguments: [uriArg, def.symbol] });
+  if (callees > 0) out.push({ title: `$(arrow-right) ${count(callees, "callee")}`, command: "clarifydoc.showCallees", arguments: [uriArg, def.symbol] });
+  return out;
+}
+
 /** Project-relative, forward-slashed path of a document within a folder (or undefined). */
 export function relPathOf(folder: vscode.WorkspaceFolder, uri: vscode.Uri): string | undefined {
   const rel = path.relative(folder.uri.fsPath, uri.fsPath);
