@@ -1,5 +1,37 @@
 # Change Log
 
+## 0.1.6
+
+Bundles analyzer 0.3.0.
+
+- **Dead code, in every language.** The Health tab gains a *Dead code* section: authored files that no entry
+  point reaches, and, for JS/TS, exports that no other file imports. Each language reaches code its own way:
+  JS/TS and Python follow imports from their real entry points (package.json scripts, console scripts,
+  `__main__`, server commands), Rust follows the `mod` tree, and in C#, Java, PHP, Ruby, Go, C and the rest a
+  file is reached when reachable code names something it declares. Some code is kept alive and never reported:
+  whatever a framework discovers (controllers, handlers, plugins), files run by a tool (configs, migrations,
+  scripts), tests, and a published library's public API. The check favors precision over recall: every
+  finding on the real repositories it was measured on was traced by hand. Agents get the findings from
+  `clarifydoc_health category="dead-code"` and the counts from `clarifydoc_status`.
+- **Calls through dependency injection reach the implementation.** A call like `this.repo.save()` on an
+  injected `IOrderRepository` used to stop at the interface, or not link at all. It now resolves on the
+  receiver's declared type, then through the container registration to the class actually built. Covered
+  containers include MS DI, Autofac, Spring, Guice, Dagger, NestJS/Angular providers, Inversify, Laravel,
+  Symfony, FastAPI `Depends`, wire/fx, Swinject and get_it. When the registrations don't single out one
+  implementation, the call stays on the interface instead of guessing. Call traces and the caller/callee lenses
+  follow these links. Blast radius now also counts implements/extends edges that no import states.
+- **HTTP clients with a base URL** (`axios.create({ baseURL })`, ky, got) now prefix their calls' URLs, so a
+  frontend call links to the right backend route instead of an unrelated one that happens to share its path.
+- **Lenses and hovers in every language.** Ruby, Go, Rust, C/C++, Swift, Dart, VB, Scala, Elixir, Perl and the
+  other regex-extracted languages had no CodeLens or hover at all. They now get callers, callees and *Traces*,
+  but no complexity lens, because complexity needs a syntax tree. On the fixtures, function lenses went from
+  0 to 88 for Ruby, 0 to 46 for Go and 0 to 65 for Perl.
+- **Classes get a references lens** and hover card, counting `extends X`, type positions and `new X`. It opens
+  the caller picker.
+- **Lens counts match the list they open.** The caller lens counted raw links while its picker listed call
+  sites, so Java's `AuthService.authenticate` read "2 callers" but listed one. The lens, hover and picker now
+  read one index, and the hover's "1 callers" now reads "1 caller".
+
 ## 0.1.5
 
 Bundles analyzer 0.2.0 (`clarifydoc --version`; the MCP server's `serverInfo` and every artifact's provenance

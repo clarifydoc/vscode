@@ -83,8 +83,10 @@ workspace is untrusted or read-only, so analysis still works there.
 - **Problems panel** — security findings, high-complexity functions, and layer
   violations appear as diagnostics with squiggles at their exact lines.
 - **CodeLens** — above functions: callers / callees (click to jump), complexity,
-  and *Traces*; above routes: method + path → handler. Above analyzed symbols, a
-  **hover** card summarizes complexity, callers/callees, and findings.
+  and *Traces*; above classes: references; above routes: method + path → handler.
+  Above analyzed symbols, a **hover** card summarizes complexity, callers/callees,
+  and findings. Works in every analyzed language; complexity needs a syntax tree,
+  so regex-extracted languages (Ruby, Go, Rust, …) show no complexity lens.
 - **Drill-down sidebar** — expand Routes / Screens / Security / Complexity
   hotspots / Sub-projects and click any item to open the source at its line.
 - **Go to… quick-pick** (`ClarifyDoc: Go to…`) — fuzzy-jump to any route, screen,
@@ -164,7 +166,7 @@ All under the **ClarifyDoc** category in the Command Palette:
 | `clarifydoc.diagnostics.enabled` | `true` | Show findings in the Problems panel |
 | `clarifydoc.diagnostics.include` | all | Categories: `security`, `complexity`, `layers` |
 | `clarifydoc.diagnostics.complexityThreshold` | `15` | Flag functions at/above this complexity |
-| `clarifydoc.codeLens.enabled` | `true` | CodeLens above functions and routes |
+| `clarifydoc.codeLens.enabled` | `true` | CodeLens above functions, classes and routes |
 | `clarifydoc.hover.enabled` | `true` | ClarifyDoc hover cards |
 | `clarifydoc.incremental` | `true` | Reuse cache for unchanged files |
 | `clarifydoc.enableLsp` | `false` | Layer-2 LSP enhancement (needs Docker) |

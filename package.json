@@ -2,7 +2,7 @@
   "name": "clarifydoc-vscode",
   "displayName": "ClarifyDoc",
   "description": "Map any codebase — frontend route → API endpoint → database — straight from source, without leaving VS Code.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "ClarifyDoc",
   "license": "MIT",
   "icon": "media/icon128.png",
@@ -441,7 +441,7 @@
         "clarifydoc.codeLens.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show CodeLens above functions (callers/callees/complexity/traces) and routes.",
+          "description": "Show CodeLens above functions (callers/callees/complexity/traces), classes (references) and routes.",
           "scope": "resource"
         },
         "clarifydoc.hover.enabled": {
