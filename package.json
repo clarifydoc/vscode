@@ -1,7 +1,7 @@
 {
   "name": "clarifydoc-vscode",
   "displayName": "ClarifyDoc",
-  "description": "Map any codebase — frontend route → API endpoint → database — straight from source, without leaving VS Code.",
+  "description": "Trace any button click to the API it calls and the table it writes. Call traces, blast radius and a code map for Copilot & Claude. 30+ languages, 100% local.",
   "version": "0.1.6",
   "publisher": "ClarifyDoc",
   "license": "MIT",
@@ -24,12 +24,36 @@
     "AI"
   ],
   "keywords": [
+    "architecture",
+    "code-map",
+    "call-graph",
+    "call-hierarchy",
+    "dependency-graph",
+    "data-flow",
+    "er-diagram",
+    "database",
+    "api",
+    "rest",
+    "impact-analysis",
+    "blast-radius",
+    "dead-code",
+    "complexity",
+    "control-flow",
+    "static-analysis",
     "code-analysis",
-    "ast",
+    "codebase",
+    "onboarding",
+    "legacy",
     "reverse-engineering",
     "documentation",
-    "architecture",
-    "dependency-graph"
+    "monorepo",
+    "mcp",
+    "copilot",
+    "claude",
+    "ai-agent",
+    "delphi",
+    "tree-sitter",
+    "visualization"
   ],
   "galleryBanner": {
     "color": "#006dd7",
@@ -323,7 +347,7 @@
       {
         "id": "clarifydoc.gettingStarted",
         "title": "Get started with ClarifyDoc",
-        "description": "Map routes → API → database from your code — no AI, nothing installed, nothing written to your workspace.",
+        "description": "Trace screens → API → database straight from your code. Static analysis, runs locally, nothing extra to install.",
         "steps": [
           {
             "id": "analyze",
