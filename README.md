@@ -1,22 +1,154 @@
 # ClarifyDoc for VS Code
 
-Map any codebase — **frontend route → API endpoint → database** — straight from
-source, without leaving your editor. This extension runs the **ClarifyDoc**
-analyzer (tree-sitter static analysis, no AI) and renders its interactive report
-inside VS Code.
+**Which screen calls this endpoint, and which table does it write?** ClarifyDoc
+answers that for any codebase, straight from the source, without leaving your
+editor.
 
-## Runs isolated — nothing to install, nothing to pollute
+Open a repo you didn't write and ClarifyDoc traces the chains the app actually
+runs: button click → handler → HTTP call → backend route → service → database
+table. It follows them across languages, tiers and repos, then puts the answers
+where you work: in the editor, in an interactive report, and in your AI agent.
+
+```text
+Screen   Checkout · "Place order" click           CheckoutPage.vue
+Handler  onSubmit() → orderService.create()       CheckoutPage.vue
+API      POST /api/orders                         OrdersController.cs
+DI       IOrderService → OrderService             Program.cs
+Entity   Orders · INSERT (+ OrderLines)           OrderService.cs
+```
+
+*One trace, simplified. Every hop links to its file and line.*
+
+## Get started in a minute
+
+1. Install the extension.
+2. Run **ClarifyDoc: Analyze Workspace** from the Command Palette or the
+   ClarifyDoc sidebar.
+3. The interactive report opens beside your code, and CodeLens, hovers and the
+   Problems panel fill in.
+
+No account, no Node.js install, no configuration. The analyzer ships inside the
+extension.
+
+## What you get
+
+### Follow a click all the way to the database
+
+**Screens & UI** and **Call Traces** link each screen, button and handler to the
+API it calls, the backend route that answers, and the table it reads or writes.
+Frontend HTTP calls are matched to backend routes by method and path, even when
+the two live in different repos or languages. Calls through dependency injection
+resolve to the class the container actually builds (MS DI, Spring, NestJS,
+Laravel, FastAPI `Depends` and more), not just to the interface.
+
+### Know what breaks before you change it
+
+**Blast Radius** lists every file a change reaches, with the most tightly
+coupled first. **Impact of Current Git Changes** turns your uncommitted diff into
+the screens, routes, entities and tests it affects, so you can check before you
+open the PR.
+
+### Answers in the editor, where you're reading
+
+- **CodeLens** above every function: callers, callees, complexity and *Traces*.
+  Click to jump. Classes get a references lens; routes show method + path →
+  handler.
+- **Hover cards** with complexity, callers/callees and findings.
+- **Show Control Flow**: click the complexity lens to see the function drawn as a
+  flowchart. Click a node to jump to its line.
+- **Problems panel**: security findings, overly complex functions and layer
+  violations, at their exact lines.
+- **Right-click any file → ClarifyDoc** to open its screens, traces or blast
+  radius in the report.
+- **Go to…**: fuzzy-jump to any route, screen, issue or hotspot.
+
+### See the whole system
+
+The report has tabs for Overview, Screens & UI, Call Traces, Architecture, Data
+Access, Data Model (ER diagram), Routes, Data Flows, Health, Blast Radius,
+Complexity, Insights and Dependencies. Click a file or symbol in the report and
+the source opens beside it. The report is one self-contained `report.html`, so
+you can open it in a browser or send it to someone who doesn't have VS Code.
+
+### Find what's dead, risky or tangled
+
+**Health** grades the project and lists security issues, complexity hotspots,
+patterns, suggestions and dead code: files that no entry point reaches, and
+exports that nothing imports. The dead-code check is tuned for precision, so a
+file that might still be used is left off the list.
+
+### Give your AI agent the real map
+
+Copilot's agent mode picks up the analysis automatically over MCP, with no
+setup. For Claude Code, Cursor or Windsurf, one command writes the config. Your
+agent can then ask which routes exist, who calls a function, what a change
+breaks and which table an endpoint writes, and gets answers with `path:line`
+references instead of guessing from a few open files.
+[Details below.](#ai-agents-mcp)
+
+## Why you can rely on it
+
+- **Deterministic.** The map comes from tree-sitter parsing and pattern-based
+  static analysis. No LLM is involved, so the same code always gives the same
+  map.
+- **Local.** Nothing is uploaded and nothing is sent to a model. No account, no
+  telemetry.
+- **Honest about uncertainty.** Every cross-file link is tagged *extracted*,
+  *inferred* or *ambiguous*, so you know which ones to double-check.
+- **Fast on re-runs.** Files are tracked by content hash and only changed files
+  are re-analyzed. Turn on *Analyze on save* to keep the map current while you
+  work.
+- **Hands off your source.** The analyzer only reads your files and writes to a
+  single self-ignoring `.clarifydoc/` folder.
+- **MIT licensed.**
+
+## Languages and frameworks
+
+30+ languages, mixed freely in one workspace. A Delphi client, a .NET service
+and a React frontend are analyzed as one graph.
+
+| Area | Languages |
+|------|-----------|
+| **Web** | TypeScript, JavaScript, React, Vue, Svelte, Angular, CoffeeScript, HTML |
+| **JVM** | Java, Kotlin, Scala, Groovy, JSP, Spring XML |
+| **.NET** | C#, F#, VB.NET, Blazor, XAML |
+| **Backend & scripting** | Python, PHP, Ruby, Go, Rust, Perl, Lua, Elixir, Erlang, Haskell, Clojure |
+| **Native & mobile** | C, C++, Objective-C, Swift, Dart / Flutter, Qt (QML, `.ui`) |
+| **Legacy & shell** | Delphi / Pascal (incl. DFM forms), VB6, VBScript, PowerShell, Bash, Windows batch |
+| **Data & API contracts** | SQL, Prisma, OpenAPI, GraphQL, WSDL, JSight |
+
+Routes come from Express, NestJS, Next.js, ASP.NET, Spring, Django, FastAPI,
+Flask, Laravel, Rails, Gin, Actix, Axum and others. Tables come from ORMs such as
+EF Core, Hibernate / JPA, TypeORM, Sequelize, Mongoose, Prisma, SQLAlchemy,
+Django ORM, Eloquent, Doctrine, ActiveRecord, GORM and Diesel, as well as from
+plain SQL.
+
+## Built for
+
+- **Onboarding** to a codebase you didn't write.
+- **Legacy modernization**: scoping a rebuild of a system nobody fully remembers.
+- **Refactoring and code review**, with the blast radius in view.
+- **Audits and due diligence**: a full inventory of routes, tables, packages and
+  security findings.
+- **AI-assisted development**: grounding your agent in the architecture you
+  actually have.
+
+---
+
+## How it runs
 
 The analyzer is **bundled inside the extension** and runs in an **isolated
 child process**:
 
 - **No external analyzer.** No global install, no `npx` download, no dependency
-  on a repo checkout — the CLI and all its tree-sitter WASM grammars ship in the
+  on a repo checkout. The CLI and all its tree-sitter WASM grammars ship in the
   VSIX.
 - **No Node.js required.** It uses `node` from your `PATH` if present, otherwise
-  falls back to VS Code's own runtime — so it works out of the box.
+  falls back to VS Code's own runtime, so it works out of the box.
 - **Your source files are never modified.** The analyzer only reads them. What it
-  writes goes to one directory, `.clarifydoc/` in the project — see below.
+  writes goes to one directory, `.clarifydoc/` in the project (see below).
+- **Remote & trust aware.** It runs on the remote/WSL/Codespaces host, requires a
+  trusted workspace to analyze, and declines virtual workspaces.
 
 ## Where the analysis lives
 
@@ -37,6 +169,11 @@ It stays out of your way:
   so the report never turns up in results.
 - **Never analyzed.** `.clarifydoc/` is excluded from discovery, so a scan
   cannot eat its own output.
+
+Prefer the project tree completely untouched? Set `clarifydoc.storage` to
+`global` and everything goes to the extension's private storage
+(`<globalStorage>/analyses/…`) instead. That also happens automatically when the
+workspace is read-only.
 
 ## Excluding code from the map
 
@@ -62,53 +199,7 @@ A `.clarifydocignore` at the project root works too; both files are inherited
 from parent directories, and `.clarifydoc/ignore` is read second in each
 directory so it has the final say.
 
-Prefer the project tree completely untouched? Set `clarifydoc.storage` to
-`global` and everything goes to the extension's private storage
-(`<globalStorage>/analyses/…`) instead. That also happens automatically when the
-workspace is untrusted or read-only, so analysis still works there.
-
-## Features
-
-- **Analyze Workspace** — runs the analyzer on a workspace folder with a
-  cancellable progress notification, streaming output to the "ClarifyDoc" output
-  channel.
-- **Interactive report in the editor** — the self-contained HTML report
-  (Overview, Screens, Call Traces, Architecture, Data Model, Routes,
-  Dependencies, Health, Blast Radius, Patterns, Security, Complexity,
-  Suggestions, Insights) renders in a webview tab, or opens in your browser.
-- **Right-click a file → jump to its view.** From the editor context menu, the
-  **ClarifyDoc** submenu opens the report deep-linked to the current file:
-  *Screens & UI*, *Call Traces*, and *Blast Radius* preselect that file; *Show in
-  Architecture* and *Show Routes* open the corresponding tab.
-- **Problems panel** — security findings, high-complexity functions, and layer
-  violations appear as diagnostics with squiggles at their exact lines.
-- **CodeLens** — above functions: callers / callees (click to jump), complexity,
-  and *Traces*; above classes: references; above routes: method + path → handler.
-  Above analyzed symbols, a **hover** card summarizes complexity, callers/callees,
-  and findings. Works in every analyzed language; complexity needs a syntax tree,
-  so regex-extracted languages (Ruby, Go, Rust, …) show no complexity lens.
-- **Drill-down sidebar** — expand Routes / Screens / Security / Complexity
-  hotspots / Sub-projects and click any item to open the source at its line.
-- **Go to… quick-pick** (`ClarifyDoc: Go to…`) — fuzzy-jump to any route, screen,
-  security issue, or hotspot.
-- **Two-way report sync** — clicking a file/symbol in the report reveals the real
-  source in the editor beside it (no OS prompt).
-- **Remote & trust aware** — runs on the remote/WSL/Codespaces host, requires a
-  trusted workspace, and declines virtual workspaces.
-- **ClarifyDoc sidebar** — an Activity Bar view showing the last analysis at a
-  glance: health grade, headline metrics (files, routes, links, traces, screens,
-  entities, security issues…) and detected frameworks. Loads from storage, so it
-  survives restarts with no re-scan.
-- **Status bar** — the health grade of the primary folder; click to open the
-  report.
-- **Detect Languages & Frameworks** — a fast detection-only pass.
-- **Impact of Current Git Changes** — projects your working-tree changes onto the
-  last analysis and shows the affected screens / routes / entities / tests as a
-  markdown preview.
-- **Analyze on save** *(opt-in)* — incrementally re-analyze a few seconds after
-  you save.
-
-## Your AI agent can read the map too (MCP)
+## AI agents (MCP)
 
 The extension publishes the workspace analysis as a **Model Context Protocol** server, so Copilot's agent mode can ask
 ClarifyDoc for routes, call traces, blast radius, the data model and the impact of the current diff — grounded in
@@ -135,7 +226,7 @@ parsed code, with `path:line` references — instead of inferring it from a few 
   useful immediately; a directory lock keeps that run from colliding with one started here or from the CLI. Turn the
   whole thing off with `clarifydoc.mcp.enabled`.
 
-Tools: `clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_screens`,
+Tools: `clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_contract`, `clarifydoc_screens`,
 `clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_blast_radius`, `clarifydoc_data_model`,
 `clarifydoc_data_flows`, `clarifydoc_health`, `clarifydoc_impact`, `clarifydoc_analyze`.
 
@@ -151,6 +242,7 @@ All under the **ClarifyDoc** category in the Command Palette:
 | Open Report in Browser | Force the external browser |
 | Screens & UI / Call Traces / Blast Radius for This File | Right-click jump, file preselected |
 | Show in Architecture / Show Routes | Right-click jump to that tab |
+| Show Control Flow | Draw the function under the cursor as a flowchart |
 | Go to… | Quick-pick a route / screen / issue / hotspot and jump to it |
 | Detect Languages & Frameworks | Quick detection only |
 | Impact of Current Git Changes | Diff → affected screens/routes/entities |
@@ -182,24 +274,6 @@ All under the **ClarifyDoc** category in the Command Palette:
 | `clarifydoc.mcp.allowAnalyze` | `false` | Let an agent trigger a re-analysis |
 | `clarifydoc.nodePath` | *(auto)* | Node.js executable to run the analyzer |
 | `clarifydoc.cliPath` | *(bundled)* | Advanced: override the bundled analyzer |
-
-## Development
-
-The analyzer is bundled from the parent ClarifyDoc repo, so build the repo
-first, then bundle + compile the extension:
-
-```bash
-# repo root — produces ../dist/cli.js
-npm install && npm run build
-
-# extension
-cd VsCode
-npm install
-npm run build     # runs scripts/bundle-cli.mjs (assembles clarifydoc/) then esbuild
-```
-
-Then press **F5** ("Run ClarifyDoc Extension") to launch an Extension
-Development Host. See [INSTALL.md](INSTALL.md) for install, update, and hot-reload details.
 
 ## Support
 
