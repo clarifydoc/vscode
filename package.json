@@ -1,8 +1,8 @@
 {
   "name": "clarifydoc-vscode",
   "displayName": "ClarifyDoc",
-  "description": "Trace any button click to the API it calls and the table it writes. Call traces, blast radius and a code map for Copilot & Claude. 30+ languages, 100% local.",
-  "version": "0.1.6",
+  "description": "Trace any button click to the API it calls and the table it writes. Call traces, blast radius and a code map for Copilot & Claude. 60+ languages, 100% local.",
+  "version": "0.1.7",
   "publisher": "ClarifyDoc",
   "license": "MIT",
   "icon": "media/icon128.png",
