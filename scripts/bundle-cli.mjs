@@ -30,17 +30,14 @@ const distSrc = join(repoRoot, "dist");
 const dest = join(extRoot, "clarifydoc");
 const rootVersion = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")).version;
 
-/** Grammar packages loaded as WASM — only their package.json + *.wasm are read. */
-const WASM_GRAMMARS = new Set([
-  "tree-sitter-c-sharp",
-  "tree-sitter-java",
-  "tree-sitter-kotlin",
-  "tree-sitter-typescript",
-  "tree-sitter-javascript",
-  "tree-sitter-pascal",
-  "tree-sitter-php",
-  "tree-sitter-python",
-]);
+/**
+ * Grammar packages loaded as WASM — only their package.json + *.wasm are read.
+ * Matched by name, not listed: a hand-kept list missed the OCaml, F#, Julia,
+ * Bash, Zig and R grammars, which then shipped whole (C sources, native
+ * prebuilds — a 45 MB VSIX instead of 5). A grammar with no .wasm fails the
+ * bundle below; one the analyzer never loads belongs in SKIP.
+ */
+const isWasmGrammar = (name) => /(^|\/)tree-sitter-/.test(name);
 
 /**
  * Production deps that exist only to support NATIVE tree-sitter bindings the
@@ -121,7 +118,7 @@ for (const pkgDir of closure) {
   if (SKIP.has(name)) continue;
   mkdirSync(dirname(to), { recursive: true }); // create @scope/ dir when present
 
-  if (WASM_GRAMMARS.has(name)) {
+  if (isWasmGrammar(name)) {
     cpSync(pkgDir, to, {
       recursive: true,
       filter: (src) => statSafe(src)?.isDirectory() || src.endsWith(".wasm") || src.endsWith("package.json"),
