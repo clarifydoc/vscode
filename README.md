@@ -104,17 +104,20 @@ references instead of guessing from a few open files.
 
 ## Languages and frameworks
 
-30+ languages, mixed freely in one workspace. A Delphi client, a .NET service
+60+ languages, mixed freely in one workspace. A Delphi client, a .NET service
 and a React frontend are analyzed as one graph.
 
 | Area | Languages |
 |------|-----------|
-| **Web** | TypeScript, JavaScript, React, Vue, Svelte, Angular, CoffeeScript, HTML |
+| **Web** | TypeScript, JavaScript, React, Vue, Svelte, Angular, CoffeeScript, HTML, SCSS / Sass / Less |
 | **JVM** | Java, Kotlin, Scala, Groovy, JSP, Spring XML |
 | **.NET** | C#, F#, VB.NET, Blazor, XAML |
-| **Backend & scripting** | Python, PHP, Ruby, Go, Rust, Perl, Lua, Elixir, Erlang, Haskell, Clojure |
-| **Native & mobile** | C, C++, Objective-C, Swift, Dart / Flutter, Qt (QML, `.ui`) |
+| **Backend & scripting** | Python, PHP, Ruby, Go, Rust, Perl, Raku, Lua, Elixir, Erlang, Crystal, Haxe |
+| **Functional** | Haskell, OCaml, Clojure, Racket, Scheme, Common Lisp |
+| **Native & mobile** | C, C++, CUDA, Objective-C, Swift, Zig, Nim, D, V, Dart / Flutter, Qt (QML, `.ui`) |
+| **Science & numeric** | R, Julia, Fortran, Mojo |
 | **Legacy & shell** | Delphi / Pascal (incl. DFM forms), VB6, VBScript, PowerShell, Bash, Windows batch |
+| **Desktop automation** | AutoHotkey, AutoIt, AppleScript |
 | **Data & API contracts** | SQL, Prisma, OpenAPI, GraphQL, WSDL, JSight |
 
 Routes come from Express, NestJS, Next.js, ASP.NET, Spring, Django, FastAPI,

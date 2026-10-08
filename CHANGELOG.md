@@ -1,5 +1,44 @@
 # Change Log
 
+## 0.1.7
+
+Bundles analyzer 0.4.0.
+
+- **Frontend calls reach their backend on real apps.** Many real frontends build their URLs in ways the
+  analyzer couldn't follow, so it linked almost none of their calls. It now follows the URL to the route that
+  serves it when a service builds it on a base field (`this.baseUrl + 'series/' + id`, with the base set from an
+  environment file), through a URL helper (also one inherited from a base service), through a request factory
+  (`createFetchHandler('system.status', '/system/status')`), or through a generated OpenAPI client. A
+  `fetch(url, { method: "POST" })` call now carries its verb. On a hand-labelled sample of 73 frontend calls in
+  Kavita, mealie and paperless-ngx, 71 now reach the route that serves them and none link to a wrong one. In
+  0.1.6, none of the 73 linked.
+- **Routes that frameworks assemble across files.** These routes were missing or had the wrong path:
+  - ASP.NET controllers inheriting `[Route("api/[controller]")]` and actions from a base controller, and a
+    project's own routing attributes (Radarr's `[V3ApiController]`).
+  - Django urlconfs and DRF routers (paperless-ngx went from 0 API routes to 189).
+  - FastAPI/Flask routers whose prefix is set where they're included.
+- **More careful links.**
+  - A call is never linked to a route that only serves another HTTP method.
+  - When an endpoint exists both as code and in an OpenAPI spec, the call links to the controller that
+    implements it, not to the spec entry.
+  - A `/v2` call doesn't land on a `/v1` route.
+  - Only real HTTP calls count as API calls, so `request.params.get('page')` no longer does.
+- **About 30 more languages and dialects.** Groovy, PowerShell, Bash, Windows batch, F#, CoffeeScript, R,
+  Julia, Crystal, Zig, OCaml, Raku, Racket, Scheme, Common Lisp, Nim, D, V, Fortran, Haxe, Mojo, SCSS/Sass/Less,
+  AutoHotkey, AutoIt and AppleScript, plus C# scripts, VBScript, CUDA, Scala scripts and Perl tests/PSGI/CGI.
+  Each gets CodeLens, hovers and Call Traces like every other analyzed language.
+- **Fairer health grades on large codebases.** 19 of 22 well-maintained open-source repositories used to grade
+  F, because penalties were raw counts that any big codebase maxed out. Each dimension is now a rate per file,
+  calibrated on real repositories: the median is 78 and none grade F. Tests no longer count against any
+  dimension.
+- **Go, Rust and Ruby imports point at one package.** An import used to connect to every directory with the
+  same last name. Gitea's dependency graph went from 302k edges to 104k, and dead-code results got more
+  accurate as a side effect.
+- **Report fixes.**
+  - A diagram the layout engine can't route no longer blanks the whole report. Instead, that view says why it
+    failed and the other tabs keep working.
+  - Following a file or event handler into Call Traces now filters the list to that file.
+
 ## 0.1.6
 
 Bundles analyzer 0.3.0.
