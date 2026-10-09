@@ -99,16 +99,18 @@ activates.
 
 This is the loop you want while editing the extension's own code.
 
-1. Build the analyzer bundle once (needs the parent repo built first):
+1. Build the analyzer bundle once (needs the CLI built first — it is looked for
+   at `../cli`, or wherever `CLARIFYDOC_CLI_DIR` points):
 
    ```bash
-   # repo root
-   npm install && npm run build      # produces ../dist/cli.js
+   # the CLI (github.com/clarifydoc/cli), checked out at ../cli
+   cd ../cli
+   npm install && npm run build      # produces ../cli/dist/cli.js
 
    # extension
-   cd VsCode
+   cd ../VsCode
    npm install
-   npm run bundle                    # assembles clarifydoc/ from ../dist + wasm grammars
+   npm run bundle                    # assembles clarifydoc/ from ../cli/dist + wasm grammars
    ```
 
    Re-run `npm run bundle` whenever the analyzer changes. (`npm run build` does
@@ -141,7 +143,7 @@ The debugger reattaches automatically after the reload, and breakpoints in
 > window.
 >
 > **Changed the analyzer?** The bundled `clarifydoc/` is *not* rebuilt by the
-> watch task. Re-run `npm run bundle` (after rebuilding `../dist`) and reload the
+> watch task. Re-run `npm run bundle` (after rebuilding `../cli/dist`) and reload the
 > host window.
 
 ### Manual watch (without F5)
