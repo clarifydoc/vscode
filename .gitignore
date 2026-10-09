@@ -3,3 +3,6 @@ out/
 clarifydoc/
 *.vsix
 media/vendor/
+# VS Code build downloaded by the integration tests (@vscode/test-electron).
+.vscode-test/
+.DS_Store
