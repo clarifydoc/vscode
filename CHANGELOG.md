@@ -1,5 +1,54 @@
 # Change Log
 
+## 0.1.8
+
+Bundles analyzer 0.5.0.
+
+- **Calls reach the right service when several serve the same path.** A call used to be linked to a route by
+  its path alone, so when two services both served `/api/items` the link was a guess. Each call now gets an
+  origin: the service it actually reaches. The analyzer finds it from what the code and its configuration state,
+  such as an absolute URL, the HTTP client the call goes through (.NET typed and named clients,
+  `axios.create({ baseURL })`) or the env or config value its base reads (`process.env.ORDERS_URL`,
+  `_config["Services:Inventory"]`). It reads those values from docker-compose and Kubernetes env and from config
+  files such as `appsettings.json` and `launchSettings.json`, then matches the host to a project by service name
+  or port. When the origin is known, the call links only to a route that service serves, never to another
+  service's route.
+- **Through dev proxies and gateways.** A frontend's same-origin `fetch("/api/orders")` is followed through its
+  dev server's proxy (Vite, webpack, Vue CLI, `setupProxy.js`, Angular `proxy.conf.json`, CRA `proxy`). A request
+  that reaches a gateway (YARP, Ocelot) is followed through the gateway's route, with path rewrites, for up to
+  four hops.
+- **Java REST client proxies.** Some calls go to an interface that Spring XML or a client factory (CXF, Jersey,
+  RESTEasy, MicroProfile, Feign) turns into a REST client. These now link to the JAX-RS route that declares the
+  same operation. No URL is needed, because the shared API interface states the operation.
+- **Which service calls which.**
+  - A link that crosses sub-projects names the calling project and the serving one.
+  - In the Architecture tab, the containers view draws the HTTP and message edges between projects, with their
+    endpoints on hover. At the Deployment level, ✓ marks a docker-compose or Kubernetes edge only when calls were
+    found along it.
+  - In the Routes tab, outbound calls show the route the linker chose, and the serving project when it's another
+    one.
+  - Agents get the edges from the new `clarifydoc_services` tool.
+- **Many more calls resolved.** Call Traces and the caller and callee lenses now follow:
+  - chained calls through declared return types (`a.getB().getC().m()`, `Factory::getInstance()->m()`)
+  - locals typed by the call that initializes them (`var u = await repo.FindAsync(id)`)
+  - `super` calls and methods from mixins and traits
+  - re-exports through barrels and `__init__.py`
+  - bare calls to a sibling file in the same Go, Kotlin or Swift package
+  - Elixir aliases, Pascal `uses` and PHP `@return` docblocks
+
+  Across 33 real codebases, resolved calls rose 10% (512,866 to 564,003). On two codebases checked against a
+  language server, the share of its answers the linker now matches rose from 27% to 66% and from 2% to 25%, with
+  no new conflicts.
+- **Delphi forms.** Calls through a form variable (`form: TfrmMain`) and through `TfrmMain.Create(Self)` now reach
+  the form's methods and constructor. Before, the form's `.dfm` made its class name ambiguous. HeidiSQL gains 405
+  links. The main form also stays marked as the app's startup screen after an incremental re-analysis, and agents
+  can ask `clarifydoc_screens` for just the startup forms.
+- **Tabs keep their state.** Switching tabs in the report no longer resets the tab you left: its selection,
+  search, filters, expanded rows, scroll position and graph zoom stay as they were.
+- **"Open in report" lands on the file in every tab.** Before, only three tabs opened at the file. Now *Open the
+  Complexity report for this file* in the control-flow view opens Complexity at that file instead of the whole
+  list, and the route CodeLens opens the Routes tab at its file.
+
 ## 0.1.7
 
 Bundles analyzer 0.4.0.

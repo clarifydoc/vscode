@@ -229,8 +229,8 @@ parsed code, with `path:line` references — instead of inferring it from a few 
   useful immediately; a directory lock keeps that run from colliding with one started here or from the CLI. Turn the
   whole thing off with `clarifydoc.mcp.enabled`.
 
-Tools: `clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_contract`, `clarifydoc_screens`,
-`clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_blast_radius`, `clarifydoc_data_model`,
+Tools: `clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_services`, `clarifydoc_contract`,
+`clarifydoc_screens`, `clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_blast_radius`, `clarifydoc_data_model`,
 `clarifydoc_data_flows`, `clarifydoc_health`, `clarifydoc_impact`, `clarifydoc_analyze`.
 
 ## Commands
