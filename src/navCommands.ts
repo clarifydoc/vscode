@@ -4,16 +4,17 @@ import { showReport } from "./report";
 import { loadAnalysis, loadFileIndex, relPathOf } from "./analysisData";
 import { openSourceAt, absFor } from "./reveal";
 
-const FILE_TABS = new Set(["ui", "traces", "blast"]);
-
-/** Open the report for a file's uri, deep-linked to `tab` (file-focused where supported).
+/** Open the report for a file's uri, deep-linked to `tab` and focused on the file.
+ *  Every report tab takes a `<tab>~<file>` hand-over (Complexity searches for the
+ *  file and unfolds its functions, Routes narrows to it, …), so the file always
+ *  goes along — an allow-list here once silently dropped it for Complexity.
  *  Accepts a Uri (from CodeLens) or a string (from a Markdown command: link in a hover). */
 export async function openReportForFile(state: ExtensionState, uri: vscode.Uri | string, tab: string): Promise<void> {
   if (typeof uri === "string") uri = vscode.Uri.parse(uri);
   const folder = vscode.workspace.getWorkspaceFolder(uri);
   if (!folder) return;
   const rel = relPathOf(folder, uri);
-  const hash = rel && FILE_TABS.has(tab) ? `${tab}~${encodeURIComponent(rel)}` : tab;
+  const hash = rel ? `${tab}~${encodeURIComponent(rel)}` : tab;
   await showReport(state, folder, { hash });
 }
 
