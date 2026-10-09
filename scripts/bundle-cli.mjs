@@ -15,8 +15,10 @@
 //                               • pure-JS deps (commander, fast-glob & closure,
 //                                 web-tree-sitter) → copied whole
 //
-// Run via `npm run bundle` (also invoked by `npm run build`). Requires the repo
-// to have been built first (`npm run build` at the repo root → ../dist/cli.js).
+// Run via `npm run bundle` (also invoked by `npm run build`). Requires the CLI
+// (github.com/clarifydoc/cli) to have been built first (`npm run build` in it →
+// dist/cli.js). It is looked for at ../cli — where the monorepo checks it out —
+// or wherever CLARIFYDOC_CLI_DIR points.
 
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -25,7 +27,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const extRoot = resolve(here, "..");
-const repoRoot = resolve(extRoot, "..");
+const repoRoot = resolve(process.env.CLARIFYDOC_CLI_DIR ?? join(extRoot, "..", "cli"));
 const distSrc = join(repoRoot, "dist");
 const dest = join(extRoot, "clarifydoc");
 const rootVersion = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")).version;
