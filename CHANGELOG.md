@@ -1,5 +1,30 @@
 # Change Log
 
+## 0.1.9
+
+Bundles analyzer 0.6.0.
+
+- **Traces reach the database where they stopped short.** Measured on 34 real codebases, the screen → API →
+  database trace now continues through: Laravel's Eloquent models and relation chains, Rails `before_action`
+  loaders and association chains, Phoenix controllers, Spring WebFlux functional endpoints
+  (`route().GET(…)`), C# repositories over a generic base (`IRepository<Movie>`), Python repositories over a
+  generic base reached through typed properties, Go routes handled by closures, Rust workspace crates imported by
+  package name, Kysely tables, Pascal form tables, and Java `EntityManager` calls naming their class. A Laravel API
+  went from 0 to two thirds of its routes reaching a table; a Rails one from 5% to 36%.
+- **Flutter screens and buttons.** Pages (`Scaffold`, `@RoutePage`, `*Page`), `onPressed`/`onTap` handlers and
+  navigation targets are extracted, and Drift / Isar / Floor / Hive models are entities with their relations — a
+  Flutter app's local database joins the Data Model and the traces.
+- **Vue Options API and Svelte 5.** `methods`, `computed` and lifecycle hooks of an Options API component are
+  functions, so `@click="save"` resolves; Svelte 5 `onclick={…}` attributes are events. Angular external templates
+  no longer appear twice.
+- **Data models.** Ecto schemas with their associations, Go struct associations across files (xorm and GORM),
+  Marr table mappings. An entity named by a dotted module (`Plausible.Site`) matches the code that calls it `Site`.
+- **Complexity for every language.** Functions in regex-analyzed languages (Go, Rust, Ruby, Dart, Elixir, …)
+  now have a cyclomatic complexity, marked approximate; the CodeLens and the Complexity report show them.
+- **Fewer dead-code accusations.** FluentMigrator migrations, BenchmarkDotNet projects, components registered by
+  `unplugin-vue-components`, and pages of a vite file-based router (`VueRouter({ routesFolder })`,
+  `vite-plugin-pages`) are recognised as reached.
+
 ## 0.1.8
 
 Bundles analyzer 0.5.0.
