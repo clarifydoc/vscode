@@ -1,5 +1,33 @@
 # Change Log
 
+## 0.1.10
+
+Bundles analyzer 0.7.0.
+
+- **Server-rendered screens.** Rails `.erb` views, Phoenix templates and LiveViews, Handlebars, Liquid, Velocity
+  and Razor templates are screens now. Their forms, buttons and links join the route they request, so a click traces
+  into the controller and on to the database. JSP forms and `.do`/`.action` links join their actions the same way.
+- **Readable C4 component diagrams.** A dense project is boxed by top folder, and a large folder is split into
+  role groups — controllers / API, services, events / jobs, data access, data models, utils, infrastructure — with
+  the datastores outside. Arrows run between groups, the strongest drawn at rest; hover a group or a module for its
+  own links.
+- **More traces reach the database.** Laravel route-model binding and parent-declared members; Rails
+  `before_action` filters, concerns and memoized models; xorm and GORM session chains; Ecto writes; JPA and
+  Hibernate `persist`/`find`/`merge`; SQL `INSERT`/`UPDATE`/`DELETE` naming their table; EF Core through a context
+  member; a Delphi dataset passed to a routine followed back to its table. A generic `create`/`update` call in
+  JavaScript is data access only when the file has an ORM or driver to show for it.
+- **New routes and frontend links.** ASP.NET Minimal APIs (`MapGet`, `MapGroup`, versions and authorization), Go
+  Huma operations, Rails routes anchored on their controller actions, OpenAPI and WSDL operations joined to the class
+  implementing the generated interface, generated TypeScript SDK clients (hey-api, openapi-fetch) and base-client
+  URLs per subclass.
+- **Event and store hops.** Vuex `dispatch('ns/action')`, React callback props drilled to the parent's handler,
+  Redux `mapDispatchToProps`, Flutter inline `onPressed` closures, Riverpod notifiers, Blazor `@code` methods and
+  MAUI command bindings.
+- **Control-flow graphs for Ruby, Lua, Elixir and VB**, plus cognitive complexity and nesting depth for the
+  regex-analyzed languages.
+- **Fewer dead-code accusations.** Histoire stories, nuxt i18n locale files and C# 14 extension blocks are
+  recognised as reached.
+
 ## 0.1.9
 
 Bundles analyzer 0.6.0.
