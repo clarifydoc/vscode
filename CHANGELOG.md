@@ -17,6 +17,11 @@
   suppress the finding with `clarifydoc-ignore-next-line`. A complex function's quick fix opens its
   control flow, a layer violation's opens the architecture view, and any finding's folder can be left
   out of the analysis.
+- **Find routes, screens and entities with Go to Symbol in Workspace.** Ctrl+T finds an API route by its
+  URL (`get orders`), a screen by name or route, and a data entity by name.
+- **What your changes reach, in Source Control.** A *ClarifyDoc Impact* view beside your changes lists the
+  API routes and screens above the changed files, the data below them and the tests to run, with a risk
+  level and its reasons. It refreshes as git state changes, and its badge counts the affected routes.
 - **One index with the MCP server.** The editor groups the analysis by file with the MCP server's own
   index, so the two always agree.
 

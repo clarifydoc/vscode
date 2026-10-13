@@ -154,8 +154,14 @@
       },
       {
         "command": "clarifydoc.impact",
-        "title": "Impact of Current Git Changes",
+        "title": "Impact of Current Git Changes as Markdown",
         "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.refreshImpact",
+        "title": "Refresh Impact",
+        "category": "ClarifyDoc",
+        "icon": "$(refresh)"
       },
       {
         "command": "clarifydoc.refresh",
@@ -202,6 +208,14 @@
         {
           "id": "clarifydoc.summary",
           "name": "Analysis",
+          "icon": "media/sidebar.svg",
+          "contextualTitle": "ClarifyDoc"
+        }
+      ],
+      "scm": [
+        {
+          "id": "clarifydoc.impact",
+          "name": "ClarifyDoc Impact",
           "icon": "media/sidebar.svg",
           "contextualTitle": "ClarifyDoc"
         }
@@ -312,6 +326,16 @@
           "command": "clarifydoc.openSettings",
           "when": "view == clarifydoc.summary",
           "group": "overflow@7"
+        },
+        {
+          "command": "clarifydoc.refreshImpact",
+          "when": "view == clarifydoc.impact",
+          "group": "navigation@1"
+        },
+        {
+          "command": "clarifydoc.impact",
+          "when": "view == clarifydoc.impact",
+          "group": "overflow@1"
         }
       ],
       "explorer/context": [

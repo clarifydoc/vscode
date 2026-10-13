@@ -16,6 +16,7 @@ interface Labels {
   notCalls: { file: string; line: number }[];
   hierarchy: { file: string; line: number; symbol: string; incoming: string[]; outgoing: string[] }[];
   findings: { file: string; line: number; code: string; reachedFrom: { file: string; lines: number[] }[] }[];
+  symbols: { query: string; name: string; file: string; lines: number[] }[];
 }
 
 /** Diagnostics are published after activation reads the analysis; wait for them. */
@@ -167,6 +168,16 @@ suite(`Cross-tier navigation: ${fixture}`, () => {
       );
       const titles = actions.map((a) => a.title);
       assert.ok(titles.includes("Show the route that reaches this"), JSON.stringify(titles));
+    }
+  });
+
+  test("Go to Symbol in Workspace finds routes by URL and entities by name", async () => {
+    for (const want of labels.symbols) {
+      const found = await vscode.commands.executeCommand<vscode.SymbolInformation[]>("vscode.executeWorkspaceSymbolProvider", want.query);
+      const hit = found.find(
+        (s) => s.name === want.name && relOf(s.location.uri) === want.file && want.lines.includes(s.location.range.start.line + 1),
+      );
+      assert.ok(hit, `${want.query}: ${JSON.stringify(found.map((s) => [s.name, relOf(s.location.uri), s.location.range.start.line + 1]))}`);
     }
   });
 });

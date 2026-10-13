@@ -1,0 +1,104 @@
+/**
+ * The impact of the working-tree changes as a tree: what the Source Control
+ * view shows. Pure, no `vscode` — `impactView.ts` turns nodes into items.
+ */
+
+/** `clarifydoc impact --json` (the analyzer's ImpactDiffResult), as read here. */
+export interface ImpactResult {
+  baseLabel: string;
+  changedFiles: string[];
+  unknownFiles: string[];
+  screens: { name: string; file: string; route: string | null }[];
+  screenCount: number;
+  routes: { method: string | null; path: string; file: string; line: number }[];
+  routeCount: number;
+  entities: string[];
+  entityCount: number;
+  queues: string[];
+  queueCount: number;
+  truncated: boolean;
+  tests: string[];
+  testCount: number;
+  chains: { path: string[]; endsAt: "screen" | "route" }[];
+  risk: { level: "low" | "moderate" | "high"; reasons: string[] };
+}
+
+export type ImpactIcon = "risk" | "route" | "screen" | "data" | "queue" | "test" | "file" | "unknown" | "chain" | "info";
+
+export interface ImpactNode {
+  label: string;
+  description?: string;
+  icon: ImpactIcon;
+  /** Opens this file (project-relative) at `line` when clicked. */
+  file?: string;
+  line?: number;
+  children?: ImpactNode[];
+  /** For the risk node: its level, to color it. */
+  level?: ImpactResult["risk"]["level"];
+}
+
+/** "3" or "3+" when the analyzer capped the list it counted from. */
+function count(n: number, truncated: boolean): string {
+  return `${n}${truncated ? "+" : ""}`;
+}
+
+/** The tree for one impact result. Empty sections are left out. */
+export function impactNodes(r: ImpactResult): ImpactNode[] {
+  if (r.changedFiles.length === 0 && r.unknownFiles.length === 0) {
+    return [{ label: "No changes against the last commit", icon: "info" }];
+  }
+  const out: ImpactNode[] = [];
+  out.push({
+    label: `Risk: ${r.risk.level}`,
+    icon: "risk",
+    level: r.risk.level,
+    children: r.risk.reasons.map((reason) => ({ label: reason, icon: "info" })),
+  });
+  const section = (label: string, total: number, icon: ImpactIcon, children: ImpactNode[]) => {
+    if (children.length) out.push({ label, description: count(total, r.truncated), icon, children });
+  };
+  section(
+    "API routes",
+    r.routeCount,
+    "route",
+    r.routes.map((x) => ({
+      label: [x.method, x.path].filter(Boolean).join(" "),
+      description: x.file,
+      icon: "route",
+      file: x.file,
+      line: x.line,
+    })),
+  );
+  section(
+    "Screens",
+    r.screenCount,
+    "screen",
+    r.screens.map((s) => ({ label: s.name, description: s.route ?? s.file, icon: "screen", file: s.file })),
+  );
+  section("Data", r.entityCount, "data", r.entities.map((e) => ({ label: e, icon: "data" })));
+  section("Queues", r.queueCount, "queue", r.queues.map((q) => ({ label: q, icon: "queue" })));
+  section("Tests to run", r.testCount, "test", r.tests.map((t) => ({ label: t, icon: "test", file: t })));
+  out.push({
+    label: "Changed files",
+    description: String(r.changedFiles.length),
+    icon: "file",
+    children: r.changedFiles.map((f) => ({
+      label: f,
+      icon: "file",
+      file: f,
+      // How this change reaches a screen or route, one sample path each.
+      children: r.chains
+        .filter((c) => c.path[0] === f && c.path.length > 1)
+        .map((c) => ({ label: c.path.slice(1).join(" → "), description: `reaches a ${c.endsAt}`, icon: "chain" as const })),
+    })),
+  });
+  if (r.unknownFiles.length) {
+    out.push({
+      label: "Not in the analysis",
+      description: String(r.unknownFiles.length),
+      icon: "unknown",
+      children: r.unknownFiles.map((f) => ({ label: f, icon: "unknown", file: f })),
+    });
+  }
+  return out;
+}
