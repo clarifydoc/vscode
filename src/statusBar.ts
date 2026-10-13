@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { readSummary } from "./summary";
+import { loadSummary } from "./analysisData";
 import { ExtensionState } from "./state";
 
 /**
@@ -33,7 +33,7 @@ export class StatusBar {
       return;
     }
 
-    const summary = await readSummary(this.state.context, folder);
+    const summary = await loadSummary(this.state.context, folder);
     if (!summary) {
       this.item.text = "$(book) ClarifyDoc";
       this.item.tooltip = "ClarifyDoc: click to analyze this workspace";

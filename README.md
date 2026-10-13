@@ -202,6 +202,12 @@ A `.clarifydocignore` at the project root works too; both files are inherited
 from parent directories, and `.clarifydoc/ignore` is read second in each
 directory so it has the final say.
 
+The quickest way in: right-click a folder in the Explorer → **Ignore Folder in
+ClarifyDoc**. It appends the folder (anchored, `/path/to/folder/`) to the
+workspace's `.clarifydocignore`, which you can commit so the CLI and your team
+skip it too. An ignored folder is not even walked, so a large tree of clones,
+stored data or generated files stops slowing every analysis.
+
 ## AI agents (MCP)
 
 The extension publishes the workspace analysis as a **Model Context Protocol** server, so Copilot's agent mode can ask

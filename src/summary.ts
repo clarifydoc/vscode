@@ -1,7 +1,3 @@
-import * as fs from "fs/promises";
-import { summaryPath } from "./paths";
-import * as vscode from "vscode";
-
 export interface FrameworkInfo {
   name: string;
   confidence?: string;
@@ -34,46 +30,12 @@ function len(v: unknown): number {
 }
 
 /**
- * The set of project-relative file paths in the latest analysis (the on-disk
- * `files[]` registry). Used to tell whether a given editor file was actually
- * analyzed before we try to deep-link to it.
+ * The status bar's view of a project summary, read from the artifact as stored
+ * (schemaVersion 2, normalized). Every field here is a scalar or an array whose
+ * *length* is meaningful regardless of the page_id encoding, so it needs no
+ * denormalizing. Parsed once per summary version by `loadSummary`.
  */
-export async function readFileRegistry(
-  context: vscode.ExtensionContext,
-  folder: vscode.WorkspaceFolder,
-): Promise<Set<string> | undefined> {
-  try {
-    const j = JSON.parse(await fs.readFile(summaryPath(context, folder), "utf8"));
-    return Array.isArray(j.files) ? new Set<string>(j.files) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Read the on-disk project summary. The artifact is normalized
- * (schemaVersion 2), but every field we surface here is either a scalar or an
- * array whose *length* is meaningful regardless of the page_id encoding — so we
- * never need to denormalize.
- */
-export async function readSummary(
-  context: vscode.ExtensionContext,
-  folder: vscode.WorkspaceFolder,
-): Promise<AnalysisSummary | undefined> {
-  let raw: string;
-  try {
-    raw = await fs.readFile(summaryPath(context, folder), "utf8");
-  } catch {
-    return undefined;
-  }
-
-  let j: any;
-  try {
-    j = JSON.parse(raw);
-  } catch {
-    return undefined;
-  }
-
+export function summarize(j: any): AnalysisSummary {
   const frameworks: FrameworkInfo[] = Array.isArray(j.detectedFrameworks)
     ? j.detectedFrameworks.map((f: any) => ({
         name: typeof f === "string" ? f : (f?.name ?? String(f)),

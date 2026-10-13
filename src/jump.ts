@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { ExtensionState } from "./state";
 import { showReport } from "./report";
-import { readFileRegistry } from "./summary";
+import { loadAnalysis } from "./analysisData";
 
 /** Report tabs an editor file can jump into, with a per-file focus. */
 export type JumpTab = "ui" | "traces" | "blast" | "links" | "routes";
@@ -44,8 +44,8 @@ export async function jumpToFileView(state: ExtensionState, tab: JumpTab): Promi
   // If the file isn't in the latest analysis, focusing would silently fall back
   // to the first entry — surface that instead of quietly opening the wrong thing.
   if (canFocus) {
-    const registry = await readFileRegistry(state.context, folder);
-    if (registry && !registry.has(rel)) {
+    const registry = (await loadAnalysis(state.context, folder))?.files;
+    if (registry?.size && !registry.has(rel)) {
       const choice = await vscode.window.showWarningMessage(
         `ClarifyDoc: "${rel}" isn't in the latest analysis of ${folder.name}. Re-analyze to include it?`,
         "Re-analyze",

@@ -6,6 +6,8 @@ import { ExtensionState } from "./state";
 import { showReport } from "./report";
 import { pickWorkspaceFolder } from "./workspace";
 
+const OUTPUT_FLUSH_MS = 250;
+
 export interface AnalyzeOptions {
   /** Force a full (non-incremental) re-scan regardless of the setting. */
   fullRescan?: boolean;
@@ -86,20 +88,34 @@ export async function analyzeWorkspace(
       },
       async (progress, token) => {
         const lspFailures: string[] = [];
+        // --verbose prints a line per file — hundreds of thousands on a big
+        // tree — and each chunk passed on is a round-trip to the output channel
+        // and the notification. Pass them on in batches instead.
+        let pending = "";
+        let timer: NodeJS.Timeout | undefined;
+        const flush = () => {
+          timer = undefined;
+          if (!pending) return;
+          state.output.append(pending);
+          const line = lastMeaningfulLine(pending.slice(-4096));
+          if (line) progress.report({ message: line });
+          pending = "";
+        };
         const result = await runClarifyDoc(cli, args, {
           cwd: folderPath,
           token,
           onOutput: (chunk) => {
-            state.output.append(chunk);
             // The analyzer only warns when a language server cannot start and
             // then continues without it; when the user asked for LSP, that is
             // a result they need to see, not a line in the output channel.
             for (const m of chunk.matchAll(/Failed to start LSP server '([^']+)'/g)) lspFailures.push(m[1]);
             if (/Docker is not available/.test(chunk)) lspFailures.push("docker");
-            const line = lastMeaningfulLine(chunk);
-            if (line) progress.report({ message: line });
+            pending += chunk;
+            timer ??= setTimeout(flush, OUTPUT_FLUSH_MS);
           },
         }).catch((err) => reportSpawnError(err, cli));
+        clearTimeout(timer);
+        flush();
 
         if (!result) return; // cancelled or spawn error already surfaced
 

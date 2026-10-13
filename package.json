@@ -2,7 +2,7 @@
   "name": "clarifydoc-vscode",
   "displayName": "ClarifyDoc",
   "description": "Trace any button click to the API it calls and the table it writes. Call traces, blast radius and a code map for Copilot & Claude. 60+ languages, 100% local.",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "publisher": "ClarifyDoc",
   "license": "MIT",
   "icon": "media/icon128.png",
@@ -87,6 +87,11 @@
         "title": "Analyze Workspace",
         "category": "ClarifyDoc",
         "icon": "$(search-fuzzy)"
+      },
+      {
+        "command": "clarifydoc.ignoreFolder",
+        "title": "Ignore Folder in ClarifyDoc",
+        "category": "ClarifyDoc"
       },
       {
         "command": "clarifydoc.analyzeFull",
@@ -314,11 +319,20 @@
           "command": "clarifydoc.analyze",
           "when": "explorerResourceIsFolder",
           "group": "clarifydoc@1"
+        },
+        {
+          "command": "clarifydoc.ignoreFolder",
+          "when": "explorerResourceIsFolder && !explorerResourceIsRoot",
+          "group": "clarifydoc@2"
         }
       ],
       "commandPalette": [
         {
           "command": "clarifydoc.refresh",
+          "when": "false"
+        },
+        {
+          "command": "clarifydoc.ignoreFolder",
           "when": "false"
         }
       ]

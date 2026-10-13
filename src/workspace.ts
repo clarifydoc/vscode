@@ -6,7 +6,7 @@ import * as vscode from "vscode";
  * the explorer context menu).
  */
 export async function pickWorkspaceFolder(
-  preferred?: vscode.WorkspaceFolder | vscode.Uri,
+  preferred?: unknown,
 ): Promise<vscode.WorkspaceFolder | undefined> {
   const folders = vscode.workspace.workspaceFolders ?? [];
   if (folders.length === 0) {
@@ -14,14 +14,17 @@ export async function pickWorkspaceFolder(
     return undefined;
   }
 
-  if (preferred) {
-    if (preferred instanceof vscode.Uri) {
-      const f = vscode.workspace.getWorkspaceFolder(preferred);
-      if (f) return f;
-    } else {
-      return preferred;
-    }
-  }
+  // A command gets whatever its caller passed: a Uri from the explorer, a
+  // folder from our own code — and from some menus an object that is neither,
+  // which must not be taken for a folder.
+  const uri =
+    preferred instanceof vscode.Uri
+      ? preferred
+      : (preferred as { uri?: unknown } | undefined)?.uri instanceof vscode.Uri
+        ? (preferred as vscode.WorkspaceFolder).uri
+        : undefined;
+  const preferredFolder = uri && vscode.workspace.getWorkspaceFolder(uri);
+  if (preferredFolder) return preferredFolder;
 
   if (folders.length === 1) return folders[0];
 

@@ -3,6 +3,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { pathToFileURL } from "url";
 import { resultsDir, summaryPath } from "./paths";
+import { AnalysisSummary, summarize } from "./summary";
 
 // ─── Shapes we consume (a loose view of the analyzer's ProjectAnalysis) ──────
 export interface FnComplexity {
@@ -108,7 +109,7 @@ function loadDenormalizer(context: vscode.ExtensionContext): Promise<Denormalize
 }
 
 // ─── Per-folder cache keyed by the summary's mtime ───────────────────────────
-const cache = new Map<string, { mtimeMs: number; data: ResolvedAnalysis }>();
+const cache = new Map<string, { mtimeMs: number; loaded: Promise<LoadedSummary | undefined> }>();
 
 function num(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
@@ -239,6 +240,61 @@ function index(p: any): ResolvedAnalysis {
   };
 }
 
+interface LoadedSummary {
+  summary: AnalysisSummary;
+  /** Undefined when the bundled denormalizer can't be loaded. */
+  analysis?: ResolvedAnalysis;
+}
+
+async function parseSummary(context: vscode.ExtensionContext, sp: string): Promise<LoadedSummary | undefined> {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await fs.readFile(sp, "utf8"));
+  } catch {
+    return undefined;
+  }
+  const denorm = await loadDenormalizer(context);
+  let analysis: ResolvedAnalysis | undefined;
+  try {
+    analysis = denorm ? index(denorm(raw)) : undefined;
+  } catch {
+    analysis = undefined;
+  }
+  return { summary: summarize(raw), analysis };
+}
+
+/**
+ * Read a folder's summary once per version and share it. Every view and
+ * provider asks at the same moment — after an analysis, the tree, status bar,
+ * diagnostics and each visible editor's CodeLens — and a large project's
+ * summary is hundreds of MB that JSON.parse holds the extension host for, so
+ * the in-flight load is what is cached, not just its result.
+ */
+function loadSummaryFile(
+  context: vscode.ExtensionContext,
+  folder: vscode.WorkspaceFolder,
+): Promise<LoadedSummary | undefined> {
+  const sp = summaryPath(context, folder);
+  return fs.stat(sp).then(
+    ({ mtimeMs }) => {
+      const hit = cache.get(sp);
+      if (hit && hit.mtimeMs === mtimeMs) return hit.loaded;
+      const loaded = parseSummary(context, sp);
+      const entry = { mtimeMs, loaded };
+      cache.set(sp, entry);
+      // A failed read (a summary caught mid-write) is retried on the next ask.
+      void loaded.then((l) => {
+        if (!l && cache.get(sp) === entry) cache.delete(sp);
+      });
+      return loaded;
+    },
+    () => {
+      cache.delete(sp);
+      return undefined;
+    },
+  );
+}
+
 /**
  * Load and resolve the latest analysis for a folder — path-based, line-bearing
  * data suitable for diagnostics / CodeLens / the sidebar. Returns undefined when
@@ -250,29 +306,15 @@ export async function loadAnalysis(
   context: vscode.ExtensionContext,
   folder: vscode.WorkspaceFolder,
 ): Promise<ResolvedAnalysis | undefined> {
-  const sp = summaryPath(context, folder);
-  let mtimeMs: number;
-  try {
-    mtimeMs = (await fs.stat(sp)).mtimeMs;
-  } catch {
-    cache.delete(sp);
-    return undefined;
-  }
-  const hit = cache.get(sp);
-  if (hit && hit.mtimeMs === mtimeMs) return hit.data;
+  return (await loadSummaryFile(context, folder))?.analysis;
+}
 
-  const denorm = await loadDenormalizer(context);
-  if (!denorm) return undefined;
-
-  let data: ResolvedAnalysis;
-  try {
-    const raw = JSON.parse(await fs.readFile(sp, "utf8"));
-    data = index(denorm(raw));
-  } catch {
-    return undefined;
-  }
-  cache.set(sp, { mtimeMs, data });
-  return data;
+/** The headline numbers of the latest analysis, from the same single read. */
+export async function loadSummary(
+  context: vscode.ExtensionContext,
+  folder: vscode.WorkspaceFolder,
+): Promise<AnalysisSummary | undefined> {
+  return (await loadSummaryFile(context, folder))?.summary;
 }
 
 // ─── Per-file definitions and links ──────────────────────────────────────────
