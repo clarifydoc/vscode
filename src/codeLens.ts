@@ -1,6 +1,9 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { loadAnalysis, loadFileIndex, linkCommands, relPathOf, FileFacts, FileIndex } from "./analysisData";
+import { loadAnalysis, loadFileIndex, linkCommands, relPathOf, FileFacts, FileIndex, ResolvedAnalysis } from "./analysisData";
+import { callersOf, describeRoute, isUncalled, routeData, screensReaching } from "./crossTier";
+import { callerLocations } from "./apiCallProvider";
+import { crossTierEnabled } from "./docFacts";
 import { supportsControlFlow } from "./controlFlowSupport";
 
 function enabled(scope: vscode.Uri): boolean {
@@ -48,7 +51,7 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
 
     const idx = await loadFileIndex(this.state.context, folder, rel, facts);
     this.definitionLenses(idx, document, uriArg, threshold, lenses, supportsControlFlow(document));
-    this.routeLenses(facts, document, lenses);
+    this.routeLenses(facts, document, lenses, analysis!, folder);
     return lenses;
   }
 
@@ -103,16 +106,52 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     return line === undefined ? undefined : new vscode.Range(line, 0, line, 0);
   }
 
-  private routeLenses(facts: FileFacts, doc: vscode.TextDocument, out: vscode.CodeLens[]): void {
+  private routeLenses(
+    facts: FileFacts,
+    doc: vscode.TextDocument,
+    out: vscode.CodeLens[],
+    analysis: ResolvedAnalysis,
+    folder: vscode.WorkspaceFolder,
+  ): void {
+    const crossTier = crossTierEnabled(doc.uri);
     for (const r of facts.routes) {
       const range = this.rangeAt(doc, r.line);
       if (!range) continue;
-      const title = `$(globe) ${[r.httpMethod, r.path].filter(Boolean).join(" ")}${r.handler ? ` → ${r.handler}` : ""}`;
+      const label = `${[r.httpMethod, r.path].filter(Boolean).join(" ")}${r.handler ? ` → ${r.handler}` : ""}`;
       out.push(new vscode.CodeLens(range, {
-        title,
+        title: `$(globe) ${plain(label)}`,
         command: "clarifydoc.openReportForFile",
         arguments: [doc.uri, "routes"],
       }));
+      if (!crossTier) continue;
+
+      // Who calls this endpoint, from which screens, and what it stores.
+      const callers = callersOf(facts, r);
+      const summary = describeRoute(
+        callers.length,
+        screensReaching(analysis.crossTier, callers),
+        routeData(analysis.crossTier, r),
+        isUncalled(analysis.crossTier, r),
+      );
+      if (!summary) continue;
+      out.push(new vscode.CodeLens(range, callers.length
+        ? {
+            title: plain(summary),
+            tooltip: "Show the calls that reach this route",
+            command: "editor.action.showReferences",
+            arguments: [doc.uri, range.start, callerLocations(this.state, folder, callers)],
+          }
+        : {
+            title: plain(summary),
+            tooltip: "Open this route in the report",
+            command: "clarifydoc.openReportForFile",
+            arguments: [doc.uri, "routes"],
+          }));
     }
   }
+}
+
+/** A lens title shows `$(name)` as an icon; text from the analysis must not. */
+function plain(text: string): string {
+  return text.replace(/\$\(/g, "$\u200b(");
 }

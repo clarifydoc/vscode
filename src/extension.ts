@@ -14,6 +14,7 @@ import { pickWorkspaceFolder } from "./workspace";
 import { DiagnosticsManager } from "./diagnostics";
 import { ClarifyDocCodeLensProvider } from "./codeLens";
 import { ClarifyDocHoverProvider } from "./hover";
+import { ApiCallDefinitionProvider, RouteReferenceProvider } from "./apiCallProvider";
 import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
@@ -70,6 +71,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerTreeDataProvider("clarifydoc.summary", tree),
     vscode.languages.registerCodeLensProvider({ scheme: "file" }, new ClarifyDocCodeLensProvider(state)),
     vscode.languages.registerHoverProvider({ scheme: "file" }, new ClarifyDocHoverProvider(state)),
+    vscode.languages.registerDefinitionProvider({ scheme: "file" }, new ApiCallDefinitionProvider(state)),
+    vscode.languages.registerReferenceProvider({ scheme: "file" }, new RouteReferenceProvider(state)),
   );
 
   // ── Commands ──────────────────────────────────────────────────────────

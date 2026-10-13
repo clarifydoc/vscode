@@ -11,8 +11,8 @@ const fixtures = path.resolve(__dirname, "../../test-output");
 const available = fs.existsSync(reader) && fs.existsSync(fixtures);
 
 async function load(fixture: string) {
-  const { loadReportSummary } = await import(pathToFileURL(reader).href);
-  return indexProject(await loadReportSummary(path.join(fixtures, fixture)));
+  const analyzer = await import(pathToFileURL(reader).href);
+  return indexProject(await analyzer.loadReportSummary(path.join(fixtures, fixture)), analyzer.buildIndex);
 }
 
 describe.skipIf(!available)("indexProject on a real summary", () => {

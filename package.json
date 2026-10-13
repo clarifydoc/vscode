@@ -488,6 +488,12 @@
           "description": "Show a ClarifyDoc hover card (complexity, callers/callees, findings) over analyzed symbols.",
           "scope": "resource"
         },
+        "clarifydoc.crossTier.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Navigate across tiers: Go to Definition on an API call opens the backend route that serves it, Find References on a route lists the calls that reach it, and a route's CodeLens and hover show its callers, the screens above them and the data it reads and writes.",
+          "scope": "resource"
+        },
         "clarifydoc.incremental": {
           "type": "boolean",
           "default": true,

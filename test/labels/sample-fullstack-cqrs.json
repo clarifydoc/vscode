@@ -1,0 +1,14 @@
+{
+  "comment": "Written by hand from test-fixtures/sample-fullstack-cqrs, never from the analyzer's output. web/src/api/owners.ts calls the OwnersController actions through an axios client with baseURL /api; GetOwnersQueryHandler reads _db.Owners, CreateOwnerCommandHandler adds to it. Lines are 1-based.",
+  "calls": [
+    { "file": "web/src/api/owners.ts", "line": 15, "url": "/owners", "route": { "file": "Api/Controllers/OwnersController.cs", "line": 15 } },
+    { "file": "web/src/api/owners.ts", "line": 20, "url": "/owners/${id}", "route": { "file": "Api/Controllers/OwnersController.cs", "line": 19 } },
+    { "file": "web/src/api/owners.ts", "line": 25, "url": "/owners", "route": { "file": "Api/Controllers/OwnersController.cs", "line": 27 } }
+  ],
+  "routes": [
+    { "file": "Api/Controllers/OwnersController.cs", "line": 15, "callers": ["web/src/api/owners.ts:15"], "lens": "1 caller · reads Owner" },
+    { "file": "Api/Controllers/OwnersController.cs", "line": 19, "callers": ["web/src/api/owners.ts:20"], "lens": "1 caller · reads Owner" },
+    { "file": "Api/Controllers/OwnersController.cs", "line": 27, "callers": ["web/src/api/owners.ts:25"], "lens": "1 caller · writes Owner" }
+  ],
+  "notCalls": [{ "file": "web/src/api/owners.ts", "line": 16 }]
+}
