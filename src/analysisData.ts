@@ -197,6 +197,19 @@ export interface AnalysisReader {
   /** Absent in an analyzer older than the SARIF export. */
   buildSarif?(issues: readonly SecurityIssue[], toolVersion: string): { runs: Record<string, unknown>[] };
   TOOL_VERSION?: string;
+  /** When to use the MCP tools, as a markdown section for AGENTS.md / CLAUDE.md. */
+  AGENT_GUIDANCE?: string;
+  /** The MCP server's named workflows. */
+  WORKFLOW_PROMPTS?: WorkflowPrompt[];
+}
+
+/** One of the MCP server's workflows: the order of tool calls that answers one question. */
+export interface WorkflowPrompt {
+  name: string;
+  title?: string;
+  description: string;
+  arguments: { name: string; description: string; required?: boolean }[];
+  render(args: Record<string, string>): string;
 }
 let readerPromise: Promise<AnalysisReader | undefined> | undefined;
 

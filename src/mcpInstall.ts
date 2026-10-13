@@ -198,9 +198,9 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
       );
       return;
     }
-    void vscode.window.showInformationMessage(
-      `ClarifyDoc: ${result.message} Restart Claude Code to pick it up.`,
-    );
+    void vscode.window
+      .showInformationMessage(`ClarifyDoc: ${result.message} Restart Claude Code to pick it up.`, GUIDANCE_ACTION)
+      .then((choice) => offerGuidance(choice, folder));
     return;
   }
 
@@ -219,11 +219,20 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
   const choice = await vscode.window.showInformationMessage(
     `ClarifyDoc: added to ${path.basename(target.file)}. Restart ${target.label} to pick it up.`,
     "Open File",
+    GUIDANCE_ACTION,
   );
   if (choice === "Open File") {
     const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(target.file));
     await vscode.window.showTextDocument(doc);
   }
+  await offerGuidance(choice, folder);
+}
+
+/** Installing the server says the tools exist; the guidance says when to use them. */
+const GUIDANCE_ACTION = "Tell Agents When to Use It";
+
+async function offerGuidance(choice: string | undefined, folder: vscode.WorkspaceFolder): Promise<void> {
+  if (choice === GUIDANCE_ACTION) await vscode.commands.executeCommand("clarifydoc.installAgentGuidance", folder);
 }
 
 /**

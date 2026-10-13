@@ -41,6 +41,13 @@
   folder, not only the first.
 - **The report stays where you were.** A report tab comes back after a window reload, at the tab and file
   you had open, and a re-analysis refreshes it in place instead of returning to the first tab.
+- **Tell your agents when to use ClarifyDoc.** *Tell AI Agents When to Use ClarifyDoc* adds a short section
+  to AGENTS.md (or CLAUDE.md, or a Cursor rule) saying which tool answers which question and why text
+  search cannot. It shows the change as a diff first and keeps the section between markers, so running
+  it again updates it. It is also offered after setting up MCP.
+- **Ask an AI agent from the editor.** *Ask an AI Agent…* (right-click → ClarifyDoc) offers the MCP
+  server's workflows — before editing a file, before changing an endpoint, explain a screen's data,
+  trace a feature, review your branch — filled in from where your cursor is, and opens them in the chat.
 - **One index with the MCP server.** The editor groups the analysis by file with the MCP server's own
   index, so the two always agree.
 

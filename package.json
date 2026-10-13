@@ -194,6 +194,17 @@
         "icon": "$(clippy)"
       },
       {
+        "command": "clarifydoc.installAgentGuidance",
+        "title": "Tell AI Agents When to Use ClarifyDoc (AGENTS.md)",
+        "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.askAgent",
+        "title": "Ask an AI Agent…",
+        "category": "ClarifyDoc",
+        "icon": "$(sparkle)"
+      },
+      {
         "command": "clarifydoc.openSettings",
         "title": "Open Settings",
         "category": "ClarifyDoc",
@@ -275,6 +286,10 @@
         {
           "command": "clarifydoc.openReport",
           "group": "3_report@1"
+        },
+        {
+          "command": "clarifydoc.askAgent",
+          "group": "0_agent@1"
         }
       ],
       "view/title": [
