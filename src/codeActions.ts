@@ -5,6 +5,7 @@ import { suppressionLine } from "./comments";
 /** Diagnostic codes that are not security findings. */
 const COMPLEXITY = "complexity";
 const LAYER = "layer-violation";
+const DEAD = "dead-code";
 
 function codeOf(d: vscode.Diagnostic): string | undefined {
   const c = d.code;
@@ -32,6 +33,8 @@ export class ClarifyDocCodeActions implements vscode.CodeActionProvider {
         out.push(command("Show control flow", d, "clarifydoc.showControlFlow", [doc.uri, undefined, line + 1]));
       } else if (code === LAYER) {
         out.push(command("Open the architecture view", d, "clarifydoc.openReportForFile", [doc.uri, "links"]));
+      } else if (code === DEAD) {
+        // Nothing to fix in place: deleting code is the reader's decision.
       } else {
         const routes = (d.relatedInformation ?? []).map((r) => r.location);
         if (routes.length) {

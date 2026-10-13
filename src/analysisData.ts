@@ -70,6 +70,16 @@ export interface LayerViolation {
   severity?: "error" | "warn";
 }
 
+/** What the analyzer judged unreachable (`ProjectAnalysis.deadCode`). */
+export interface DeadCode {
+  /** Languages whose plugin declares a reachability model — only these are judged. */
+  languages: string[];
+  judgedFiles: number;
+  files: { filePath: string; confidence: string; deadImporters: number; lineCount?: number }[];
+  exports: { filePath: string; name: string; kind: string; line: number; usedInFile: boolean }[];
+  skippedProjects?: { root: string; files: number; reason: string }[];
+}
+
 /** An HTTP call to an API, as the analyzer extracted it (`ProjectAnalysis.apiCalls`). */
 export interface ApiCall {
   name: string;
@@ -146,6 +156,8 @@ export interface ResolvedAnalysis {
   byFile: Map<string, FileFacts>;
   /** What cross-tier navigation joins: screens, data flows, unlinked calls, uncalled routes. */
   crossTier: CrossTierData;
+  /** Unreachable files and unused exports, when the analysis judged any language. */
+  deadCode?: DeadCode;
   /** Project types' supertypes and subtypes, from the class graph. */
   types: TypeGraph;
   /** The MCP store's own index (entities by name, reach by symbol, …), for
@@ -324,6 +336,7 @@ export function indexProject(p: any, buildIndex: AnalysisReader["buildIndex"]): 
     byFile,
     crossTier,
     types: typeGraph(p.classGraph),
+    deadCode: p.deadCode && Array.isArray(p.deadCode.files) && Array.isArray(p.deadCode.exports) ? p.deadCode : undefined,
     store,
     files,
   };
