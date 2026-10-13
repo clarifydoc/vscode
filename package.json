@@ -164,6 +164,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "clarifydoc.exportSarif",
+        "title": "Export Security Findings as SARIF",
+        "category": "ClarifyDoc"
+      },
+      {
         "command": "clarifydoc.refresh",
         "title": "Refresh",
         "category": "ClarifyDoc",
@@ -336,6 +341,11 @@
           "command": "clarifydoc.impact",
           "when": "view == clarifydoc.impact",
           "group": "overflow@1"
+        },
+        {
+          "command": "clarifydoc.exportSarif",
+          "when": "view == clarifydoc.summary",
+          "group": "overflow@9"
         }
       ],
       "explorer/context": [

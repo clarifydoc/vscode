@@ -190,10 +190,13 @@ export interface StoreIndex {
   entitiesByName: Map<string, any[]>;
 }
 
-/** The two functions read from the bundled analyzer. */
+/** What is read from the bundled analyzer. */
 export interface AnalysisReader {
   loadReportSummary(dir: string): Promise<any>;
   buildIndex(project: any): StoreIndex;
+  /** Absent in an analyzer older than the SARIF export. */
+  buildSarif?(issues: readonly SecurityIssue[], toolVersion: string): { runs: Record<string, unknown>[] };
+  TOOL_VERSION?: string;
 }
 let readerPromise: Promise<AnalysisReader | undefined> | undefined;
 
@@ -217,6 +220,11 @@ function loadReader(context: vscode.ExtensionContext): Promise<AnalysisReader | 
     if (!r && readerPromise === pending) readerPromise = undefined;
   });
   return pending;
+}
+
+/** The bundled analyzer's API, for features beyond reading the summary. */
+export function loadAnalyzer(context: vscode.ExtensionContext): Promise<AnalysisReader | undefined> {
+  return loadReader(context);
 }
 
 // ─── Per-folder cache keyed by the summary's mtime ───────────────────────────

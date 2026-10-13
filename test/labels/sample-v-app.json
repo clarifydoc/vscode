@@ -22,5 +22,12 @@
   ],
   "symbols": [],
   "types": [],
-  "deadCode": []
+  "deadCode": [],
+  "sarif": [
+    {
+      "ruleId": "clarifydoc/sql-injection",
+      "file": "store.v",
+      "line": 37
+    }
+  ]
 }

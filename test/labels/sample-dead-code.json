@@ -28,5 +28,6 @@
       "lines": 4,
       "includes": "No entry point reaches this file"
     }
-  ]
+  ],
+  "sarif": []
 }
