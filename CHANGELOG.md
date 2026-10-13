@@ -39,6 +39,8 @@
 - **A better first run.** The walkthrough opens once after install, with screenshots of each step. A
   workspace never analyzed gets one quiet offer to analyze it. The MCP set-up offer now looks at every
   folder, not only the first.
+- **The report stays where you were.** A report tab comes back after a window reload, at the tab and file
+  you had open, and a re-analysis refreshes it in place instead of returning to the first tab.
 - **One index with the MCP server.** The editor groups the analysis by file with the MCP server's own
   index, so the two always agree.
 

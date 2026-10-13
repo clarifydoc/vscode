@@ -22,6 +22,7 @@ import { ImpactView } from "./impactView";
 import { ClarifyDocTypeHierarchyProvider } from "./typeHierarchy";
 import { exportSarif } from "./sarifExport";
 import { onboard } from "./onboarding";
+import { registerReportSerializer } from "./reportPanel";
 import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
@@ -71,6 +72,7 @@ export function activate(context: vscode.ExtensionContext): void {
     fireAnalysisChanged: () => analysisChanged.fire(),
   };
 
+  registerReportSerializer(state);
   tree = new SummaryTreeProvider(state);
   new ImpactView(state);
   statusBar = new StatusBar(state);

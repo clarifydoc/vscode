@@ -11,19 +11,25 @@ export const REPORT_CSP =
 
 /**
  * The report HTML as the webview shows it: the CSP first in `<head>`, then —
- * when given — an initial deep-link (`<tab>~<file>`). The deep link is a
+ * when given — what the viewer should keep in its webview state (which folder
+ * it shows, so a reload can restore it) and an initial deep-link
+ * (`<tab>~<file>`). The deep link is a
  * classic `<head>` script that runs during parse, before the viewer's module
  * mounts, and sets `window.__CLARIFYDOC_HASH__`, which the viewer reads first.
  * VS Code webviews can block fragment navigation, so `location.hash` alone is
  * unreliable there; the global always survives (the hash is set too).
  */
-export function prepareReportHtml(html: string, hash?: string): string {
+export function prepareReportHtml(html: string, hash?: string, viewState?: Record<string, string>): string {
+  // JSON is a JS literal; `<` is escaped so a value cannot close the tag.
+  const literal = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c");
   let head = `<meta http-equiv="Content-Security-Policy" content="${REPORT_CSP}">`;
+  const script: string[] = [];
+  if (viewState) script.push(`window.__CLARIFYDOC_VIEW_STATE__=${literal(viewState)};`);
   if (hash) {
-    // JSON is a JS string literal; `<` is escaped so the hash cannot close the tag.
-    const h = JSON.stringify("#" + hash).replace(/</g, "\\u003c");
-    head += `<script>window.__CLARIFYDOC_HASH__=${h};try{location.hash=${h}}catch(e){}</script>`;
+    const h = literal("#" + hash);
+    script.push(`window.__CLARIFYDOC_HASH__=${h};try{location.hash=${h}}catch(e){}`);
   }
+  if (script.length) head += `<script>${script.join("")}</script>`;
   if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => m + head);
   return head + html;
 }
