@@ -64,6 +64,7 @@ function nonce(): string {
 class ControlFlowPanel {
   private shown: Shown | undefined;
   private readonly disposables: vscode.Disposable[] = [];
+  private pending: vscode.CancellationTokenSource | undefined;
 
   constructor(
     private readonly state: ExtensionState,
@@ -102,6 +103,8 @@ class ControlFlowPanel {
 
     panel.onDidDispose(
       () => {
+        this.pending?.cancel();
+        this.pending?.dispose();
         panels.delete(this.key);
         for (const d of this.disposables) d.dispose();
       },
@@ -112,6 +115,18 @@ class ControlFlowPanel {
 
   reveal(): void {
     this.panel.reveal(this.panel.viewColumn ?? vscode.ViewColumn.Beside);
+  }
+
+  /**
+   * A token for the `cfg` run that will fill this panel. Asking again cancels
+   * the previous run — only the newest request is ever drawn — and closing
+   * the panel cancels whatever is still running.
+   */
+  cancellation(): vscode.CancellationToken {
+    this.pending?.cancel();
+    this.pending?.dispose();
+    this.pending = new vscode.CancellationTokenSource();
+    return this.pending.token;
   }
 
   /** Render a graph, replacing whatever the panel was showing. */
@@ -315,12 +330,15 @@ export async function showControlFlow(
   if (functionName) args.push("--function", functionName);
   if (selectedLine !== undefined) args.push("--line", String(selectedLine));
 
-  const cli = resolveCli(state.context.extensionPath);
+  const cli = await resolveCli(state.context.extensionPath);
   const view = panelFor(state, folder);
 
   let result;
   try {
-    result = await runClarifyDoc(cli, args, { cwd: folder.uri.fsPath });
+    result = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Window, title: "ClarifyDoc: building control flow…" },
+      () => runClarifyDoc(cli, args, { cwd: folder.uri.fsPath, token: view.cancellation() }),
+    );
   } catch (error) {
     reportSpawnError(error, cli);
     return;
@@ -340,7 +358,7 @@ export async function showControlFlow(
   try {
     parsed = JSON.parse(result.stdout) as CfgResponse;
   } catch {
-    state.output.appendLine(`ClarifyDoc: could not parse cfg output:\n${result.stdout.slice(0, 500)}`);
+    state.output.error(`[cfg] could not parse cfg output:\n${result.stdout.slice(0, 500)}`);
     view.renderMessage("Control flow unavailable", "The analyzer returned output this view could not read; see the ClarifyDoc output channel.");
     return;
   }

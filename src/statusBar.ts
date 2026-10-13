@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { loadSummary } from "./analysisData";
 import { ExtensionState } from "./state";
+import { escapeMd } from "./markdown";
 
 /**
  * A single left-aligned status bar item summarising the primary folder's last
@@ -46,9 +47,9 @@ export class StatusBar {
     this.item.text = grade ? `$(book) ClarifyDoc: ${grade}` : "$(book) ClarifyDoc";
     this.item.tooltip = new vscode.MarkdownString(
       [
-        `**ClarifyDoc — ${folder.name}**`,
+        `**ClarifyDoc — ${escapeMd(folder.name)}**`,
         "",
-        grade ? `Health: **${grade}** (${summary.health?.score}/100)` : "",
+        grade ? `Health: **${escapeMd(grade)}** (${summary.health?.score}/100)` : "",
         `Files: ${summary.counts.files} · Routes: ${summary.counts.routes} · Links: ${summary.counts.links}`,
         `Traces: ${summary.counts.traces} · Security: ${summary.counts.security}`,
         "",

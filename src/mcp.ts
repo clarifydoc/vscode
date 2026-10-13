@@ -16,8 +16,9 @@ import { ExtensionState } from "./state";
  * agent reads exactly what the sidebar and the report show, with no extra scan
  * and no configuration from the user.
  *
- * VS Code 1.101 finalized `lm.registerMcpServerDefinitionProvider`; on older
- * builds this registers nothing (the analyzer, sidebar and report are
+ * VS Code 1.101 finalized `lm.registerMcpServerDefinitionProvider`. Editors
+ * built on VS Code (Cursor, Windsurf, VSCodium) can satisfy `engines` and still
+ * lack it; there this registers nothing (the analyzer, sidebar and report are
  * unaffected) and the "Copy MCP Server Config" command still works for external
  * agents such as Claude Code.
  */
@@ -66,7 +67,8 @@ function definitionFor(
   );
 }
 
-/** True when this VS Code build has the finalized MCP provider API. */
+/** True when this editor has the finalized MCP provider API — not implied by
+ *  `engines`, since a VS Code fork may report the version without the API. */
 function apiAvailable(): boolean {
   const lm = (vscode as { lm?: { registerMcpServerDefinitionProvider?: unknown } }).lm;
   return (
@@ -99,8 +101,8 @@ export function registerMcpProvider(state: ExtensionState): void {
   );
 
   if (!apiAvailable()) {
-    output.appendLine(
-      "[mcp] this VS Code build has no MCP provider API (needs 1.101+) — " +
+    output.info(
+      "[mcp] this editor has no MCP provider API — " +
         'use "ClarifyDoc: Copy MCP Server Config" to wire up an external agent.',
     );
     return;
@@ -111,13 +113,13 @@ export function registerMcpProvider(state: ExtensionState): void {
 
   const provider: vscode.McpServerDefinitionProvider = {
     onDidChangeMcpServerDefinitions: changed.event,
-    provideMcpServerDefinitions: () => {
+    provideMcpServerDefinitions: async () => {
       if (!getConfig().mcpEnabled) return [];
       const folders = vscode.workspace.workspaceFolders ?? [];
       if (folders.length === 0) return [];
-      const cli = resolveCli(context.extensionPath);
+      const cli = await resolveCli(context.extensionPath);
       if (!bundleAvailable(context.extensionPath) && !getConfig().cliPath) {
-        output.appendLine("[mcp] bundled analyzer missing — not publishing an MCP server");
+        output.warn("[mcp] bundled analyzer missing — not publishing an MCP server");
         return [];
       }
       return folders.map((folder) => definitionFor(context, folder, cli, folders.length > 1));
@@ -125,7 +127,7 @@ export function registerMcpProvider(state: ExtensionState): void {
     // Called immediately before the editor starts the process.
     resolveMcpServerDefinition: (server) => {
       if (!vscode.workspace.isTrusted) {
-        output.appendLine(`[mcp] refusing to start "${server.label}" in an untrusted workspace`);
+        output.warn(`[mcp] refusing to start "${server.label}" in an untrusted workspace`);
         void vscode.window.showWarningMessage(
           "ClarifyDoc: the MCP server runs the bundled analyzer and needs a trusted workspace.",
         );
@@ -133,7 +135,7 @@ export function registerMcpProvider(state: ExtensionState): void {
       }
       // McpServerDefinition also covers HTTP servers, which we never publish.
       if ("command" in server) {
-        output.appendLine(`[mcp] starting "${server.label}": ${server.command} ${server.args.join(" ")}`);
+        output.info(`[mcp] starting "${server.label}": ${server.command} ${server.args.join(" ")}`);
       }
       return server;
     },
@@ -158,7 +160,7 @@ export function registerMcpProvider(state: ExtensionState): void {
     }),
   );
 
-  output.appendLine(`[mcp] published MCP server provider "${MCP_PROVIDER_ID}"`);
+  output.info(`[mcp] published MCP server provider "${MCP_PROVIDER_ID}"`);
 }
 
 /** The workspace folder to configure, asking only when it is ambiguous. */
@@ -185,7 +187,7 @@ async function copyMcpConfig(state: ExtensionState): Promise<void> {
   await writeMcpShim(context, output);
   const json = configJson(serverEntry(state, folder));
   await vscode.env.clipboard.writeText(json);
-  output.appendLine(`[mcp] copied config for ${folder.name}:\n${json}`);
+  output.info(`[mcp] copied config for ${folder.name}:\n${json}`);
   const choice = await vscode.window.showInformationMessage(
     `ClarifyDoc: MCP server config for "${folder.name}" copied to the clipboard.`,
     "Show Output",

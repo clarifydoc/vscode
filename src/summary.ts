@@ -30,10 +30,10 @@ function len(v: unknown): number {
 }
 
 /**
- * The status bar's view of a project summary, read from the artifact as stored
- * (schemaVersion 2, normalized). Every field here is a scalar or an array whose
- * *length* is meaningful regardless of the page_id encoding, so it needs no
- * denormalizing. Parsed once per summary version by `loadSummary`.
+ * The status bar's view of a project summary. Every field here is a scalar or
+ * an array whose *length* is meaningful whether the summary is denormalized or
+ * still in its stored (schemaVersion 2, page-id) encoding, so it reads either.
+ * Built once per summary version by `loadSummary`.
  */
 export function summarize(j: any): AnalysisSummary {
   const frameworks: FrameworkInfo[] = Array.isArray(j.detectedFrameworks)

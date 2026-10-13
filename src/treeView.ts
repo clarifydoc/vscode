@@ -169,9 +169,10 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
   }
 
   private screensGroup(folder: vscode.WorkspaceFolder, a: ResolvedAnalysis): Node {
-    const children = a.screens.map((s) =>
-      this.revealLeaf(folder, s.title || s.filePath, s.filePath, s.line, new vscode.ThemeIcon("browser")),
-    );
+    const children = a.screens.map((s) => {
+      const label = [s.title, s.routePath].filter(Boolean).join(" · ") || s.filePath;
+      return this.revealLeaf(folder, label, s.filePath, s.line, new vscode.ThemeIcon("browser"));
+    });
     return this.group("Screens", a.screens.length, "browser", children);
   }
 

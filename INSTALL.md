@@ -33,12 +33,13 @@ the bundler and esbuild) and a built copy of the parent ClarifyDoc repo — see
 
 ### A. From a packaged `.vsix` (recommended)
 
-A prebuilt package ships in this folder: `clarifydoc-vscode-0.1.8.vsix`.
+A packaged build is named `clarifydoc-vscode-<version>.vsix`, with the version from
+[package.json](package.json). Build one with section B if this folder has none.
 
 **From the terminal:**
 
 ```bash
-code --install-extension clarifydoc-vscode-0.1.8.vsix
+code --install-extension clarifydoc-vscode-<version>.vsix
 ```
 
 **From the VS Code UI:**
@@ -58,7 +59,7 @@ If there's no `.vsix`, or you changed the source:
 cd VsCode
 npm install
 npm run package          # runs the build, then writes clarifydoc-vscode-<version>.vsix
-code --install-extension clarifydoc-vscode-0.1.8.vsix
+code --install-extension clarifydoc-vscode-<version>.vsix
 ```
 
 ---
@@ -73,18 +74,18 @@ installed. Pick one:
 ```bash
 cd VsCode
 npm run package
-code --install-extension clarifydoc-vscode-0.1.8.vsix --force
+code --install-extension clarifydoc-vscode-<version>.vsix --force
 ```
 
 **Clean path — bump the version, then install:**
 
-1. Increase `"version"` in [package.json](package.json) (e.g. `0.1.8` → `0.1.9`).
+1. Increase `"version"` in [package.json](package.json) (e.g. `0.1.11` → `0.1.12`).
 2. Add a note to [CHANGELOG.md](CHANGELOG.md).
 3. Repackage and install:
 
    ```bash
    npm run package
-   code --install-extension clarifydoc-vscode-0.1.8.vsix
+   code --install-extension clarifydoc-vscode-<version>.vsix
    ```
 
 Reload the window (`Developer: Reload Window`) after installing so the new build

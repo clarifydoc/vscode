@@ -71,10 +71,10 @@ function windowsShim(cli: ResolvedCli, version: string): string {
  */
 export async function writeMcpShim(
   context: vscode.ExtensionContext,
-  output: vscode.OutputChannel,
+  output: vscode.LogOutputChannel,
 ): Promise<string | undefined> {
   const target = shimPath(context);
-  const cli = resolveCli(context.extensionPath);
+  const cli = await resolveCli(context.extensionPath);
   const version = String(context.extension?.packageJSON?.version ?? "0.1.0");
   const body = process.platform === "win32" ? windowsShim(cli, version) : posixShim(cli, version);
 
@@ -83,12 +83,12 @@ export async function writeMcpShim(
     const existing = await fs.readFile(target, "utf-8").catch(() => null);
     if (existing !== body) {
       await fs.writeFile(target, body, "utf-8");
-      output.appendLine(`[mcp] wrote launcher ${target} → ${cli.display}`);
+      output.info(`[mcp] wrote launcher ${target} → ${cli.display}`);
     }
     if (process.platform !== "win32") await fs.chmod(target, 0o755);
     return target;
   } catch (err) {
-    output.appendLine(`[mcp] could not write launcher ${target}: ${(err as Error).message}`);
+    output.warn(`[mcp] could not write launcher ${target}: ${(err as Error).message}`);
     return undefined;
   }
 }

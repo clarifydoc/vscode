@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
-import { spawn, spawnSync } from "child_process";
+import { ChildProcess, execFile, spawn } from "child_process";
 import { getConfig } from "./config";
 
 /**
@@ -21,7 +21,7 @@ export interface ResolvedCli {
   display: string;
 }
 
-let cachedResolution: ResolvedCli | null = null;
+let cachedResolution: Promise<ResolvedCli> | null = null;
 
 /** Reset the memoized CLI resolution (call when settings change). */
 export function resetCliResolution(): void {
@@ -50,11 +50,15 @@ export function bundledCliPath(extensionPath: string): string {
  * The bundled analyzer is pure JS + WASM (no native addons), so any of these
  * runs it identically.
  */
-function resolveNode(): { command: string; electronAsNode: boolean } {
+async function resolveNode(): Promise<{ command: string; electronAsNode: boolean }> {
   const cfg = getConfig();
   if (cfg.nodePath) return { command: cfg.nodePath, electronAsNode: false };
-  const probe = spawnSync("node", ["--version"], { stdio: "ignore", windowsHide: true });
-  if (!probe.error && probe.status === 0) return { command: "node", electronAsNode: false };
+  // Probed asynchronously: activation resolves the CLI, and a blocking probe
+  // holds every extension in the host for as long as `node` takes to start.
+  const onPath = await new Promise<boolean>((resolve) => {
+    execFile("node", ["--version"], { windowsHide: true, timeout: 10_000 }, (err) => resolve(!err));
+  });
+  if (onPath) return { command: "node", electronAsNode: false };
   return { command: process.execPath, electronAsNode: true };
 }
 
@@ -63,11 +67,14 @@ function resolveNode(): { command: string; electronAsNode: boolean } {
  *   1. `clarifydoc.cliPath` setting (advanced override — a .js file or binary);
  *   2. the bundled `clarifydoc/dist/cli.js` shipped inside the extension.
  */
-export function resolveCli(extensionPath: string): ResolvedCli {
-  if (cachedResolution) return cachedResolution;
+export function resolveCli(extensionPath: string): Promise<ResolvedCli> {
+  cachedResolution ??= resolveCliUncached(extensionPath);
+  return cachedResolution;
+}
 
+async function resolveCliUncached(extensionPath: string): Promise<ResolvedCli> {
   const cfg = getConfig();
-  const node = resolveNode();
+  const node = await resolveNode();
   const runtime = node.electronAsNode ? "VS Code (Electron-as-Node)" : node.command;
 
   // 1. Advanced override.
@@ -76,32 +83,29 @@ export function resolveCli(extensionPath: string): ResolvedCli {
       ? cfg.cliPath
       : path.resolve(extensionPath, cfg.cliPath);
     if (resolved.endsWith(".js")) {
-      cachedResolution = {
+      return {
         command: node.command,
         baseArgs: [resolved],
         electronAsNode: node.electronAsNode,
         display: `${runtime} ${resolved} (cliPath)`,
       };
-    } else {
-      cachedResolution = {
-        command: resolved,
-        baseArgs: [],
-        electronAsNode: false,
-        display: `${resolved} (cliPath)`,
-      };
     }
-    return cachedResolution;
+    return {
+      command: resolved,
+      baseArgs: [],
+      electronAsNode: false,
+      display: `${resolved} (cliPath)`,
+    };
   }
 
   // 2. Bundled analyzer.
   const bundled = bundledCliPath(extensionPath);
-  cachedResolution = {
+  return {
     command: node.command,
     baseArgs: [bundled],
     electronAsNode: node.electronAsNode,
     display: `${runtime} ${bundled} (bundled)`,
   };
-  return cachedResolution;
 }
 
 /** Whether the bundled analyzer is present (false ⇒ the bundle step didn't run). */
@@ -145,6 +149,23 @@ export interface RunOptions {
   /** Called for each chunk of combined stdout/stderr as it arrives. */
   onOutput?: (chunk: string) => void;
   token?: vscode.CancellationToken;
+  /** Keep stdout in `RunResult.stdout` (default). A command whose output is
+   *  only streamed — `analyze --verbose` prints a line per file — passes false
+   *  rather than holding all of it in the extension host. */
+  captureStdout?: boolean;
+}
+
+/** stderr is kept for error messages; only its tail matters, and a runaway
+ *  warning loop must not grow the extension host without bound. */
+const STDERR_TAIL = 256 * 1024;
+
+/** Every analyzer process still running, so deactivation can stop them. */
+const children = new Set<ChildProcess>();
+
+/** Stop every analyzer process this extension started (on deactivate). */
+export function killAllChildren(): void {
+  for (const child of children) child.kill();
+  children.clear();
 }
 
 /**
@@ -168,6 +189,8 @@ export function runClarifyDoc(
       env,
       windowsHide: true,
     });
+    children.add(child);
+    const captureStdout = opts.captureStdout ?? true;
 
     let stdout = "";
     let stderr = "";
@@ -178,24 +201,30 @@ export function runClarifyDoc(
       child.kill();
     });
 
-    child.stdout?.on("data", (d: Buffer) => {
-      const s = d.toString();
-      stdout += s;
+    // Decoded as a stream, so a multi-byte character split across two chunks
+    // arrives whole.
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (s: string) => {
+      if (captureStdout) stdout += s;
       opts.onOutput?.(s);
     });
-    child.stderr?.on("data", (d: Buffer) => {
-      const s = d.toString();
+    child.stderr?.on("data", (s: string) => {
       stderr += s;
+      if (stderr.length > STDERR_TAIL * 2) stderr = stderr.slice(-STDERR_TAIL);
       opts.onOutput?.(s);
     });
 
     child.on("error", (err) => {
+      children.delete(child);
       cancelSub?.dispose();
       reject(err);
     });
 
     child.on("close", (code) => {
+      children.delete(child);
       cancelSub?.dispose();
+      if (stderr.length > STDERR_TAIL) stderr = stderr.slice(-STDERR_TAIL);
       if (killed) {
         reject(new vscode.CancellationError());
         return;

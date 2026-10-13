@@ -20,3 +20,4 @@ INSTALL.md
 docs/**
 .DS_Store
 **/.DS_Store
+vitest.config.mts

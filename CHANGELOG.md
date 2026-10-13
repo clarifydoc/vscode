@@ -1,5 +1,28 @@
 # Change Log
 
+## Unreleased
+
+- **Layer violations reach the Problems panel.** The extension read field names the analyzer never wrote,
+  so no layer-violation diagnostic ever appeared. Each one now names the import and the layers it crosses,
+  plus the team rule it breaks when there is one.
+- **The same analysis as the report and MCP.** The summary is read the way the report and the MCP server
+  read it, including a current LSP enhancement. A summary that cannot be read is logged with its reason,
+  and retried, instead of silently leaving the views empty.
+- **Findings stay on their line while you edit.** Diagnostics, CodeLens and the hover card follow the code
+  they were computed for until the next analysis, instead of staying at a line number that now names
+  different code.
+- **Analyze on save, quieter and complete.** It watches every file type the analyzer reads, not a fixed
+  list of 24. A change made during a run starts one more run instead of being dropped. Automatic runs show
+  progress in the status bar, refresh an open report and never open one.
+- **Safer report and hover.** The report runs under a Content Security Policy and loads nothing from disk.
+  It can only open files inside the workspace folder. Text from the analyzed code is escaped in hover
+  cards, and their links can run only ClarifyDoc's own commands.
+- **No blocking at startup.** Finding Node and the `claude` CLI no longer blocks the extension host.
+  Closing the window stops a running analysis. Report generation, framework detection and impact can be
+  cancelled.
+- **Leveled log.** The ClarifyDoc output is a log channel with levels, so warnings and errors stand out
+  and the level can be set.
+
 ## 0.1.11
 
 Bundles analyzer 0.7.0, which now skips folders in `.clarifydocignore` without walking them.

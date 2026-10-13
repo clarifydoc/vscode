@@ -4,34 +4,19 @@ import * as path from "path";
 import { reportPath, projectName } from "./paths";
 import { ExtensionState } from "./state";
 import { openSourceAt } from "./reveal";
+import { relativeInside } from "./pathUtil";
+import { prepareReportHtml } from "./reportHtml";
 
 /** One reusable webview panel per workspace folder path. */
 const panels = new Map<string, vscode.WebviewPanel>();
-
-/**
- * Inject an initial deep-link (`<tab>~<file>`) into the report HTML so the viewer
- * opens on a specific tab / file. A classic `<head>` script runs during parse —
- * before the viewer's deferred module mounts — and sets a `window.__CLARIFYDOC_HASH__`
- * global that the viewer reads first. VS Code webviews can block fragment
- * navigation, so `location.hash` alone is unreliable here; the global always
- * survives (we still set the hash too, for good measure).
- */
-function withInitialHash(html: string, hash?: string): string {
-  if (!hash) return html;
-  const h = JSON.stringify("#" + hash);
-  const script =
-    `<script>window.__CLARIFYDOC_HASH__=${h};try{location.hash=${h}}catch(e){}</script>`;
-  if (/<head[^>]*>/i.test(html)) {
-    return html.replace(/<head[^>]*>/i, (m) => m + script);
-  }
-  return script + html;
-}
+/** The deep link each panel was last opened at, re-applied when it reloads. */
+const lastHash = new Map<string, string | undefined>();
 
 /**
  * Show the interactive report for a folder in a webview editor tab, optionally
  * deep-linked to a tab/file via `hash`. The report is a fully self-contained
- * single HTML file (all CSS/JS/data inlined, no CSP meta, no external requests),
- * so we drop its contents straight into the webview with scripts enabled.
+ * single HTML file (all CSS/JS/data inlined, no external requests); it is shown
+ * under a CSP that allows exactly that (`REPORT_CSP`) and no local resources.
  */
 export async function openReport(
   state: ExtensionState,
@@ -42,7 +27,7 @@ export async function openReport(
 
   let html: string;
   try {
-    html = withInitialHash(await fs.readFile(file, "utf8"), hash);
+    html = prepareReportHtml(await fs.readFile(file, "utf8"), hash);
   } catch {
     const choice = await vscode.window.showWarningMessage(
       `ClarifyDoc: no report found for ${folder.name}. Analyze it first.`,
@@ -55,6 +40,7 @@ export async function openReport(
   }
 
   const key = folder.uri.fsPath;
+  lastHash.set(key, hash);
   const existing = panels.get(key);
   if (existing) {
     // Reassigning html reloads the webview, so the injected hash re-seeds the
@@ -70,6 +56,8 @@ export async function openReport(
     vscode.ViewColumn.Active,
     {
       enableScripts: true,
+      // Everything the report needs is inline; it may load nothing from disk.
+      localResourceRoots: [],
       // Keep the tab's state (open tab, scroll, selection) when hidden instead
       // of reloading the multi-MB payload every time it regains focus.
       retainContextWhenHidden: true,
@@ -80,20 +68,32 @@ export async function openReport(
 
   // Two-way sync: a click on a file/symbol in the report reveals it in the editor,
   // resolved against this folder (the report's file paths are folder-relative).
-  panel.webview.onDidReceiveMessage(
-    (msg: { type?: string; file?: string; line?: number }) => {
-      if (msg?.type !== "clarifydoc:open" || !msg.file) return;
-      const abs = path.isAbsolute(msg.file) ? msg.file : path.join(folder.uri.fsPath, msg.file);
-      void openSourceAt(abs, msg.line, vscode.ViewColumn.Beside);
-    },
-    undefined,
-    state.context.subscriptions,
-  );
+  // The page is built from the analyzed repository's contents, so a path it
+  // sends is opened only when it stays inside the folder.
+  const onMessage = panel.webview.onDidReceiveMessage((msg: { type?: string; file?: unknown; line?: unknown }) => {
+    if (msg?.type !== "clarifydoc:open" || typeof msg.file !== "string") return;
+    const rel = relativeInside(folder.uri.fsPath, msg.file);
+    if (!rel) {
+      state.output.warn(`[report] refused to open ${msg.file}: outside ${folder.uri.fsPath}`);
+      return;
+    }
+    const line = typeof msg.line === "number" ? msg.line : undefined;
+    void openSourceAt(path.join(folder.uri.fsPath, rel), line, vscode.ViewColumn.Beside);
+  });
 
   panels.set(key, panel);
   panel.onDidDispose(() => {
-    if (panels.get(key) === panel) panels.delete(key);
+    onMessage.dispose();
+    if (panels.get(key) === panel) {
+      panels.delete(key);
+      lastHash.delete(key);
+    }
   });
+}
+
+/** Whether a report panel is open for the folder. */
+export function hasOpenReport(folder: vscode.WorkspaceFolder): boolean {
+  return panels.has(folder.uri.fsPath);
 }
 
 /** Refresh any open report webview whose file changed (e.g. after re-analysis). */
@@ -101,10 +101,12 @@ export async function refreshOpenReport(
   context: vscode.ExtensionContext,
   folder: vscode.WorkspaceFolder,
 ): Promise<void> {
-  const panel = panels.get(folder.uri.fsPath);
+  const key = folder.uri.fsPath;
+  const panel = panels.get(key);
   if (!panel) return;
   try {
-    panel.webview.html = await fs.readFile(reportPath(context, folder), "utf8");
+    // Reloading would drop the deep link the panel was opened at; re-apply it.
+    panel.webview.html = prepareReportHtml(await fs.readFile(reportPath(context, folder), "utf8"), lastHash.get(key));
   } catch {
     /* report was removed; leave the last-rendered content in place */
   }

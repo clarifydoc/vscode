@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { ExtensionState } from "./state";
-import { loadAnalysis, ResolvedAnalysis, SecurityIssue } from "./analysisData";
+import { LayerViolation, loadAnalysis, ResolvedAnalysis, SecurityIssue } from "./analysisData";
 
 const FULL_LINE_END = 1_000_000; // Range end col; VS Code clamps to the real line length.
 
@@ -42,10 +42,32 @@ function lineRange(line1Based: number): vscode.Range {
   return new vscode.Range(l, 0, l, FULL_LINE_END);
 }
 
+/** The same finding at another line (the file was edited since the analysis). */
+function movedTo(d: vscode.Diagnostic, line: number): vscode.Diagnostic {
+  const out = new vscode.Diagnostic(new vscode.Range(line, 0, line, FULL_LINE_END), d.message, d.severity);
+  out.source = d.source;
+  out.code = d.code;
+  out.tags = d.tags;
+  out.relatedInformation = d.relatedInformation;
+  return out;
+}
+
 function securityDiag(issue: SecurityIssue): vscode.Diagnostic {
   const d = new vscode.Diagnostic(lineRange(issue.line), issue.message, severityFor(issue.severity));
   d.source = "ClarifyDoc";
   d.code = issue.category;
+  return d;
+}
+
+function layerDiag(v: LayerViolation): vscode.Diagnostic {
+  const what = v.importSpecifier ? `imports ${v.importSpecifier}` : "Layer violation";
+  const layers = v.sourceLayer && v.targetLayer ? ` (${v.sourceLayer} → ${v.targetLayer})` : "";
+  const rule = v.rule ? ` — breaks rule "${v.rule}"` : "";
+  // A team rule says how much it matters; the built-in layer order is a warning.
+  const severity = v.rule && v.severity === "warn" ? vscode.DiagnosticSeverity.Information : vscode.DiagnosticSeverity.Warning;
+  const d = new vscode.Diagnostic(lineRange(v.line), `${what}${layers}${rule}`, severity);
+  d.source = "ClarifyDoc";
+  d.code = "layer-violation";
   return d;
 }
 
@@ -56,6 +78,10 @@ function securityDiag(issue: SecurityIssue): vscode.Diagnostic {
  */
 export class DiagnosticsManager {
   private readonly collection: vscode.DiagnosticCollection;
+  /** Bumped by every refresh; a refresh that finds it moved on drops its result. */
+  private generation = 0;
+  /** Each file's findings at the lines the analysis gave them. */
+  private base = new Map<string, vscode.Diagnostic[]>();
 
   constructor(private readonly state: ExtensionState) {
     this.collection = vscode.languages.createDiagnosticCollection("clarifydoc");
@@ -66,23 +92,57 @@ export class DiagnosticsManager {
         if (e.affectsConfiguration("clarifydoc.diagnostics")) void this.refresh();
       }),
       vscode.workspace.onDidChangeWorkspaceFolders(() => void this.refresh()),
+      state.lines.onDidChange((uri) => {
+        if (this.base.has(uri.toString())) this.publish(uri.toString());
+      }),
     );
   }
 
-  /** Rebuild diagnostics for every workspace folder from its latest analysis. */
+  /** Show a file's findings where its lines are now. */
+  private publish(key: string): void {
+    const uri = vscode.Uri.parse(key);
+    const diags = this.base.get(key) ?? [];
+    if (!this.state.lines.isEdited(uri)) {
+      this.collection.set(uri, diags);
+      return;
+    }
+    const moved: vscode.Diagnostic[] = [];
+    for (const d of diags) {
+      const line = this.state.lines.map(uri, d.range.start.line);
+      if (line !== undefined) moved.push(line === d.range.start.line ? d : movedTo(d, line));
+    }
+    this.collection.set(uri, moved);
+  }
+
+  /**
+   * Rebuild diagnostics for every workspace folder from its latest analysis.
+   * The whole set is built first and swapped in at once, so the Problems panel
+   * never shows a half-cleared state, and a refresh overtaken by a newer one
+   * (two analyses finishing close together) is dropped instead of
+   * interleaving with it.
+   */
   async refresh(): Promise<void> {
-    this.collection.clear();
+    const generation = ++this.generation;
+    const byUri = new Map<string, vscode.Diagnostic[]>();
     for (const folder of vscode.workspace.workspaceFolders ?? []) {
       const s = diagSettings(folder.uri);
       if (!s.enabled) continue;
       const analysis = await loadAnalysis(this.state.context, folder);
+      if (generation !== this.generation) return;
       if (!analysis) continue;
-      this.populateFolder(folder, analysis, s);
+      this.populateFolder(folder, analysis, s, byUri);
     }
+    this.base = byUri;
+    this.collection.clear();
+    for (const key of byUri.keys()) this.publish(key);
   }
 
-  private populateFolder(folder: vscode.WorkspaceFolder, a: ResolvedAnalysis, s: DiagSettings): void {
-    const byUri = new Map<string, vscode.Diagnostic[]>();
+  private populateFolder(
+    folder: vscode.WorkspaceFolder,
+    a: ResolvedAnalysis,
+    s: DiagSettings,
+    byUri: Map<string, vscode.Diagnostic[]>,
+  ): void {
     const push = (relFile: string, d: vscode.Diagnostic) => {
       const abs = path.join(folder.uri.fsPath, relFile);
       const key = vscode.Uri.file(abs).toString();
@@ -108,19 +168,7 @@ export class DiagnosticsManager {
       }
     }
     if (s.include.layers) {
-      for (const v of a.layerViolations) {
-        if (!v.filePath || v.line === undefined) continue;
-        const d = new vscode.Diagnostic(
-          lineRange(v.line),
-          v.message ?? `Layer violation${v.from && v.to ? ` (${v.from} → ${v.to})` : ""}`,
-          vscode.DiagnosticSeverity.Warning,
-        );
-        d.source = "ClarifyDoc";
-        d.code = "layer-violation";
-        push(v.filePath, d);
-      }
+      for (const v of a.layerViolations) push(v.sourceFile, layerDiag(v));
     }
-
-    for (const [uri, diags] of byUri) this.collection.set(vscode.Uri.parse(uri), diags);
   }
 }

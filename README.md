@@ -280,7 +280,7 @@ All under the **ClarifyDoc** category in the Command Palette:
 | `clarifydoc.excludeGlobs` | `[]` | Extra exclude globs |
 | `clarifydoc.openReportAfterAnalyze` | `true` | Auto-open the report after analysis |
 | `clarifydoc.reportLocation` | `editor` | `editor` (webview) or `browser` |
-| `clarifydoc.analyzeOnSave` | `false` | Re-analyze shortly after each save |
+| `clarifydoc.analyzeOnSave` | `false` | Re-analyze a few seconds after source files change on disk — saves, branch switches, generated files. Runs quietly; an open report is refreshed |
 | `clarifydoc.mcp.enabled` | `true` | Publish the analysis to AI agents over MCP |
 | `clarifydoc.mcp.allowAnalyze` | `false` | Let an agent trigger a re-analysis |
 | `clarifydoc.nodePath` | *(auto)* | Node.js executable to run the analyzer |

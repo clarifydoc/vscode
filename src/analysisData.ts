@@ -4,6 +4,7 @@ import * as path from "path";
 import { pathToFileURL } from "url";
 import { resultsDir, summaryPath } from "./paths";
 import { AnalysisSummary, summarize } from "./summary";
+import { relativeInside } from "./pathUtil";
 
 // ─── Shapes we consume (a loose view of the analyzer's ProjectAnalysis) ──────
 export interface FnComplexity {
@@ -45,14 +46,22 @@ export interface SymbolLink {
 export interface ScreenInfo {
   filePath: string;
   title?: string;
+  /** The frontend route the screen is served at, when it has one. */
+  routePath?: string;
+  /** Screens carry no line of their own; set only when a source gives one. */
   line?: number;
 }
+/** An import that crosses the layer order, or a team rule (`.clarifydoc/config.json` `rules`). */
 export interface LayerViolation {
-  filePath?: string;
-  from?: string;
-  to?: string;
-  message?: string;
-  line?: number;
+  sourceFile: string;
+  line: number;
+  sourceLayer?: string;
+  targetFile?: string;
+  targetLayer?: string;
+  importSpecifier?: string;
+  /** The team rule this import breaks; absent for the built-in layer-order check. */
+  rule?: string;
+  severity?: "error" | "warn";
 }
 
 /** Everything a source file needs, pre-indexed for the providers. */
@@ -95,17 +104,45 @@ export interface ResolvedAnalysis {
   files: Set<string>;
 }
 
-// ─── Lazy, one-time load of the bundled analyzer's denormalizer ──────────────
-type Denormalize = (raw: unknown) => any;
-let denormPromise: Promise<Denormalize | undefined> | undefined;
+// ─── Logging (wired by extension.ts; silent until then) ──────────────────────
+type Log = (level: "info" | "warn" | "error", message: string) => void;
+let log: Log = () => {};
 
-function loadDenormalizer(context: vscode.ExtensionContext): Promise<Denormalize | undefined> {
-  if (denormPromise) return denormPromise;
+export function setAnalysisLog(fn: Log): void {
+  log = fn;
+}
+
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+// ─── Lazy load of the bundled analyzer's summary reader ──────────────────────
+/** `loadReportSummary` reads `project-summary.json`, denormalizes it and merges
+ *  a current `lsp-enhancement.json` — the same object the MCP server and the
+ *  report read, so the editor never disagrees with them. */
+type LoadReportSummary = (dir: string) => Promise<any>;
+let readerPromise: Promise<LoadReportSummary | undefined> | undefined;
+
+function loadReader(context: vscode.ExtensionContext): Promise<LoadReportSummary | undefined> {
+  if (readerPromise) return readerPromise;
   const indexPath = path.join(context.extensionPath, "clarifydoc", "dist", "index.js");
-  denormPromise = import(pathToFileURL(indexPath).href)
-    .then((m) => (typeof m.denormalizeProject === "function" ? (m.denormalizeProject as Denormalize) : undefined))
-    .catch(() => undefined);
-  return denormPromise;
+  const pending: Promise<LoadReportSummary | undefined> = import(pathToFileURL(indexPath).href).then(
+    (m) => {
+      if (typeof m.loadReportSummary === "function") return m.loadReportSummary as LoadReportSummary;
+      log("error", `[analysis] ${indexPath} has no loadReportSummary — the bundled analyzer is too old`);
+      return undefined;
+    },
+    (err) => {
+      log("error", `[analysis] could not load the bundled analyzer (${indexPath}): ${errorText(err)}`);
+      return undefined;
+    },
+  );
+  // A failed load is not remembered: the next summary read tries again.
+  readerPromise = pending;
+  void pending.then((r) => {
+    if (!r && readerPromise === pending) readerPromise = undefined;
+  });
+  return pending;
 }
 
 // ─── Per-folder cache keyed by the summary's mtime ───────────────────────────
@@ -115,7 +152,8 @@ function num(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
-function index(p: any): ResolvedAnalysis {
+/** Index a loaded (denormalized) project summary for the views and providers. */
+export function indexProject(p: any): ResolvedAnalysis {
   const byFile = new Map<string, FileFacts>();
   const facts = (f: string): FileFacts => {
     let e = byFile.get(f);
@@ -193,17 +231,26 @@ function index(p: any): ResolvedAnalysis {
 
   const screens: ScreenInfo[] = (p.screens ?? [])
     .filter((s: any) => typeof s?.filePath === "string")
-    .map((s: any) => ({ filePath: s.filePath, title: s.title ?? s.name, line: num(s.line) }));
+    .map((s: any) => ({
+      filePath: s.filePath,
+      title: typeof s.name === "string" ? s.name : undefined,
+      routePath: typeof s.routePath === "string" ? s.routePath : undefined,
+    }));
 
-  const layerViolations: LayerViolation[] = (p.layerViolations ?? []).map((v: any) => ({
-    filePath: v.filePath ?? v.file,
-    from: v.from ?? v.fromLayer,
-    to: v.to ?? v.toLayer,
-    message: v.message ?? v.reason,
-    line: num(v.line),
-  }));
-  for (const v of layerViolations) {
-    if (v.filePath) facts(v.filePath); // ensure the file bucket exists
+  const layerViolations: LayerViolation[] = [];
+  for (const v of p.layerViolations ?? []) {
+    if (typeof v?.sourceFile !== "string" || num(v.line) === undefined) continue;
+    layerViolations.push({
+      sourceFile: v.sourceFile,
+      line: v.line,
+      sourceLayer: v.sourceLayer,
+      targetFile: v.targetFile,
+      targetLayer: v.targetLayer,
+      importSpecifier: v.importSpecifier,
+      rule: v.rule,
+      severity: v.severity === "warn" || v.severity === "error" ? v.severity : undefined,
+    });
+    facts(v.sourceFile); // ensure the file bucket exists
   }
 
   const frameworks = (p.detectedFrameworks ?? []).map((f: any) =>
@@ -242,25 +289,31 @@ function index(p: any): ResolvedAnalysis {
 
 interface LoadedSummary {
   summary: AnalysisSummary;
-  /** Undefined when the bundled denormalizer can't be loaded. */
+  /** Undefined when the bundled analyzer cannot be loaded or the summary cannot be indexed. */
   analysis?: ResolvedAnalysis;
 }
 
 async function parseSummary(context: vscode.ExtensionContext, sp: string): Promise<LoadedSummary | undefined> {
-  let raw: unknown;
+  const reader = await loadReader(context);
+  let project: any;
   try {
-    raw = JSON.parse(await fs.readFile(sp, "utf8"));
-  } catch {
+    // Without the bundled reader the headline counts still show: every count
+    // is an array length, which the stored encoding does not change.
+    project = reader ? await reader(path.dirname(sp)) : JSON.parse(await fs.readFile(sp, "utf8"));
+  } catch (err) {
+    // A summary caught mid-write fails to parse; loadSummaryFile retries it.
+    log("warn", `[analysis] could not read ${sp}: ${errorText(err)}`);
     return undefined;
   }
-  const denorm = await loadDenormalizer(context);
   let analysis: ResolvedAnalysis | undefined;
-  try {
-    analysis = denorm ? index(denorm(raw)) : undefined;
-  } catch {
-    analysis = undefined;
+  if (reader) {
+    try {
+      analysis = indexProject(project);
+    } catch (err) {
+      log("error", `[analysis] could not index ${sp}: ${errorText(err)}`);
+    }
   }
-  return { summary: summarize(raw), analysis };
+  return { summary: summarize(project), analysis };
 }
 
 /**
@@ -298,7 +351,7 @@ function loadSummaryFile(
 /**
  * Load and resolve the latest analysis for a folder — path-based, line-bearing
  * data suitable for diagnostics / CodeLens / the sidebar. Returns undefined when
- * there is no analysis yet (or the bundled denormalizer can't be loaded).
+ * there is no analysis yet (or the bundled analyzer cannot be loaded).
  * Cached by the summary's mtime, so repeated provider calls are cheap and a
  * re-analysis is picked up automatically.
  */
@@ -471,7 +524,5 @@ export function linkCommands(idx: FileIndex, def: Definition, uriArg: string): v
 
 /** Project-relative, forward-slashed path of a document within a folder (or undefined). */
 export function relPathOf(folder: vscode.WorkspaceFolder, uri: vscode.Uri): string | undefined {
-  const rel = path.relative(folder.uri.fsPath, uri.fsPath);
-  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return undefined;
-  return rel.split(path.sep).join("/");
+  return relativeInside(folder.uri.fsPath, uri.fsPath);
 }
