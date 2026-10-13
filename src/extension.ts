@@ -17,6 +17,8 @@ import { ClarifyDocHoverProvider } from "./hover";
 import { ApiCallDefinitionProvider, RouteReferenceProvider } from "./apiCallProvider";
 import { ClarifyDocCallHierarchyProvider } from "./callHierarchy";
 import { ClarifyDocCodeActions } from "./codeActions";
+import { ClarifyDocWorkspaceSymbols } from "./workspaceSymbols";
+import { ImpactView } from "./impactView";
 import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
@@ -62,6 +64,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   tree = new SummaryTreeProvider(state);
+  new ImpactView(state);
   statusBar = new StatusBar(state);
 
   // Editor-integration providers (data-driven, refresh on analysis change).
@@ -80,6 +83,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // so those keep their compiler-exact hierarchy; this one answers where no
     // language provides one.
     vscode.languages.registerCallHierarchyProvider("*", new ClarifyDocCallHierarchyProvider(state)),
+    vscode.languages.registerWorkspaceSymbolProvider(new ClarifyDocWorkspaceSymbols(state)),
     vscode.languages.registerCodeActionsProvider({ scheme: "file" }, new ClarifyDocCodeActions(), {
       providedCodeActionKinds: ClarifyDocCodeActions.kinds,
     }),

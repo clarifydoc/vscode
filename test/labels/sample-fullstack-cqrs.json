@@ -1,5 +1,5 @@
 {
-  "comment": "Written by hand from test-fixtures/sample-fullstack-cqrs, never from the analyzer's output. web/src/api/owners.ts calls the OwnersController actions through an axios client with baseURL /api; GetOwnersQueryHandler reads _db.Owners, CreateOwnerCommandHandler adds to it. Lines are 1-based. Call hierarchy: the route GET /Owners ([HttpGet], line 15) invokes GetAll, and listOwners (owners.ts:14) calls GET /owners, served by OwnersController.GetAll (line 16), which sends GetOwnersQuery to GetOwnersQueryHandler.Handle (Application/Owners/GetOwnersQuery.cs:15) through MediatR.",
+  "comment": "Written by hand from test-fixtures/sample-fullstack-cqrs, never from the analyzer's output. web/src/api/owners.ts calls the OwnersController actions through an axios client with baseURL /api; GetOwnersQueryHandler reads _db.Owners, CreateOwnerCommandHandler adds to it. Lines are 1-based. Call hierarchy: the route GET /Owners ([HttpGet], line 15) invokes GetAll, and listOwners (owners.ts:14) calls GET /owners, served by OwnersController.GetAll (line 16), which sends GetOwnersQuery to GetOwnersQueryHandler.Handle (Application/Owners/GetOwnersQuery.cs:15) through MediatR. Workspace symbols: the route GET /Owners ([HttpGet], line 15 of OwnersController.cs); the entity Owner ([Table(\"owners\")] line 5, class line 6 of Domain/Owner.cs).",
   "calls": [
     {
       "file": "web/src/api/owners.ts",
@@ -75,5 +75,24 @@
       ]
     }
   ],
-  "findings": []
+  "findings": [],
+  "symbols": [
+    {
+      "query": "get owners",
+      "name": "GET /Owners",
+      "file": "Api/Controllers/OwnersController.cs",
+      "lines": [
+        15
+      ]
+    },
+    {
+      "query": "owner",
+      "name": "Owner",
+      "file": "Domain/Owner.cs",
+      "lines": [
+        5,
+        6
+      ]
+    }
+  ]
 }

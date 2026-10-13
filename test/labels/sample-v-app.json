@@ -5,6 +5,20 @@
   "notCalls": [],
   "hierarchy": [],
   "findings": [
-    { "file": "store.v", "line": 37, "code": "CWE-89", "reachedFrom": [{ "file": "notes.v", "lines": [19, 20] }] }
-  ]
+    {
+      "file": "store.v",
+      "line": 37,
+      "code": "CWE-89",
+      "reachedFrom": [
+        {
+          "file": "notes.v",
+          "lines": [
+            19,
+            20
+          ]
+        }
+      ]
+    }
+  ],
+  "symbols": []
 }
