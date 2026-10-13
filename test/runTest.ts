@@ -11,7 +11,7 @@ import { runTests } from "@vscode/test-electron";
 //               fixture's source and its analysis, the way an analyzed project
 //               looks. Needs the monorepo (test-fixtures/, test-output/);
 //               skipped in a bare checkout of the extension.
-const FIXTURES = ["sample-fullstack-cqrs", "sample-v-app"];
+const FIXTURES = ["sample-fullstack-cqrs", "sample-v-app", "sample-csharp-api"];
 
 /** A temp workspace: the fixture's source, with its analysis under `.clarifydoc/<name>/`. */
 function fixtureWorkspace(monorepo: string, name: string): string | undefined {

@@ -19,6 +19,7 @@ import { ClarifyDocCallHierarchyProvider } from "./callHierarchy";
 import { ClarifyDocCodeActions } from "./codeActions";
 import { ClarifyDocWorkspaceSymbols } from "./workspaceSymbols";
 import { ImpactView } from "./impactView";
+import { ClarifyDocTypeHierarchyProvider } from "./typeHierarchy";
 import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
@@ -83,6 +84,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // so those keep their compiler-exact hierarchy; this one answers where no
     // language provides one.
     vscode.languages.registerCallHierarchyProvider("*", new ClarifyDocCallHierarchyProvider(state)),
+    vscode.languages.registerTypeHierarchyProvider("*", new ClarifyDocTypeHierarchyProvider(state)),
     vscode.languages.registerWorkspaceSymbolProvider(new ClarifyDocWorkspaceSymbols(state)),
     vscode.languages.registerCodeActionsProvider({ scheme: "file" }, new ClarifyDocCodeActions(), {
       providedCodeActionKinds: ClarifyDocCodeActions.kinds,

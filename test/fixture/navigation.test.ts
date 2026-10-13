@@ -17,6 +17,7 @@ interface Labels {
   hierarchy: { file: string; line: number; symbol: string; incoming: string[]; outgoing: string[] }[];
   findings: { file: string; line: number; code: string; reachedFrom: { file: string; lines: number[] }[] }[];
   symbols: { query: string; name: string; file: string; lines: number[] }[];
+  types: { file: string; line: number; name: string; supertypes: string[]; subtypes: string[] }[];
 }
 
 /** Diagnostics are published after activation reads the analysis; wait for them. */
@@ -178,6 +179,25 @@ suite(`Cross-tier navigation: ${fixture}`, () => {
         (s) => s.name === want.name && relOf(s.location.uri) === want.file && want.lines.includes(s.location.range.start.line + 1),
       );
       assert.ok(hit, `${want.query}: ${JSON.stringify(found.map((s) => [s.name, relOf(s.location.uri), s.location.range.start.line + 1]))}`);
+    }
+  });
+
+  test("the type hierarchy shows a project's own supertypes and subtypes", async () => {
+    for (const t of labels.types) {
+      const doc = await open(t.file);
+      const col = doc.lineAt(t.line - 1).text.indexOf(t.name);
+      const [item] = await vscode.commands.executeCommand<vscode.TypeHierarchyItem[]>(
+        "vscode.prepareTypeHierarchy",
+        doc.uri,
+        new vscode.Position(t.line - 1, col + 1),
+      );
+      assert.ok(item, `no type hierarchy at ${t.file}:${t.line}`);
+      assert.strictEqual(item.name, t.name);
+      const name = (i: vscode.TypeHierarchyItem) => `${relOf(i.uri)}#${i.name}`;
+      const sup = await vscode.commands.executeCommand<vscode.TypeHierarchyItem[]>("vscode.provideSupertypes", item);
+      const sub = await vscode.commands.executeCommand<vscode.TypeHierarchyItem[]>("vscode.provideSubtypes", item);
+      assert.deepStrictEqual(sup.map(name).sort(), [...t.supertypes].sort(), `${t.name} supertypes`);
+      for (const want of t.subtypes) assert.ok(sub.map(name).includes(want), `${want} not in ${JSON.stringify(sub.map(name))}`);
     }
   });
 });
