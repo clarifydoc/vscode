@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { LineTracker } from "./lineTracker";
 
 /**
  * Services shared across commands, wired up once in `activate`. Passing this
@@ -6,7 +7,9 @@ import * as vscode from "vscode";
  */
 export interface ExtensionState {
   context: vscode.ExtensionContext;
-  output: vscode.OutputChannel;
+  output: vscode.LogOutputChannel;
+  /** Edits since the last analysis, for keeping line-anchored views in place. */
+  lines: LineTracker;
   /** Refresh the sidebar tree + status bar after an analysis. */
   refresh(): void;
   /** True while an analysis is running for the given folder path. */

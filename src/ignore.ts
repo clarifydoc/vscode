@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { ExtensionState } from "./state";
+import { relativeInside } from "./pathUtil";
 
 /**
  * The ignore file this command writes: `.clarifydocignore` at the workspace
@@ -40,8 +41,8 @@ export async function ignoreFolders(
   const byFolder = new Map<vscode.WorkspaceFolder, string[]>();
   for (const uri of uris) {
     const folder = vscode.workspace.getWorkspaceFolder(uri);
-    const rel = folder && path.relative(folder.uri.fsPath, uri.fsPath).split(path.sep).join("/");
-    if (!folder || !rel || rel.startsWith("..")) {
+    const rel = folder && relativeInside(folder.uri.fsPath, uri.fsPath);
+    if (!folder || !rel) {
       void vscode.window.showWarningMessage(
         `ClarifyDoc: ${path.basename(uri.fsPath)} is a workspace folder itself, or outside one — only a folder inside a workspace can be ignored.`,
       );
@@ -67,7 +68,7 @@ export async function ignoreFolders(
 
     const sep = existing === "" || existing.endsWith("\n") ? "" : "\n";
     await fs.writeFile(file, `${existing}${sep}${added.join("\n")}\n`);
-    state.output.appendLine(`[ignore] ${folder.name}: added ${added.join(", ")} to ${IGNORE_FILE}`);
+    state.output.info(`[ignore] ${folder.name}: added ${added.join(", ")} to ${IGNORE_FILE}`);
 
     const what = added.length === 1 ? added[0] : `${added.length} folders`;
     void vscode.window

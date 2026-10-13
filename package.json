@@ -559,7 +559,7 @@
         "clarifydoc.analyzeOnSave": {
           "type": "boolean",
           "default": false,
-          "description": "Re-analyze the workspace (incrementally) a few seconds after you save a source file.",
+          "description": "Re-analyze the workspace (incrementally) a few seconds after source files change on disk — saves, branch switches, generated files. Runs quietly in the status bar; an open report is refreshed, never opened.",
           "scope": "resource"
         },
         "clarifydoc.mcp.enabled": {
@@ -594,7 +594,8 @@
     "compile-tests": "tsc -p ./tsconfig.test.json",
     "pretest": "npm run compile-tests && npm run compile",
     "test": "node ./out/test/runTest.js",
-    "package": "npx --yes @vscode/vsce package --no-dependencies"
+    "package": "npx --yes @vscode/vsce package --no-dependencies",
+    "test:unit": "vitest run"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -604,6 +605,7 @@
     "esbuild": "^0.28.2",
     "mermaid": "^12.0.0",
     "mocha": "^12.0.2",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
   }
 }

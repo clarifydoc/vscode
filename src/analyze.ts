@@ -3,7 +3,9 @@ import { getConfig } from "./config";
 import { resolveCli, runClarifyDoc, reportSpawnError } from "./cli";
 import { outputBaseDir, ensureOutputDir } from "./paths";
 import { ExtensionState } from "./state";
-import { showReport } from "./report";
+import { lineSink } from "./lineSink";
+import { ensureReport, showReport } from "./report";
+import { hasOpenReport } from "./reportPanel";
 import { pickWorkspaceFolder } from "./workspace";
 
 const OUTPUT_FLUSH_MS = 250;
@@ -11,6 +13,12 @@ const OUTPUT_FLUSH_MS = 250;
 export interface AnalyzeOptions {
   /** Force a full (non-incremental) re-scan regardless of the setting. */
   fullRescan?: boolean;
+  /**
+   * An automatic run (analyze-on-save): progress in the status bar only, no
+   * prompts or toasts on success, and the report is refreshed where it is
+   * already open but never opened or revealed. Failures are still reported.
+   */
+  quiet?: boolean;
 }
 
 function buildAnalyzeArgs(
@@ -47,6 +55,7 @@ export async function analyzeWorkspace(
 
   // The analyzer runs a bundled child process; require a trusted workspace.
   if (!vscode.workspace.isTrusted) {
+    if (opts.quiet) return;
     const choice = await vscode.window.showWarningMessage(
       "ClarifyDoc needs a trusted workspace to run the analyzer.",
       "Manage Trust",
@@ -59,20 +68,20 @@ export async function analyzeWorkspace(
 
   const folderPath = folder.uri.fsPath;
   if (state.isRunning(folderPath)) {
+    if (opts.quiet) return;
     void vscode.window.showInformationMessage(
       `ClarifyDoc is already analyzing ${folder.name}.`,
     );
     return;
   }
 
-  const cli = resolveCli(state.context.extensionPath);
+  const cli = await resolveCli(state.context.extensionPath);
   const cfg = getConfig(folder.uri);
   const args = buildAnalyzeArgs(state.context, folder, opts);
 
-  state.output.appendLine("");
-  state.output.appendLine(`── Analyze ${folder.name} ─────────────────────────`);
-  state.output.appendLine(`CLI:  ${cli.display}`);
-  state.output.appendLine(`Args: ${args.join(" ")}`);
+  state.output.info(`── Analyze ${folder.name} ─────────────────────────`);
+  state.output.info(`CLI:  ${cli.display}`);
+  state.output.info(`Args: ${args.join(" ")}`);
 
   await ensureOutputDir(state.context, folder);
 
@@ -82,9 +91,9 @@ export async function analyzeWorkspace(
   try {
     await vscode.window.withProgress(
       {
-        location: vscode.ProgressLocation.Notification,
+        location: opts.quiet ? vscode.ProgressLocation.Window : vscode.ProgressLocation.Notification,
         title: `ClarifyDoc: analyzing ${folder.name}`,
-        cancellable: true,
+        cancellable: !opts.quiet,
       },
       async (progress, token) => {
         const lspFailures: string[] = [];
@@ -93,10 +102,11 @@ export async function analyzeWorkspace(
         // and the notification. Pass them on in batches instead.
         let pending = "";
         let timer: NodeJS.Timeout | undefined;
+        const lines = lineSink((line) => state.output.info(line));
         const flush = () => {
           timer = undefined;
           if (!pending) return;
-          state.output.append(pending);
+          lines.push(pending);
           const line = lastMeaningfulLine(pending.slice(-4096));
           if (line) progress.report({ message: line });
           pending = "";
@@ -104,6 +114,7 @@ export async function analyzeWorkspace(
         const result = await runClarifyDoc(cli, args, {
           cwd: folderPath,
           token,
+          captureStdout: false, // streamed to the output channel, never parsed
           onOutput: (chunk) => {
             // The analyzer only warns when a language server cannot start and
             // then continues without it; when the user asked for LSP, that is
@@ -116,6 +127,7 @@ export async function analyzeWorkspace(
         }).catch((err) => reportSpawnError(err, cli));
         clearTimeout(timer);
         flush();
+        lines.end();
 
         if (!result) return; // cancelled or spawn error already surfaced
 
@@ -123,30 +135,35 @@ export async function analyzeWorkspace(
           const what = lspFailures.includes("docker")
             ? "Docker is not available"
             : `the ${[...new Set(lspFailures)].join(", ")} language server(s) failed to start`;
-          void vscode.window
-            .showWarningMessage(
-              `ClarifyDoc: LSP enhancement was skipped — ${what}. The analysis completed without it.`,
-              "Show Output",
-            )
-            .then((choice) => {
+          const message = `LSP enhancement was skipped — ${what}. The analysis completed without it.`;
+          // An automatic run repeats on every save; saying it once in the log is enough.
+          if (opts.quiet) state.output.warn(message);
+          else {
+            void vscode.window.showWarningMessage(`ClarifyDoc: ${message}`, "Show Output").then((choice) => {
               if (choice === "Show Output") state.output.show(true);
             });
+          }
         }
 
         if (result.code !== 0) {
-          state.output.show(true);
+          state.output.error(`analysis of ${folder.name} failed (exit ${result.code})`);
+          if (!opts.quiet) state.output.show(true);
           void vscode.window.showErrorMessage(
             `ClarifyDoc analysis failed (exit ${result.code}). See the ClarifyDoc output for details.`,
           );
           return;
         }
 
+        state.lines.reset(folder.uri);
         state.refresh();
         state.fireAnalysisChanged();
 
-        if (cfg.openReportAfterAnalyze) {
+        if (opts.quiet) {
+          // Keep an open report current; never open one unasked.
+          if (hasOpenReport(folder)) await ensureReport(state, folder, { force: true, cli, token });
+        } else if (cfg.openReportAfterAnalyze) {
           progress.report({ message: "generating report…" });
-          await showReport(state, folder, { force: true, cli });
+          await showReport(state, folder, { force: true, cli, token });
         } else {
           void vscode.window
             .showInformationMessage(

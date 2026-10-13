@@ -1,12 +1,11 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { resetCliResolution, bundleAvailable } from "./cli";
+import { resetCliResolution, bundleAvailable, killAllChildren } from "./cli";
 import { getConfig } from "./config";
 import { analyzeWorkspace } from "./analyze";
 import { showReport } from "./report";
 import { showControlFlow } from "./controlFlowPanel";
 import { primeControlFlowSupport, resetControlFlowSupport } from "./controlFlowSupport";
-import { refreshOpenReport } from "./reportPanel";
 import { detectFrameworks, impactOfChanges } from "./extraCommands";
 import { jumpToFileView } from "./jump";
 import { SummaryTreeProvider } from "./treeView";
@@ -23,10 +22,16 @@ import { ignoreFolders } from "./ignore";
 import { registerMcpProvider } from "./mcp";
 import { maybeOfferMcpInstall } from "./mcpInstall";
 import { outputBaseDir, resetStorageResolution, storageFor } from "./paths";
+import { setAnalysisLog } from "./analysisData";
+import { LineTracker } from "./lineTracker";
 
 export function activate(context: vscode.ExtensionContext): void {
-  const output = vscode.window.createOutputChannel("ClarifyDoc");
+  const output = vscode.window.createOutputChannel("ClarifyDoc", { log: true });
   context.subscriptions.push(output);
+  setAnalysisLog((level, message) => output[level](message));
+
+  const lines = new LineTracker();
+  context.subscriptions.push(lines);
 
   const running = new Set<string>();
   const analysisChanged = new vscode.EventEmitter<void>();
@@ -39,6 +44,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const state: ExtensionState = {
     context,
     output,
+    lines,
     refresh() {
       tree?.refresh();
       void statusBar?.refresh();
@@ -157,16 +163,14 @@ export function activate(context: vscode.ExtensionContext): void {
   registerMcpProvider(state);
 
   // Debounced auto re-analysis via a FileSystemWatcher (opt-in: analyzeOnSave).
-  registerAutoAnalyze(state, (folder) =>
-    void analyzeWorkspace(state, folder).then(() => refreshOpenReport(state.context, folder)),
-  );
+  registerAutoAnalyze(state, (folder) => analyzeWorkspace(state, folder, { quiet: true }));
 
   // The analyzer is bundled inside the extension; warn once if the bundle is
   // absent (e.g. running from source without `npm run bundle`) unless a custom
   // cliPath is configured.
   if (!bundleAvailable(context.extensionPath) && !getConfig().cliPath) {
-    output.appendLine(
-      "[warning] bundled analyzer not found at clarifydoc/dist/cli.js — run `npm run bundle`, or set clarifydoc.cliPath.",
+    output.warn(
+      "bundled analyzer not found at clarifydoc/dist/cli.js — run `npm run bundle`, or set clarifydoc.cliPath.",
     );
   }
 
@@ -187,7 +191,7 @@ export function activate(context: vscode.ExtensionContext): void {
   function logStorage(): void {
     for (const folder of vscode.workspace.workspaceFolders ?? []) {
       const { mode, reason } = storageFor(folder);
-      output.appendLine(
+      output.info(
         `[storage] ${folder.name}: ${mode}${reason ? ` (${reason})` : ""} — ` +
           `analysis in ${outputBaseDir(context, folder)}`,
       );
@@ -196,5 +200,7 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {
-  /* nothing to tear down beyond the disposables registered above */
+  // An analysis outliving its window would keep writing into a workspace no
+  // one is looking at; everything else is a disposable registered above.
+  killAllChildren();
 }

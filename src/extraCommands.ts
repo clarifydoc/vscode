@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { resolveCli, runClarifyDoc, reportSpawnError } from "./cli";
 import { outputBaseDir, resultsDir } from "./paths";
 import { ExtensionState } from "./state";
+import { lineSink } from "./lineSink";
 import { pickWorkspaceFolder } from "./workspace";
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -14,17 +15,20 @@ export async function detectFrameworks(
   const folder = await pickWorkspaceFolder(target);
   if (!folder) return;
 
-  const cli = resolveCli(state.context.extensionPath);
-  state.output.appendLine("");
-  state.output.appendLine(`── Detect ${folder.name} ─────────────────────────`);
+  const cli = await resolveCli(state.context.extensionPath);
+  state.output.info(`── Detect ${folder.name} ─────────────────────────`);
+  const lines = lineSink((line) => state.output.info(line));
 
   const result = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Window, title: "ClarifyDoc: detecting frameworks…" },
-    () =>
+    { location: vscode.ProgressLocation.Notification, title: "ClarifyDoc: detecting frameworks…", cancellable: true },
+    (_progress, token) =>
       runClarifyDoc(cli, ["detect", folder.uri.fsPath], {
         cwd: folder.uri.fsPath,
-        onOutput: (c) => state.output.append(c),
-      }).catch((err) => reportSpawnError(err, cli)),
+        token,
+        onOutput: (c) => lines.push(c),
+      })
+        .finally(() => lines.end())
+        .catch((err) => reportSpawnError(err, cli)),
   );
 
   if (!result) return;
@@ -61,18 +65,21 @@ export async function impactOfChanges(
     return;
   }
 
-  const cli = resolveCli(state.context.extensionPath);
+  const cli = await resolveCli(state.context.extensionPath);
   const args = ["impact", folder.uri.fsPath, "-o", outputBaseDir(state.context, folder), "--md"];
-  state.output.appendLine("");
-  state.output.appendLine(`── Impact ${folder.name} ─────────────────────────`);
+  state.output.info(`── Impact ${folder.name} ─────────────────────────`);
+  const lines = lineSink((line) => state.output.info(line));
 
   const result = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Window, title: "ClarifyDoc: computing impact…" },
-    () =>
+    { location: vscode.ProgressLocation.Notification, title: "ClarifyDoc: computing impact…", cancellable: true },
+    (_progress, token) =>
       runClarifyDoc(cli, args, {
         cwd: folder.uri.fsPath,
-        onOutput: (c) => state.output.append(c),
-      }).catch((err) => reportSpawnError(err, cli)),
+        token,
+        onOutput: (c) => lines.push(c),
+      })
+        .finally(() => lines.end())
+        .catch((err) => reportSpawnError(err, cli)),
   );
 
   if (!result) return;

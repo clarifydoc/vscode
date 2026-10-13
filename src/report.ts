@@ -5,6 +5,7 @@ import { resolveCli, runClarifyDoc, reportSpawnError, ResolvedCli } from "./cli"
 import { resultsDir, reportPath, summaryPath } from "./paths";
 import { getConfig } from "./config";
 import { ExtensionState } from "./state";
+import { lineSink } from "./lineSink";
 import { openReport as openReportInEditor, refreshOpenReport } from "./reportPanel";
 
 async function statMs(p: string): Promise<number | undefined> {
@@ -39,7 +40,7 @@ async function stampMatches(state: ExtensionState, folder: vscode.WorkspaceFolde
 export async function ensureReport(
   state: ExtensionState,
   folder: vscode.WorkspaceFolder,
-  opts: { force?: boolean; cli?: ResolvedCli } = {},
+  opts: { force?: boolean; cli?: ResolvedCli; token?: vscode.CancellationToken } = {},
 ): Promise<boolean> {
   const summaryMs = await statMs(summaryPath(state.context, folder));
   if (summaryMs === undefined) {
@@ -64,11 +65,29 @@ export async function ensureReport(
     !(await stampMatches(state, folder));
   if (!needed) return true;
 
-  const cli = opts.cli ?? resolveCli(state.context.extensionPath);
-  const result = await runClarifyDoc(cli, ["report", resultsDir(state.context, folder), "--no-open"], {
-    cwd: folder.uri.fsPath,
-    onOutput: (c) => state.output.append(c),
-  }).catch((err) => reportSpawnError(err, cli));
+  const cli = opts.cli ?? (await resolveCli(state.context.extensionPath));
+  const lines = lineSink((line) => state.output.info(line));
+  const run = (token: vscode.CancellationToken) =>
+    runClarifyDoc(cli, ["report", resultsDir(state.context, folder), "--no-open"], {
+      cwd: folder.uri.fsPath,
+      token,
+      onOutput: (c) => lines.push(c),
+    }).finally(() => lines.end());
+  // Inside an analysis the caller's progress (and its Cancel) covers this run;
+  // on its own it gets one, since a large report takes a while to build.
+  const result = await (opts.token
+    ? run(opts.token)
+    : Promise.resolve(
+        vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: `ClarifyDoc: generating the report for ${folder.name}`,
+            cancellable: true,
+          },
+          (_progress, token) => run(token),
+        ),
+      )
+  ).catch((err) => reportSpawnError(err, cli));
 
   if (!result) return false;
   if (result.code !== 0) {
@@ -96,9 +115,11 @@ export async function showReport(
     location?: "editor" | "browser";
     /** Deep-link into the report, e.g. "traces~src/foo.ts" (tab, optional ~file). */
     hash?: string;
+    /** Cancels report generation; without one it gets its own progress. */
+    token?: vscode.CancellationToken;
   } = {},
 ): Promise<void> {
-  if (!(await ensureReport(state, folder, { force: opts.force, cli: opts.cli }))) return;
+  if (!(await ensureReport(state, folder, { force: opts.force, cli: opts.cli, token: opts.token }))) return;
 
   const location = opts.location ?? getConfig(folder.uri).reportLocation;
   if (location === "browser") {

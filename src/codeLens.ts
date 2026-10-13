@@ -65,7 +65,8 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
       const hot = def.complexity !== undefined && def.complexity >= threshold;
       if (links.length === 0 && !hot) continue; // keep trivial code clean
 
-      const range = new vscode.Range(Math.max(0, def.line - 1), 0, Math.max(0, def.line - 1), 0);
+      const range = this.rangeAt(doc, def.line);
+      if (!range) continue; // the definition's line was deleted since the analysis
       for (const command of links) out.push(new vscode.CodeLens(range, command));
       if (def.kind === "class") continue;
       if (hot) {
@@ -96,9 +97,16 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     }
   }
 
+  /** Where an analyzed (1-based) line is now, following edits made since the analysis. */
+  private rangeAt(doc: vscode.TextDocument, line1: number): vscode.Range | undefined {
+    const line = this.state.lines.map(doc.uri, Math.max(0, line1 - 1));
+    return line === undefined ? undefined : new vscode.Range(line, 0, line, 0);
+  }
+
   private routeLenses(facts: FileFacts, doc: vscode.TextDocument, out: vscode.CodeLens[]): void {
     for (const r of facts.routes) {
-      const range = new vscode.Range(Math.max(0, r.line - 1), 0, Math.max(0, r.line - 1), 0);
+      const range = this.rangeAt(doc, r.line);
+      if (!range) continue;
       const title = `$(globe) ${[r.httpMethod, r.path].filter(Boolean).join(" ")}${r.handler ? ` → ${r.handler}` : ""}`;
       out.push(new vscode.CodeLens(range, {
         title,

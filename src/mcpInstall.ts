@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
-import { spawnSync } from "child_process";
+import { execFile } from "child_process";
 import { resultsDir, storageFor } from "./paths";
 import { shimPath } from "./shim";
 import { ExtensionState } from "./state";
@@ -45,9 +45,24 @@ type Target =
   | { kind: "json"; label: string; detail: string; file: string; key: "mcpServers" }
   | { kind: "clipboard"; label: string; detail: string };
 
-function claudeAvailable(): boolean {
-  const probe = spawnSync("claude", ["--version"], { stdio: "ignore", windowsHide: true, shell: process.platform === "win32" });
-  return !probe.error && probe.status === 0;
+/** Run the `claude` CLI without blocking the extension host. On Windows it is
+ *  a `.cmd` shim, which only a shell can start. */
+function runClaude(args: string[], cwd?: string): Promise<{ ok: boolean; output: string }> {
+  return new Promise((resolve) => {
+    execFile(
+      "claude",
+      args,
+      { cwd, encoding: "utf8", windowsHide: true, timeout: 60_000, shell: process.platform === "win32" },
+      (err, stdout, stderr) => {
+        const output = `${stdout ?? ""}${stderr ?? ""}`.trim();
+        resolve({ ok: !err, output: output || (err?.message ?? "") });
+      },
+    );
+  });
+}
+
+async function claudeAvailable(): Promise<boolean> {
+  return (await runClaude(["--version"])).ok;
 }
 
 async function fileExists(p: string): Promise<boolean> {
@@ -68,7 +83,7 @@ async function targetsFor(folder: vscode.WorkspaceFolder): Promise<Target[]> {
   const windsurf = path.join(home, ".codeium", "windsurf", "mcp_config.json");
 
   const targets: Target[] = [];
-  if (claudeAvailable()) {
+  if (await claudeAvailable()) {
     targets.push({
       kind: "claude-cli",
       label: "Claude Code",
@@ -130,26 +145,16 @@ async function mergeIntoJson(file: string, key: string, entry: ServerEntry): Pro
 }
 
 /** `claude mcp add` — user scope when one entry serves every project. */
-function installViaClaudeCli(entry: ServerEntry, folder: vscode.WorkspaceFolder): { ok: boolean; message: string } {
+async function installViaClaudeCli(
+  entry: ServerEntry,
+  folder: vscode.WorkspaceFolder,
+): Promise<{ ok: boolean; message: string }> {
   const scope = entry.args?.length ? "local" : "user";
   const args = ["mcp", "add", "clarifydoc", "--scope", scope, "--", entry.command, ...(entry.args ?? [])];
   // `remove` first so re-running repairs a stale entry instead of erroring.
-  spawnSync("claude", ["mcp", "remove", "clarifydoc", "--scope", scope], {
-    cwd: folder.uri.fsPath,
-    stdio: "ignore",
-    windowsHide: true,
-    shell: process.platform === "win32",
-  });
-  const run = spawnSync("claude", args, {
-    cwd: folder.uri.fsPath,
-    encoding: "utf8",
-    windowsHide: true,
-    shell: process.platform === "win32",
-  });
-  const output = `${run.stdout ?? ""}${run.stderr ?? ""}`.trim();
-  if (run.error || run.status !== 0) {
-    return { ok: false, message: output || run.error?.message || "claude mcp add failed" };
-  }
+  await runClaude(["mcp", "remove", "clarifydoc", "--scope", scope], folder.uri.fsPath);
+  const run = await runClaude(args, folder.uri.fsPath);
+  if (!run.ok) return { ok: false, message: run.output || "claude mcp add failed" };
   return {
     ok: true,
     message:
@@ -178,14 +183,14 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
 
   if (target.kind === "clipboard") {
     await vscode.env.clipboard.writeText(configJson(entry));
-    output.appendLine(`[mcp] copied config:\n${configJson(entry)}`);
+    output.info(`[mcp] copied config:\n${configJson(entry)}`);
     void vscode.window.showInformationMessage("ClarifyDoc: MCP config copied to the clipboard.");
     return;
   }
 
   if (target.kind === "claude-cli") {
-    const result = installViaClaudeCli(entry, folder);
-    output.appendLine(`[mcp] claude mcp add: ${result.ok ? "ok" : "failed"} — ${result.message}`);
+    const result = await installViaClaudeCli(entry, folder);
+    output[result.ok ? "info" : "warn"](`[mcp] claude mcp add: ${result.ok ? "ok" : "failed"} — ${result.message}`);
     if (!result.ok) {
       await vscode.env.clipboard.writeText(configJson(entry));
       void vscode.window.showWarningMessage(
@@ -200,7 +205,7 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
   }
 
   const merged = await mergeIntoJson(target.file, target.key, entry).catch((err: Error) => {
-    output.appendLine(`[mcp] could not write ${target.file}: ${err.message}`);
+    output.error(`[mcp] could not write ${target.file}: ${err.message}`);
     return false;
   });
   if (!merged) {
@@ -210,7 +215,7 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
     );
     return;
   }
-  output.appendLine(`[mcp] installed clarifydoc into ${target.file}`);
+  output.info(`[mcp] installed clarifydoc into ${target.file}`);
   const choice = await vscode.window.showInformationMessage(
     `ClarifyDoc: added to ${path.basename(target.file)}. Restart ${target.label} to pick it up.`,
     "Open File",

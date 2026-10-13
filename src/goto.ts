@@ -21,8 +21,9 @@ function itemsFor(a: ResolvedAnalysis, kind: string): Target[] {
       }));
     case "screens":
       return a.screens.map((s) => ({
-        label: s.title || s.filePath,
+        label: s.title || s.routePath || s.filePath,
         description: s.line ? `${s.filePath}:${s.line}` : s.filePath,
+        detail: s.title && s.routePath ? s.routePath : undefined,
         file: s.filePath,
         line: s.line,
       }));

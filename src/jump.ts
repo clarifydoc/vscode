@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
-import * as path from "path";
 import { ExtensionState } from "./state";
 import { showReport } from "./report";
 import { loadAnalysis } from "./analysisData";
+import { relativeInside } from "./pathUtil";
 
 /** Report tabs an editor file can jump into, with a per-file focus. */
 export type JumpTab = "ui" | "traces" | "blast" | "links" | "routes";
@@ -37,9 +37,9 @@ export async function jumpToFileView(state: ExtensionState, tab: JumpTab): Promi
     return;
   }
 
-  const rel = path.relative(folder.uri.fsPath, uri.fsPath).split(path.sep).join("/");
+  const rel = relativeInside(folder.uri.fsPath, uri.fsPath) ?? "";
   const fileFocused = tab === "ui" || tab === "traces" || tab === "blast";
-  const canFocus = fileFocused && !!rel && !rel.startsWith("..");
+  const canFocus = fileFocused && !!rel;
 
   // If the file isn't in the latest analysis, focusing would silently fall back
   // to the first entry — surface that instead of quietly opening the wrong thing.
@@ -60,6 +60,6 @@ export async function jumpToFileView(state: ExtensionState, tab: JumpTab): Promi
   }
 
   const hash = canFocus ? `${tab}~${encodeURIComponent(rel)}` : tab;
-  state.output.appendLine(`[jump] ${TAB_LABEL[tab]} → ${rel || "(file outside root)"}  (#${hash})`);
+  state.output.info(`[jump] ${TAB_LABEL[tab]} → ${rel || "(file outside root)"}  (#${hash})`);
   await showReport(state, folder, { hash });
 }

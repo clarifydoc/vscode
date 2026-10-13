@@ -26,19 +26,19 @@ export function resetControlFlowSupport(): void {
   inFlight = undefined;
 }
 
-async function load(context: vscode.ExtensionContext, output: vscode.OutputChannel): Promise<void> {
-  const cli = resolveCli(context.extensionPath);
+async function load(context: vscode.ExtensionContext, output: vscode.LogOutputChannel): Promise<void> {
+  const cli = await resolveCli(context.extensionPath);
   try {
     const result = await runClarifyDoc(cli, ["cfg", "--capabilities"], { cwd: context.extensionPath });
     if (result.code !== 0) {
-      output.appendLine(`ClarifyDoc: could not read control-flow capabilities (exit ${result.code}).`);
+      output.warn(`[cfg] could not read control-flow capabilities (exit ${result.code}).`);
       return;
     }
     const parsed = JSON.parse(result.stdout) as { extensions?: string[] };
     extensions = new Set((parsed.extensions ?? []).map((e) => e.toLowerCase()));
   } catch (error) {
-    output.appendLine(
-      `ClarifyDoc: could not read control-flow capabilities — ${error instanceof Error ? error.message : String(error)}`,
+    output.warn(
+      `[cfg] could not read control-flow capabilities — ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }
@@ -49,7 +49,7 @@ async function load(context: vscode.ExtensionContext, output: vscode.OutputChann
  */
 export function primeControlFlowSupport(
   context: vscode.ExtensionContext,
-  output: vscode.OutputChannel,
+  output: vscode.LogOutputChannel,
   onReady?: () => void,
 ): void {
   // Lenses drawn before the answer arrives took the fallback, so whoever is
