@@ -1,6 +1,9 @@
 # Change Log
 
-## Unreleased
+## 0.1.12
+
+Bundles analyzer 0.7.0, which now exports its MCP index, agent guidance, workflows and SARIF writer, and draws
+control flow from text given on stdin.
 
 - **From a screen's API call to the route, and back.** Go to Definition on an API call's URL opens the
   backend route that serves it, in whichever language and project it lives. Find References on a route

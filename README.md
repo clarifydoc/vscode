@@ -46,20 +46,33 @@ Laravel, FastAPI `Depends` and more), not just to the interface.
 ### Know what breaks before you change it
 
 **Blast Radius** lists every file a change reaches, with the most tightly
-coupled first. **Impact of Current Git Changes** turns your uncommitted diff into
-the screens, routes, entities and tests it affects, so you can check before you
-open the PR.
+coupled first. The **ClarifyDoc Impact** view in Source Control turns your
+uncommitted diff into the screens, routes, entities and tests it affects, with a
+risk level, and keeps it current as you work, so you can check before you open
+the PR.
 
 ### Answers in the editor, where you're reading
 
+- **From a call to its route, and back.** Go to Definition (F12) on an API call's
+  URL opens the backend route that serves it, in whichever language and project
+  it lives. Find References (Shift+F12) on a route lists the calls that reach it.
 - **CodeLens** above every function: callers, callees, complexity and *Traces*.
   Click to jump. Classes get a references lens; routes show method + path →
-  handler.
-- **Hover cards** with complexity, callers/callees and findings.
+  handler, then who calls them, from which screens, and what they read and
+  write (`1 caller · 2 screens · writes Order`).
+- **Hover cards** with complexity, callers/callees and findings; on a call, the
+  route it reaches (or why it reaches none); on a route, the path to its data.
+- **Call and type hierarchies** across tiers: a controller action's incoming
+  calls are the frontend functions that call its route. Used where no language
+  extension provides a hierarchy.
+- **Go to Symbol in Workspace** (Ctrl+T) finds routes by URL, screens by name or
+  route, and entities by name.
 - **Show Control Flow**: click the complexity lens to see the function drawn as a
   flowchart. Click a node to jump to its line.
-- **Problems panel**: security findings, overly complex functions and layer
-  violations, at their exact lines.
+- **Problems panel**: security findings (with their CWE and the routes that reach
+  them), overly complex functions and layer violations, at their exact lines,
+  with quick fixes. They follow their line while you edit. Dead code can be
+  shown as faded text too.
 - **Right-click any file → ClarifyDoc** to open its screens, traces or blast
   radius in the report.
 - **Go to…**: fuzzy-jump to any route, screen, issue or hotspot.
@@ -85,8 +98,11 @@ Copilot's agent mode picks up the analysis automatically over MCP, with no
 setup. For Claude Code, Cursor or Windsurf, one command writes the config. Your
 agent can then ask which routes exist, who calls a function, what a change
 breaks and which table an endpoint writes, and gets answers with `path:line`
-references instead of guessing from a few open files.
-[Details below.](#ai-agents-mcp)
+references instead of guessing from a few open files. One more command adds a
+short section to `AGENTS.md` telling the agent when to use these tools instead of
+searching text, and **Ask an AI Agent…** starts a ready-made workflow (before
+changing an endpoint, explain a screen's data, review your branch) from where
+your cursor is. [Details below.](#ai-agents-mcp)
 
 ## Why you can rely on it
 
@@ -238,7 +254,7 @@ parsed code, with `path:line` references — instead of inferring it from a few 
   whole thing off with `clarifydoc.mcp.enabled`.
 
 Tools: `clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_services`, `clarifydoc_contract`,
-`clarifydoc_screens`, `clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_blast_radius`, `clarifydoc_data_model`,
+`clarifydoc_screens`, `clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_extract`, `clarifydoc_blast_radius`, `clarifydoc_data_model`,
 `clarifydoc_data_flows`, `clarifydoc_health`, `clarifydoc_impact`, `clarifydoc_analyze`.
 
 ## Commands
@@ -256,7 +272,10 @@ All under the **ClarifyDoc** category in the Command Palette:
 | Show Control Flow | Draw the function under the cursor as a flowchart |
 | Go to… | Quick-pick a route / screen / issue / hotspot and jump to it |
 | Detect Languages & Frameworks | Quick detection only |
-| Impact of Current Git Changes | Diff → affected screens/routes/entities |
+| Impact of Current Git Changes as Markdown | Diff → affected screens/routes/entities, as a document (the Source Control view shows it live) |
+| Export Security Findings as SARIF | Write the findings as SARIF 2.1.0, without re-analyzing |
+| Ask an AI Agent… | Start an agent workflow, filled in from where your cursor is |
+| Tell AI Agents When to Use ClarifyDoc (AGENTS.md) | Add or update the guidance section, after showing a diff |
 | Set Up MCP for an AI Agent… | Write the MCP config for Claude Code / Cursor / Windsurf |
 | Copy MCP Server Config | Put the MCP config on the clipboard for any other agent |
 | Show Output Log | Reveal the ClarifyDoc output channel |
@@ -267,10 +286,11 @@ All under the **ClarifyDoc** category in the Command Palette:
 |---------|---------|-------------|
 | `clarifydoc.storage` | `workspace` | `workspace` (`.clarifydoc/` in the project, self-ignoring) or `global` (extension storage) |
 | `clarifydoc.diagnostics.enabled` | `true` | Show findings in the Problems panel |
-| `clarifydoc.diagnostics.include` | all | Categories: `security`, `complexity`, `layers` |
+| `clarifydoc.diagnostics.include` | `security`, `complexity`, `layers` | Categories; add `deadCode` for unused exports and unreachable files as faded text |
 | `clarifydoc.diagnostics.complexityThreshold` | `15` | Flag functions at/above this complexity |
 | `clarifydoc.codeLens.enabled` | `true` | CodeLens above functions, classes and routes |
 | `clarifydoc.hover.enabled` | `true` | ClarifyDoc hover cards |
+| `clarifydoc.crossTier.enabled` | `true` | Go to Definition from API calls to routes, Find References on routes, and the route CodeLens/hover |
 | `clarifydoc.incremental` | `true` | Reuse cache for unchanged files |
 | `clarifydoc.enableLsp` | `false` | Layer-2 LSP enhancement (needs Docker) |
 | `clarifydoc.lspTimeout` | `0` | LSP startup timeout (ms; 0 = analyzer default) |
