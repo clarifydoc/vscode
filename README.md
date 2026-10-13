@@ -9,6 +9,8 @@ runs: button click → handler → HTTP call → backend route → service → d
 table. It follows them across languages, tiers and repos, then puts the answers
 where you work: in the editor, in an interactive report, and in your AI agent.
 
+![A tour of the ClarifyDoc report on the RealWorld Conduit app: the architecture, the data model, screens and their handlers, a call traced from the UI through PUT /user to the User table, and blast radius](docs/report-tour.gif)
+
 ```text
 Screen   Checkout · "Place order" click           CheckoutPage.vue
 Handler  onSubmit() → orderService.create()       CheckoutPage.vue

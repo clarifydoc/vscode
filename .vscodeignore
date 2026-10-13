@@ -16,5 +16,7 @@ src/**/*.ts
 .eslintrc*
 *.vsix
 INSTALL.md
+# README media: the Marketplace page loads it from GitHub, so it needn't ship.
+docs/**
 .DS_Store
 **/.DS_Store
