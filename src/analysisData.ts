@@ -6,6 +6,7 @@ import { resultsDir, summaryPath } from "./paths";
 import { AnalysisSummary, summarize } from "./summary";
 import { relativeInside } from "./pathUtil";
 import { CallMiss, CrossTierData, DataFlow, groupBy } from "./crossTier";
+import { TypeGraph, typeGraph } from "./typeGraph";
 
 // ─── Shapes we consume (a loose view of the analyzer's ProjectAnalysis) ──────
 export interface FnComplexity {
@@ -145,6 +146,8 @@ export interface ResolvedAnalysis {
   byFile: Map<string, FileFacts>;
   /** What cross-tier navigation joins: screens, data flows, unlinked calls, uncalled routes. */
   crossTier: CrossTierData;
+  /** Project types' supertypes and subtypes, from the class graph. */
+  types: TypeGraph;
   /** The MCP store's own index (entities by name, reach by symbol, …), for
    *  lookups the per-file facts do not cover. */
   store: StoreIndex;
@@ -320,6 +323,7 @@ export function indexProject(p: any, buildIndex: AnalysisReader["buildIndex"]): 
     hotspots,
     byFile,
     crossTier,
+    types: typeGraph(p.classGraph),
     store,
     files,
   };

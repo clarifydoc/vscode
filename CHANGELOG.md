@@ -22,6 +22,9 @@
 - **What your changes reach, in Source Control.** A *ClarifyDoc Impact* view beside your changes lists the
   API routes and screens above the changed files, the data below them and the tests to run, with a risk
   level and its reasons. It refreshes as git state changes, and its badge counts the affected routes.
+- **Type hierarchy in any language the analyzer reads.** Show Type Hierarchy lists a type's supertypes
+  and subtypes among the project's own types — an interface's implementations, a base controller's
+  subclasses — where no language extension provides a hierarchy.
 - **One index with the MCP server.** The editor groups the analysis by file with the MCP server's own
   index, so the two always agree.
 

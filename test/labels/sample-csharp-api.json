@@ -1,0 +1,29 @@
+{
+  "comment": "Written by hand from test-fixtures/sample-csharp-api. Controllers/ReportsController.cs:8 `class ReportsController(IUserService users) : BaseApiController`; Controllers/BaseApiController.cs:13 `class BaseApiController : ControllerBase`; Services/AuthService.cs:9 `class AuthService : IAuthService`; Services/IAuthService.cs:5 `interface IAuthService`. Lines are 1-based.",
+  "calls": [],
+  "routes": [],
+  "notCalls": [],
+  "hierarchy": [],
+  "findings": [],
+  "symbols": [],
+  "types": [
+    {
+      "file": "Controllers/ReportsController.cs",
+      "line": 8,
+      "name": "ReportsController",
+      "supertypes": [
+        "Controllers/BaseApiController.cs#BaseApiController"
+      ],
+      "subtypes": []
+    },
+    {
+      "file": "Services/IAuthService.cs",
+      "line": 5,
+      "name": "IAuthService",
+      "supertypes": [],
+      "subtypes": [
+        "Services/AuthService.cs#AuthService"
+      ]
+    }
+  ]
+}
