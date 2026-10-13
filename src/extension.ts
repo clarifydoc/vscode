@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { resetCliResolution, bundleAvailable, killAllChildren } from "./cli";
+import { resetCliResolution, bundleAvailable, bundledAnalyzerVersion, killAllChildren } from "./cli";
 import { getConfig } from "./config";
 import { analyzeWorkspace } from "./analyze";
 import { showReport } from "./report";
@@ -21,6 +21,7 @@ import { ClarifyDocWorkspaceSymbols } from "./workspaceSymbols";
 import { ImpactView } from "./impactView";
 import { ClarifyDocTypeHierarchyProvider } from "./typeHierarchy";
 import { exportSarif } from "./sarifExport";
+import { onboard } from "./onboarding";
 import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
@@ -36,6 +37,11 @@ export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("ClarifyDoc", { log: true });
   context.subscriptions.push(output);
   setAnalysisLog((level, message) => output[level](message));
+  // Both versions, first: a bug report then names the analyzer it ran.
+  output.info(
+    `ClarifyDoc extension ${String(context.extension?.packageJSON?.version ?? "?")}, ` +
+      `analyzer ${bundledAnalyzerVersion(context.extensionPath) ?? "not bundled"}`,
+  );
 
   const lines = new LineTracker();
   context.subscriptions.push(lines);
@@ -200,14 +206,17 @@ export function activate(context: vscode.ExtensionContext): void {
   logStorage();
 
   // Offer to wire up external agents, once, in a workspace that already has
-  // MCP configured.
-  for (const folder of vscode.workspace.workspaceFolders ?? []) {
-    void maybeOfferMcpInstall(state, folder);
-    break;
-  }
+  // MCP configured: the first folder that qualifies, never more than one offer.
+  void (async () => {
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      if (await maybeOfferMcpInstall(state, folder)) break;
+    }
+  })();
 
   // Populate the views from any existing on-disk analysis.
   state.refresh();
+
+  onboard(state);
 
   function logStorage(): void {
     for (const folder of vscode.workspace.workspaceFolders ?? []) {

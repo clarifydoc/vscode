@@ -402,8 +402,8 @@
             "title": "Analyze your workspace",
             "description": "ClarifyDoc parses your code with tree-sitter and builds a map of routes, screens, data access and more.\n[Analyze Workspace](command:clarifydoc.analyze)",
             "media": {
-              "image": "media/icon.png",
-              "altText": "ClarifyDoc"
+              "image": "media/walkthrough/overview.webp",
+              "altText": "The report overview after an analysis: routes, screens, data and health at a glance"
             },
             "completionEvents": [
               "onCommand:clarifydoc.analyze"
@@ -414,8 +414,8 @@
             "title": "Open the interactive report",
             "description": "Explore screens, call traces, architecture, the data model and health in an interactive report.\n[Open Report](command:clarifydoc.openReport)",
             "media": {
-              "image": "media/icon.png",
-              "altText": "ClarifyDoc report"
+              "image": "media/walkthrough/data-flows.webp",
+              "altText": "Data flows: each screen and route traced to the tables it reads and writes"
             },
             "completionEvents": [
               "onCommand:clarifydoc.openReport"
@@ -423,30 +423,43 @@
           },
           {
             "id": "jump",
-            "title": "Jump from code to the report",
-            "description": "Right-click any source file → **ClarifyDoc** to open the report focused on that file's screens, call traces or blast radius. Findings also appear in the Problems panel and as CodeLens.",
+            "title": "Navigate from a screen to its data",
+            "description": "Go to Definition (F12) on an API call opens the backend route that serves it. On a route, Find References lists the calls that reach it, and its CodeLens names the screens above and the tables below. Right-click any file → **ClarifyDoc** to open the report on it.\n[Go to a Route, Screen or Finding](command:clarifydoc.goto)",
             "media": {
-              "image": "media/icon.png",
-              "altText": "Right-click jump"
-            }
+              "image": "media/walkthrough/traces.webp",
+              "altText": "Call traces from a click to the database"
+            },
+            "completionEvents": [
+              "onCommand:clarifydoc.goto",
+              "onCommand:clarifydoc.jumpTraces",
+              "onCommand:clarifydoc.openReportForFile"
+            ]
           },
           {
             "id": "mcp",
             "title": "Let your AI agent read the map",
             "description": "ClarifyDoc publishes the analysis over MCP, so Copilot agent mode (VS Code 1.101+) can ask for routes, call traces, blast radius and the data model — no setup. For Claude Code, Cursor or Windsurf, one command writes their config for you.\n[Set Up MCP for an AI Agent](command:clarifydoc.installMcpServer)",
             "media": {
-              "image": "media/icon.png",
-              "altText": "ClarifyDoc MCP"
-            }
+              "image": "media/walkthrough/architecture.webp",
+              "altText": "The architecture view an agent can query over MCP"
+            },
+            "completionEvents": [
+              "onCommand:clarifydoc.installMcpServer",
+              "onCommand:clarifydoc.copyMcpConfig"
+            ]
           },
           {
             "id": "settings",
             "title": "Tune it",
             "description": "Toggle diagnostics/CodeLens, enable analyze-on-change, or point at a custom analyzer.\n[Open Settings](command:clarifydoc.openSettings)",
             "media": {
-              "image": "media/icon.png",
-              "altText": "Settings"
-            }
+              "image": "media/walkthrough/health.webp",
+              "altText": "Health findings, also shown in the Problems panel"
+            },
+            "completionEvents": [
+              "onCommand:clarifydoc.openSettings",
+              "onSettingChanged:clarifydoc"
+            ]
           }
         ]
       }

@@ -232,9 +232,10 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
  */
 const NUDGE_KEY = "clarifydoc.mcpNudge.v1";
 
-export async function maybeOfferMcpInstall(state: ExtensionState, folder: vscode.WorkspaceFolder): Promise<void> {
+/** Offer once, for this folder, if it qualifies. Resolves whether it asked. */
+export async function maybeOfferMcpInstall(state: ExtensionState, folder: vscode.WorkspaceFolder): Promise<boolean> {
   const { context } = state;
-  if (context.globalState.get<string>(NUDGE_KEY)) return;
+  if (context.globalState.get<string>(NUDGE_KEY)) return false;
 
   const candidates = [
     path.join(folder.uri.fsPath, ".mcp.json"),
@@ -244,11 +245,11 @@ export async function maybeOfferMcpInstall(state: ExtensionState, folder: vscode
   for (const file of candidates) {
     const raw = await fs.readFile(file, "utf-8").catch(() => null);
     if (raw === null) continue;
-    if (raw.includes('"clarifydoc"')) return; // already wired up
+    if (raw.includes('"clarifydoc"')) return false; // already wired up
     found = file;
     break;
   }
-  if (!found) return;
+  if (!found) return false;
 
   const choice = await vscode.window.showInformationMessage(
     "This workspace configures MCP agents. Give them the ClarifyDoc map — routes, call traces, blast radius and the data model?",
@@ -261,4 +262,5 @@ export async function maybeOfferMcpInstall(state: ExtensionState, folder: vscode
     await context.globalState.update(NUDGE_KEY, "done");
     await installMcpServer(state, folder);
   }
+  return true;
 }
