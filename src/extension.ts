@@ -23,6 +23,8 @@ import { ClarifyDocTypeHierarchyProvider } from "./typeHierarchy";
 import { exportSarif } from "./sarifExport";
 import { onboard } from "./onboarding";
 import { registerReportSerializer } from "./reportPanel";
+import { installAgentGuidance, registerProposalProvider } from "./agentGuidance";
+import { askAgent } from "./askAgent";
 import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
@@ -73,6 +75,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   registerReportSerializer(state);
+  registerProposalProvider(state);
   tree = new SummaryTreeProvider(state);
   new ImpactView(state);
   statusBar = new StatusBar(state);
@@ -122,6 +125,8 @@ export function activate(context: vscode.ExtensionContext): void {
     const folder = await pickWorkspaceFolder(target);
     if (folder) await showReport(state, folder, { location: "browser" });
   });
+  register("clarifydoc.askAgent", () => askAgent(state));
+  register("clarifydoc.installAgentGuidance", (target?: vscode.WorkspaceFolder | vscode.Uri) => installAgentGuidance(state, target));
   register("clarifydoc.exportSarif", (target?: vscode.WorkspaceFolder | vscode.Uri) => exportSarif(state, target));
   register("clarifydoc.ignoreFolder", (uri?: vscode.Uri, uris?: vscode.Uri[]) => ignoreFolders(state, uri, uris));
   register("clarifydoc.detectFrameworks", (target) => detectFrameworks(state, target));
