@@ -52,10 +52,30 @@ function movedTo(d: vscode.Diagnostic, line: number): vscode.Diagnostic {
   return out;
 }
 
-function securityDiag(issue: SecurityIssue): vscode.Diagnostic {
-  const d = new vscode.Diagnostic(lineRange(issue.line), issue.message, severityFor(issue.severity));
+/** The page describing a CWE, for the diagnostic's code link. */
+function cweUri(cwe: string): vscode.Uri | undefined {
+  const n = /^CWE-(\d+)$/.exec(cwe)?.[1];
+  return n ? vscode.Uri.parse(`https://cwe.mitre.org/data/definitions/${n}.html`) : undefined;
+}
+
+function securityDiag(issue: SecurityIssue, folder: vscode.WorkspaceFolder, a: ResolvedAnalysis): vscode.Diagnostic {
+  const target = issue.cwe ? cweUri(issue.cwe) : undefined;
+  // With a CWE as the code, the category moves into the message.
+  const message = target ? `${issue.category}: ${issue.message}` : issue.message;
+  const d = new vscode.Diagnostic(lineRange(issue.line), message, severityFor(issue.severity));
   d.source = "ClarifyDoc";
-  d.code = issue.category;
+  d.code = target ? { value: issue.cwe!, target } : issue.category;
+  // The routes whose handlers reach this line: what an attacker would call.
+  if (issue.entries?.length) {
+    d.relatedInformation = issue.entries.map((e) => {
+      const route = a.routes.find((r) => r.filePath === e.file && [r.httpMethod, r.path].filter(Boolean).join(" ") === e.route);
+      const hops = `${e.distance} call${e.distance === 1 ? "" : "s"} away, ${e.confidence.toLowerCase()}`;
+      return new vscode.DiagnosticRelatedInformation(
+        new vscode.Location(vscode.Uri.file(path.join(folder.uri.fsPath, e.file)), lineRange(route?.line ?? 1)),
+        `reached from ${e.route} (${hops})`,
+      );
+    });
+  }
   return d;
 }
 
@@ -150,7 +170,7 @@ export class DiagnosticsManager {
     };
 
     if (s.include.security) {
-      for (const issue of a.security) push(issue.filePath, securityDiag(issue));
+      for (const issue of a.security) push(issue.filePath, securityDiag(issue, folder, a));
     }
     if (s.include.complexity) {
       for (const h of a.hotspots) {

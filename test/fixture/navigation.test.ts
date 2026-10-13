@@ -14,6 +14,18 @@ interface Labels {
   calls: { file: string; line: number; url: string; route: { file: string; line: number } }[];
   routes: { file: string; line: number; callers: string[]; lens: string }[];
   notCalls: { file: string; line: number }[];
+  hierarchy: { file: string; line: number; symbol: string; incoming: string[]; outgoing: string[] }[];
+  findings: { file: string; line: number; code: string; reachedFrom: { file: string; lines: number[] }[] }[];
+}
+
+/** Diagnostics are published after activation reads the analysis; wait for them. */
+async function diagnosticsFor(uri: vscode.Uri): Promise<vscode.Diagnostic[]> {
+  for (let i = 0; i < 100; i++) {
+    const found = vscode.languages.getDiagnostics(uri).filter((d) => d.source === "ClarifyDoc");
+    if (found.length) return found;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return [];
 }
 
 function root(): string {
@@ -90,19 +102,71 @@ suite(`Cross-tier navigation: ${fixture}`, () => {
   });
 
   test("hovering a call names the route it reaches", async () => {
-    const call = labels.calls[0];
-    const doc = await open(call.file);
-    const col = doc.lineAt(call.line - 1).text.indexOf(call.url);
-    const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
-      "vscode.executeHoverProvider",
-      doc.uri,
-      new vscode.Position(call.line - 1, col + 1),
-    );
-    // Markdown source: analyzer text arrives backslash-escaped.
-    const text = hovers
-      .flatMap((h) => h.contents.map((c) => (typeof c === "string" ? c : c.value)))
-      .join("\n")
-      .replace(/\\/g, "");
-    assert.ok(text.includes(`${path.basename(call.route.file)}:${call.route.line}`), text);
+    for (const call of labels.calls) {
+      const doc = await open(call.file);
+      const col = doc.lineAt(call.line - 1).text.indexOf(call.url);
+      const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
+        "vscode.executeHoverProvider",
+        doc.uri,
+        new vscode.Position(call.line - 1, col + 1),
+      );
+      // Markdown source: analyzer text arrives backslash-escaped.
+      const text = hovers
+        .flatMap((h) => h.contents.map((c) => (typeof c === "string" ? c : c.value)))
+        .join("\n")
+        .replace(/\\/g, "");
+      assert.ok(text.includes(`${path.basename(call.route.file)}:${call.route.line}`), text);
+    }
+  });
+
+  test("the call hierarchy crosses the HTTP boundary", async () => {
+    for (const h of labels.hierarchy) {
+      const doc = await open(h.file);
+      const [item] = await vscode.commands.executeCommand<vscode.CallHierarchyItem[]>(
+        "vscode.prepareCallHierarchy",
+        doc.uri,
+        new vscode.Position(h.line - 1, doc.lineAt(h.line - 1).text.indexOf(h.symbol.split(".").pop()!)),
+      );
+      assert.ok(item, `no hierarchy at ${h.file}:${h.line}`);
+      assert.strictEqual(item.name, h.symbol);
+      const incoming = await vscode.commands.executeCommand<vscode.CallHierarchyIncomingCall[]>("vscode.provideIncomingCalls", item);
+      const outgoing = await vscode.commands.executeCommand<vscode.CallHierarchyOutgoingCall[]>("vscode.provideOutgoingCalls", item);
+      const name = (i: vscode.CallHierarchyItem) => `${relOf(i.uri)}#${i.name}`;
+      assert.deepStrictEqual(incoming.map((c) => name(c.from)).sort(), [...h.incoming].sort());
+      for (const want of h.outgoing) {
+        assert.ok(outgoing.map((c) => name(c.to)).includes(want), `${want} not in ${JSON.stringify(outgoing.map((c) => name(c.to)))}`);
+      }
+    }
+  });
+
+  test("a security finding names its CWE and the routes that reach it", async () => {
+    for (const f of labels.findings) {
+      const uri = vscode.Uri.file(path.join(root(), f.file));
+      const diags = await diagnosticsFor(uri);
+      const d = diags.find((x) => x.range.start.line === f.line - 1 && typeof x.code === "object");
+      assert.ok(d, `no finding at ${f.file}:${f.line}: ${JSON.stringify(diags.map((x) => [x.range.start.line, x.code]))}`);
+      assert.strictEqual((d.code as { value: string }).value, f.code);
+      const related = (d.relatedInformation ?? []).map((r) => ({ file: relOf(r.location.uri), line: r.location.range.start.line + 1 }));
+      for (const want of f.reachedFrom) {
+        assert.ok(
+          related.some((r) => r.file === want.file && want.lines.includes(r.line)),
+          `${want.file}:${want.lines.join("|")} not in ${JSON.stringify(related)}`,
+        );
+      }
+    }
+  });
+
+  test("a security finding offers its routes as a quick fix", async () => {
+    for (const f of labels.findings) {
+      const doc = await open(f.file);
+      await diagnosticsFor(doc.uri);
+      const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+        "vscode.executeCodeActionProvider",
+        doc.uri,
+        new vscode.Range(f.line - 1, 0, f.line - 1, 1),
+      );
+      const titles = actions.map((a) => a.title);
+      assert.ok(titles.includes("Show the route that reaches this"), JSON.stringify(titles));
+    }
   });
 });

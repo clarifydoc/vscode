@@ -15,6 +15,8 @@ import { DiagnosticsManager } from "./diagnostics";
 import { ClarifyDocCodeLensProvider } from "./codeLens";
 import { ClarifyDocHoverProvider } from "./hover";
 import { ApiCallDefinitionProvider, RouteReferenceProvider } from "./apiCallProvider";
+import { ClarifyDocCallHierarchyProvider } from "./callHierarchy";
+import { ClarifyDocCodeActions } from "./codeActions";
 import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
@@ -73,6 +75,14 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.languages.registerHoverProvider({ scheme: "file" }, new ClarifyDocHoverProvider(state)),
     vscode.languages.registerDefinitionProvider({ scheme: "file" }, new ApiCallDefinitionProvider(state)),
     vscode.languages.registerReferenceProvider({ scheme: "file" }, new RouteReferenceProvider(state)),
+    // VS Code asks only the best-scoring call hierarchy provider. The bare "*"
+    // selector scores below a language's own (TypeScript, a C# or Java server),
+    // so those keep their compiler-exact hierarchy; this one answers where no
+    // language provides one.
+    vscode.languages.registerCallHierarchyProvider("*", new ClarifyDocCallHierarchyProvider(state)),
+    vscode.languages.registerCodeActionsProvider({ scheme: "file" }, new ClarifyDocCodeActions(), {
+      providedCodeActionKinds: ClarifyDocCodeActions.kinds,
+    }),
   );
 
   // ── Commands ──────────────────────────────────────────────────────────

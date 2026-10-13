@@ -1,0 +1,10 @@
+{
+  "comment": "Written by hand from test-fixtures/sample-v-app. store.v:37 interpolates id into a DELETE statement passed to app.db.exec (CWE-89). The route DELETE /api/notes/:id is the attribute @['/api/notes/:id'; delete] on line 19 of notes.v annotating delete_note on line 20, which calls app.remove_note(id). Lines are 1-based.",
+  "calls": [],
+  "routes": [],
+  "notCalls": [],
+  "hierarchy": [],
+  "findings": [
+    { "file": "store.v", "line": 37, "code": "CWE-89", "reachedFrom": [{ "file": "notes.v", "lines": [19, 20] }] }
+  ]
+}
