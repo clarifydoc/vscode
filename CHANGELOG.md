@@ -1,5 +1,18 @@
 # Change Log
 
+## 0.1.11
+
+Bundles analyzer 0.7.0, which now skips folders in `.clarifydocignore` without walking them.
+
+- **Ignore a folder from the Explorer.** Right-click a folder → *Ignore Folder in ClarifyDoc* adds it to the
+  workspace's `.clarifydocignore`. The analyzer no longer walks an ignored folder at all, so a tree of clones,
+  stored data or generated files stops slowing every run.
+- **No more stalls after an analysis of a large project.** The tree, status bar, diagnostics and CodeLens shared
+  one read of the summary in name only; each parsed it again, all at once. They now share a single read per
+  analysis, and the analyzer's output reaches the output channel in batches.
+- **Analyze from any menu.** A command invoked with an argument that is not a folder no longer fails with
+  "Cannot read properties of undefined (reading 'fsPath')"; it falls back to the workspace folder.
+
 ## 0.1.10
 
 Bundles analyzer 0.7.0.

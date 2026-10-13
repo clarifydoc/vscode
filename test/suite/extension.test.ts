@@ -19,6 +19,7 @@ suite("ClarifyDoc extension", () => {
     const cmds = await vscode.commands.getCommands(true);
     for (const c of [
       "clarifydoc.analyze",
+      "clarifydoc.ignoreFolder",
       "clarifydoc.openReport",
       "clarifydoc.openReportSection",
       "clarifydoc.jumpTraces",
@@ -59,6 +60,15 @@ suite("ClarifyDoc extension", () => {
     assert.ok(storage, "missing clarifydoc.storage");
     assert.strictEqual(storage.default, "workspace");
     assert.deepStrictEqual(storage.enum, ["workspace", "global"]);
+  });
+
+  test("offers to ignore a folder from the Explorer, never the workspace root", () => {
+    const pkg = vscode.extensions.getExtension(EXT_ID)!.packageJSON;
+    const entry = pkg.contributes.menus["explorer/context"].find(
+      (m: { command: string }) => m.command === "clarifydoc.ignoreFolder",
+    );
+    assert.ok(entry, "missing explorer/context entry for clarifydoc.ignoreFolder");
+    assert.strictEqual(entry.when, "explorerResourceIsFolder && !explorerResourceIsRoot");
   });
 
   test("writes a version-independent MCP launcher", async () => {

@@ -19,6 +19,7 @@ import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
 import { registerAutoAnalyze } from "./watch";
+import { ignoreFolders } from "./ignore";
 import { registerMcpProvider } from "./mcp";
 import { maybeOfferMcpInstall } from "./mcpInstall";
 import { outputBaseDir, resetStorageResolution, storageFor } from "./paths";
@@ -87,6 +88,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const folder = await pickWorkspaceFolder(target);
     if (folder) await showReport(state, folder, { location: "browser" });
   });
+  register("clarifydoc.ignoreFolder", (uri?: vscode.Uri, uris?: vscode.Uri[]) => ignoreFolders(state, uri, uris));
   register("clarifydoc.detectFrameworks", (target) => detectFrameworks(state, target));
   register("clarifydoc.impact", (target) => impactOfChanges(state, target));
 
