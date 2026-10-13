@@ -12,7 +12,7 @@ import { openSourceAt } from "./reveal";
  * writes nothing — a CFG is per-function detail and has no business in
  * `project-summary.json`, where it would multiply the artifact for something
  * almost nobody reads in aggregate. That also means this works on a file the
- * analyzer has never seen, and on unsaved edits once they are written.
+ * analyzer has never seen, and on unsaved edits, which are sent over stdin.
  *
  * The panel is bidirectional: clicking a node reveals its source, and moving
  * the cursor in the editor highlights the node covering that line.
@@ -329,16 +329,28 @@ export async function showControlFlow(
   const args = ["cfg", doc.uri.fsPath, "--format", "json", "--no-styled"];
   if (functionName) args.push("--function", functionName);
   if (selectedLine !== undefined) args.push("--line", String(selectedLine));
+  // Unsaved edits: draw what is on screen, not what is on disk.
+  const stdin = doc.isDirty ? doc.getText() : undefined;
+  if (stdin !== undefined) args.push("--stdin");
 
   const cli = await resolveCli(state.context.extensionPath);
   const view = panelFor(state, folder);
 
   let result;
   try {
-    result = await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Window, title: "ClarifyDoc: building control flow…" },
-      () => runClarifyDoc(cli, args, { cwd: folder.uri.fsPath, token: view.cancellation() }),
-    );
+    const run = (withStdin: boolean) =>
+      vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Window, title: "ClarifyDoc: building control flow…" },
+        () =>
+          runClarifyDoc(cli, withStdin ? args : args.filter((a) => a !== "--stdin"), {
+            cwd: folder.uri.fsPath,
+            token: view.cancellation(),
+            stdin: withStdin ? stdin : undefined,
+          }),
+      );
+    result = await run(stdin !== undefined);
+    // An analyzer set through clarifydoc.cliPath may predate --stdin: draw the saved file instead.
+    if (stdin !== undefined && result.code !== 0 && /unknown option '--stdin'/.test(result.stderr)) result = await run(false);
   } catch (error) {
     reportSpawnError(error, cli);
     return;

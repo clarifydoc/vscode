@@ -108,6 +108,16 @@ async function resolveCliUncached(extensionPath: string): Promise<ResolvedCli> {
   };
 }
 
+/** The bundled analyzer's version (from `clarifydoc/package.json`), if bundled. */
+export function bundledAnalyzerVersion(extensionPath: string): string | undefined {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(extensionPath, "clarifydoc", "package.json"), "utf8"));
+    return typeof pkg.version === "string" ? pkg.version : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Whether the bundled analyzer is present (false ⇒ the bundle step didn't run). */
 export function bundleAvailable(extensionPath: string): boolean {
   return existingFile(bundledCliPath(extensionPath));
@@ -153,6 +163,8 @@ export interface RunOptions {
    *  only streamed — `analyze --verbose` prints a line per file — passes false
    *  rather than holding all of it in the extension host. */
   captureStdout?: boolean;
+  /** Written to the child's stdin, which is then closed. */
+  stdin?: string;
 }
 
 /** stderr is kept for error messages; only its tail matters, and a runaway
@@ -191,6 +203,12 @@ export function runClarifyDoc(
     });
     children.add(child);
     const captureStdout = opts.captureStdout ?? true;
+    if (opts.stdin !== undefined) {
+      child.stdin?.on("error", () => {}); // a child that exits early closes the pipe; its exit code says why
+      child.stdin?.end(opts.stdin, "utf8");
+    } else {
+      child.stdin?.end();
+    }
 
     let stdout = "";
     let stderr = "";

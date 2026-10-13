@@ -32,6 +32,13 @@
 - **Export security findings as SARIF.** *Export Security Findings as SARIF* writes the latest analysis's
   findings as SARIF 2.1.0 (what GitHub code scanning reads) without analyzing again, and opens it in the
   SARIF Viewer when that is installed.
+- **Control flow of what is on screen.** Show Control Flow draws the editor's unsaved text, not the saved
+  file.
+- **The status bar follows your editor.** In a multi-root workspace it speaks for the active file's
+  folder, and its tooltip, like the first line of the log, names the extension and analyzer versions.
+- **A better first run.** The walkthrough opens once after install, with screenshots of each step. A
+  workspace never analyzed gets one quiet offer to analyze it. The MCP set-up offer now looks at every
+  folder, not only the first.
 - **One index with the MCP server.** The editor groups the analysis by file with the MCP server's own
   index, so the two always agree.
 
