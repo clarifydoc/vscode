@@ -61,7 +61,8 @@
   },
   "main": "./out/extension.js",
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onWebviewPanel:clarifydoc.report"
   ],
   "extensionKind": [
     "workspace"

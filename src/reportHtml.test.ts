@@ -33,3 +33,16 @@ describe("prepareReportHtml", () => {
     expect(prepareReportHtml("<p>x</p>").startsWith("<meta http-equiv")).toBe(true);
   });
 });
+
+describe("prepareReportHtml with view state", () => {
+  it("hands the viewer what to keep, before the deep link", () => {
+    const html = prepareReportHtml(page, "routes", { folder: "file:///work/app" });
+    expect(html).toContain('window.__CLARIFYDOC_VIEW_STATE__={"folder":"file:///work/app"};');
+    expect(html.indexOf("__CLARIFYDOC_VIEW_STATE__")).toBeLessThan(html.indexOf("__CLARIFYDOC_HASH__"));
+  });
+
+  it("cannot be broken out of by the state either", () => {
+    const html = prepareReportHtml(page, undefined, { folder: "</script><script>alert(1)//" });
+    expect(html).not.toContain("</script><script>alert(1)");
+  });
+});
