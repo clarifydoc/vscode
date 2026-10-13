@@ -5,6 +5,7 @@ import { pathToFileURL } from "url";
 import { resultsDir, summaryPath } from "./paths";
 import { AnalysisSummary, summarize } from "./summary";
 import { relativeInside } from "./pathUtil";
+import { CallMiss, CrossTierData, DataFlow, groupBy } from "./crossTier";
 
 // ─── Shapes we consume (a loose view of the analyzer's ProjectAnalysis) ──────
 export interface FnComplexity {
@@ -64,7 +65,39 @@ export interface LayerViolation {
   severity?: "error" | "warn";
 }
 
-/** Everything a source file needs, pre-indexed for the providers. */
+/** An HTTP call to an API, as the analyzer extracted it (`ProjectAnalysis.apiCalls`). */
+export interface ApiCall {
+  name: string;
+  filePath: string;
+  line: number;
+  /** App-relative URL as written; `{}` marks holes the analyzer could not read. */
+  target?: string;
+  targetAlternatives?: string[];
+}
+
+/** A call joined to the route that serves it (`ProjectAnalysis.apiRouteLinks`). */
+export interface ApiRouteLink {
+  /** The calling file and line. */
+  source: string;
+  sourceLine: number;
+  method?: string;
+  url: string;
+  /** The route's file and line. */
+  target: string;
+  targetLine: number;
+  handler?: string;
+  routePath: string;
+  sourceProject?: string;
+  targetProject?: string;
+  /** AMBIGUOUS means `target` is only the first of several candidates. */
+  confidence: string;
+  matchedVia?: string;
+  sourceRole?: "test" | "generated";
+}
+
+/** Everything a source file needs, pre-indexed for the providers. Built from
+ *  the MCP store's per-file index, so the editor and agents group the same
+ *  facts the same way. */
 export interface FileFacts {
   /** The functions the analyzer measured (tree-sitter languages only) — not
    *  the file's function list; that is `FileIndex.defs`. */
@@ -75,6 +108,12 @@ export interface FileFacts {
   outbound: SymbolLink[];
   /** Links whose resolved definition is in this file (others call in). */
   inbound: SymbolLink[];
+  /** HTTP calls made from this file. */
+  apiCalls: ApiCall[];
+  /** Calls made here, joined to the routes that serve them. */
+  callsRoutes: ApiRouteLink[];
+  /** Calls elsewhere that reach a route declared here. */
+  servesCalls: ApiRouteLink[];
 }
 
 /** A Health sub-section that has data, deep-linkable in the report as
@@ -100,6 +139,11 @@ export interface ResolvedAnalysis {
   hotspots: (FnComplexity & { filePath: string })[];
   /** Per project-relative file → facts. */
   byFile: Map<string, FileFacts>;
+  /** What cross-tier navigation joins: screens, data flows, unlinked calls, uncalled routes. */
+  crossTier: CrossTierData;
+  /** The MCP store's own index (entities by name, reach by symbol, …), for
+   *  lookups the per-file facts do not cover. */
+  store: StoreIndex;
   /** All analyzed file paths (project-relative). */
   files: Set<string>;
 }
@@ -119,17 +163,28 @@ function errorText(err: unknown): string {
 // ─── Lazy load of the bundled analyzer's summary reader ──────────────────────
 /** `loadReportSummary` reads `project-summary.json`, denormalizes it and merges
  *  a current `lsp-enhancement.json` — the same object the MCP server and the
- *  report read, so the editor never disagrees with them. */
-type LoadReportSummary = (dir: string) => Promise<any>;
-let readerPromise: Promise<LoadReportSummary | undefined> | undefined;
+ *  report read — and `buildIndex` groups it by file the way the MCP server
+ *  does, so the editor never disagrees with either. */
+/** The store's per-file index, typed by the fields read here. */
+export interface StoreIndex {
+  byFile: Map<string, any>;
+  entitiesByName: Map<string, any[]>;
+}
 
-function loadReader(context: vscode.ExtensionContext): Promise<LoadReportSummary | undefined> {
+/** The two functions read from the bundled analyzer. */
+export interface AnalysisReader {
+  loadReportSummary(dir: string): Promise<any>;
+  buildIndex(project: any): StoreIndex;
+}
+let readerPromise: Promise<AnalysisReader | undefined> | undefined;
+
+function loadReader(context: vscode.ExtensionContext): Promise<AnalysisReader | undefined> {
   if (readerPromise) return readerPromise;
   const indexPath = path.join(context.extensionPath, "clarifydoc", "dist", "index.js");
-  const pending: Promise<LoadReportSummary | undefined> = import(pathToFileURL(indexPath).href).then(
+  const pending: Promise<AnalysisReader | undefined> = import(pathToFileURL(indexPath).href).then(
     (m) => {
-      if (typeof m.loadReportSummary === "function") return m.loadReportSummary as LoadReportSummary;
-      log("error", `[analysis] ${indexPath} has no loadReportSummary — the bundled analyzer is too old`);
+      if (typeof m.loadReportSummary === "function" && typeof m.buildIndex === "function") return m as AnalysisReader;
+      log("error", `[analysis] ${indexPath} lacks loadReportSummary/buildIndex — the bundled analyzer is too old`);
       return undefined;
     },
     (err) => {
@@ -152,82 +207,51 @@ function num(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
-/** Index a loaded (denormalized) project summary for the views and providers. */
-export function indexProject(p: any): ResolvedAnalysis {
-  const byFile = new Map<string, FileFacts>();
-  const facts = (f: string): FileFacts => {
-    let e = byFile.get(f);
-    if (!e) { e = { complexity: [], routes: [], security: [], outbound: [], inbound: [] }; byFile.set(f, e); }
-    return e;
+function hasLine<T extends { line?: unknown }>(x: T): x is T & { line: number } {
+  return num(x?.line) !== undefined;
+}
+
+function arr<T>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : [];
+}
+
+/** The store's facts for one file, in the shapes the views read. */
+function fileFacts(f: any): FileFacts {
+  const complexity: FnComplexity[] = [];
+  for (const fn of arr<any>(f.complexity?.functions)) {
+    if (typeof fn?.functionName !== "string" || !hasLine(fn)) continue;
+    complexity.push({ functionName: fn.functionName, complexity: num(fn.complexity) ?? 0, line: fn.line, endLine: num(fn.endLine) });
+  }
+  return {
+    complexity,
+    routes: arr<RouteInfo>(f.routes).filter(hasLine),
+    security: arr<SecurityIssue>(f.security).filter(hasLine),
+    outbound: arr<SymbolLink>(f.outbound),
+    inbound: arr<SymbolLink>(f.inbound),
+    apiCalls: arr<ApiCall>(f.apiCalls).filter(hasLine),
+    callsRoutes: arr<ApiRouteLink>(f.callsRoutes),
+    servesCalls: arr<ApiRouteLink>(f.servesCalls),
   };
+}
+
+/** Index a loaded (denormalized) project summary for the views and providers. */
+export function indexProject(p: any, buildIndex: AnalysisReader["buildIndex"]): ResolvedAnalysis {
+  const store = buildIndex(p);
+  const byFile = new Map<string, FileFacts>();
+  for (const [file, f] of store.byFile) byFile.set(file, fileFacts(f));
 
   const files = new Set<string>(Array.isArray(p.files) ? p.files.filter((x: unknown) => typeof x === "string") : []);
 
   const hotspots: (FnComplexity & { filePath: string })[] = [];
-  for (const fc of p.complexity ?? []) {
-    const filePath = fc.filePath;
-    if (typeof filePath !== "string") continue;
-    for (const fn of fc.functions ?? []) {
-      if (typeof fn?.functionName !== "string" || num(fn.line) === undefined) continue;
-      const entry: FnComplexity = {
-        functionName: fn.functionName,
-        complexity: num(fn.complexity) ?? 0,
-        line: fn.line,
-        endLine: num(fn.endLine),
-      };
-      facts(filePath).complexity.push(entry);
-      hotspots.push({ ...entry, filePath });
-    }
+  for (const [filePath, f] of byFile) {
+    for (const fn of f.complexity) hotspots.push({ ...fn, filePath });
   }
   hotspots.sort((a, b) => b.complexity - a.complexity);
 
-  const routes: RouteInfo[] = [];
-  for (const r of p.routeMap ?? []) {
-    if (typeof r?.filePath !== "string" || num(r.line) === undefined) continue;
-    const route: RouteInfo = {
-      httpMethod: r.httpMethod,
-      path: r.path ?? "",
-      handler: r.handler,
-      filePath: r.filePath,
-      line: r.line,
-      kind: r.kind,
-    };
-    routes.push(route);
-    facts(route.filePath).routes.push(route);
-  }
-
-  const security: SecurityIssue[] = [];
-  for (const s of p.securityIssues ?? []) {
-    if (typeof s?.filePath !== "string" || num(s.line) === undefined) continue;
-    const issue: SecurityIssue = {
-      category: s.category ?? "security",
-      severity: String(s.severity ?? "medium"),
-      message: s.message ?? s.category ?? "Security issue",
-      filePath: s.filePath,
-      line: s.line,
-      snippet: s.snippet,
-    };
-    security.push(issue);
-    facts(issue.filePath).security.push(issue);
-  }
-
-  for (const l of p.symbolLinks ?? []) {
-    if (typeof l?.sourceFile !== "string" || typeof l?.targetFile !== "string") continue;
-    const link: SymbolLink = {
-      sourceFile: l.sourceFile,
-      sourceSymbol: l.sourceSymbol ?? "",
-      sourceLine: num(l.sourceLine) ?? 0,
-      targetFile: l.targetFile,
-      targetSymbol: l.targetSymbol ?? "",
-      targetLine: num(l.targetLine) ?? 0,
-      confidence: l.confidence,
-      resolvedBy: l.resolvedBy,
-      strategy: l.strategy,
-      relation: l.relation,
-    };
-    facts(link.sourceFile).outbound.push(link);
-    facts(link.targetFile).inbound.push(link);
-  }
+  const routes: RouteInfo[] = arr<RouteInfo>(p.routeMap).filter((r) => typeof r?.filePath === "string" && hasLine(r));
+  const security: SecurityIssue[] = arr<SecurityIssue>(p.securityIssues).filter(
+    (s) => typeof s?.filePath === "string" && hasLine(s),
+  );
 
   const screens: ScreenInfo[] = (p.screens ?? [])
     .filter((s: any) => typeof s?.filePath === "string")
@@ -250,7 +274,6 @@ export function indexProject(p: any): ResolvedAnalysis {
       rule: v.rule,
       severity: v.severity === "warn" || v.severity === "error" ? v.severity : undefined,
     });
-    facts(v.sourceFile); // ensure the file bucket exists
   }
 
   const frameworks = (p.detectedFrameworks ?? []).map((f: any) =>
@@ -271,6 +294,15 @@ export function indexProject(p: any): ResolvedAnalysis {
     ] as HealthSection[]
   ).filter((s) => s.count > 0);
 
+  const stats = p.apiRouteLinkStats ?? {};
+  const crossTier: CrossTierData = {
+    byFile,
+    screensByFile: groupBy(screens, (sc) => sc.filePath),
+    flowsByEntryFile: groupBy(arr<DataFlow>(p.dataFlows), (f) => (typeof f?.entryFile === "string" ? f.entryFile : undefined)),
+    missesByFile: groupBy(arr<CallMiss>(stats.misses), (m) => (typeof m?.file === "string" ? m.file : undefined)),
+    uncalled: new Set(arr<{ file: string; line: number }>(stats.uncalled).map((u) => `${u.file}:${u.line}`)),
+  };
+
   return {
     projectRoot: p.projectRoot,
     health: p.healthScore ? { score: p.healthScore.score, grade: p.healthScore.grade } : undefined,
@@ -283,6 +315,8 @@ export function indexProject(p: any): ResolvedAnalysis {
     layerViolations,
     hotspots,
     byFile,
+    crossTier,
+    store,
     files,
   };
 }
@@ -299,7 +333,7 @@ async function parseSummary(context: vscode.ExtensionContext, sp: string): Promi
   try {
     // Without the bundled reader the headline counts still show: every count
     // is an array length, which the stored encoding does not change.
-    project = reader ? await reader(path.dirname(sp)) : JSON.parse(await fs.readFile(sp, "utf8"));
+    project = reader ? await reader.loadReportSummary(path.dirname(sp)) : JSON.parse(await fs.readFile(sp, "utf8"));
   } catch (err) {
     // A summary caught mid-write fails to parse; loadSummaryFile retries it.
     log("warn", `[analysis] could not read ${sp}: ${errorText(err)}`);
@@ -308,7 +342,7 @@ async function parseSummary(context: vscode.ExtensionContext, sp: string): Promi
   let analysis: ResolvedAnalysis | undefined;
   if (reader) {
     try {
-      analysis = indexProject(project);
+      analysis = indexProject(project, reader.buildIndex);
     } catch (err) {
       log("error", `[analysis] could not index ${sp}: ${errorText(err)}`);
     }

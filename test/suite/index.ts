@@ -13,9 +13,9 @@ function findTests(dir: string): string[] {
   return out;
 }
 
-export function run(): Promise<void> {
+/** Run every compiled test under `testsRoot` with Mocha. */
+export function runTestsIn(testsRoot: string): Promise<void> {
   const mocha = new Mocha({ ui: "tdd", color: true, timeout: 120000 });
-  const testsRoot = __dirname;
   for (const file of findTests(testsRoot)) mocha.addFile(file);
 
   return new Promise((resolve, reject) => {
@@ -25,4 +25,8 @@ export function run(): Promise<void> {
       reject(err as Error);
     }
   });
+}
+
+export function run(): Promise<void> {
+  return runTestsIn(__dirname);
 }

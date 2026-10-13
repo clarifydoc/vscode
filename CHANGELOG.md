@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **From a screen's API call to the route, and back.** Go to Definition on an API call's URL opens the
+  backend route that serves it, in whichever language and project it lives. Find References on a route
+  lists the calls that reach it. A route's CodeLens says who calls it, from which screens, and what it
+  reads and writes (`1 caller · 2 screens · writes Order`). Hovering a call names its route, or why it
+  reaches none; hovering a route shows its callers, screens and the path to its data. Links the analyzer
+  marked ambiguous are described, never jumped to. Turn it off with `clarifydoc.crossTier.enabled`.
+- **One index with the MCP server.** The editor groups the analysis by file with the MCP server's own
+  index, so the two always agree.
+
 - **Layer violations reach the Problems panel.** The extension read field names the analyzer never wrote,
   so no layer-violation diagnostic ever appeared. Each one now names the import and the layers it crosses,
   plus the team rule it breaks when there is one.
