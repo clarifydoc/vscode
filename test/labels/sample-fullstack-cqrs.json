@@ -1,14 +1,79 @@
 {
-  "comment": "Written by hand from test-fixtures/sample-fullstack-cqrs, never from the analyzer's output. web/src/api/owners.ts calls the OwnersController actions through an axios client with baseURL /api; GetOwnersQueryHandler reads _db.Owners, CreateOwnerCommandHandler adds to it. Lines are 1-based.",
+  "comment": "Written by hand from test-fixtures/sample-fullstack-cqrs, never from the analyzer's output. web/src/api/owners.ts calls the OwnersController actions through an axios client with baseURL /api; GetOwnersQueryHandler reads _db.Owners, CreateOwnerCommandHandler adds to it. Lines are 1-based. Call hierarchy: the route GET /Owners ([HttpGet], line 15) invokes GetAll, and listOwners (owners.ts:14) calls GET /owners, served by OwnersController.GetAll (line 16), which sends GetOwnersQuery to GetOwnersQueryHandler.Handle (Application/Owners/GetOwnersQuery.cs:15) through MediatR.",
   "calls": [
-    { "file": "web/src/api/owners.ts", "line": 15, "url": "/owners", "route": { "file": "Api/Controllers/OwnersController.cs", "line": 15 } },
-    { "file": "web/src/api/owners.ts", "line": 20, "url": "/owners/${id}", "route": { "file": "Api/Controllers/OwnersController.cs", "line": 19 } },
-    { "file": "web/src/api/owners.ts", "line": 25, "url": "/owners", "route": { "file": "Api/Controllers/OwnersController.cs", "line": 27 } }
+    {
+      "file": "web/src/api/owners.ts",
+      "line": 15,
+      "url": "/owners",
+      "route": {
+        "file": "Api/Controllers/OwnersController.cs",
+        "line": 15
+      }
+    },
+    {
+      "file": "web/src/api/owners.ts",
+      "line": 20,
+      "url": "/owners/${id}",
+      "route": {
+        "file": "Api/Controllers/OwnersController.cs",
+        "line": 19
+      }
+    },
+    {
+      "file": "web/src/api/owners.ts",
+      "line": 25,
+      "url": "/owners",
+      "route": {
+        "file": "Api/Controllers/OwnersController.cs",
+        "line": 27
+      }
+    }
   ],
   "routes": [
-    { "file": "Api/Controllers/OwnersController.cs", "line": 15, "callers": ["web/src/api/owners.ts:15"], "lens": "1 caller · reads Owner" },
-    { "file": "Api/Controllers/OwnersController.cs", "line": 19, "callers": ["web/src/api/owners.ts:20"], "lens": "1 caller · reads Owner" },
-    { "file": "Api/Controllers/OwnersController.cs", "line": 27, "callers": ["web/src/api/owners.ts:25"], "lens": "1 caller · writes Owner" }
+    {
+      "file": "Api/Controllers/OwnersController.cs",
+      "line": 15,
+      "callers": [
+        "web/src/api/owners.ts:15"
+      ],
+      "lens": "1 caller · reads Owner"
+    },
+    {
+      "file": "Api/Controllers/OwnersController.cs",
+      "line": 19,
+      "callers": [
+        "web/src/api/owners.ts:20"
+      ],
+      "lens": "1 caller · reads Owner"
+    },
+    {
+      "file": "Api/Controllers/OwnersController.cs",
+      "line": 27,
+      "callers": [
+        "web/src/api/owners.ts:25"
+      ],
+      "lens": "1 caller · writes Owner"
+    }
   ],
-  "notCalls": [{ "file": "web/src/api/owners.ts", "line": 16 }]
+  "notCalls": [
+    {
+      "file": "web/src/api/owners.ts",
+      "line": 16
+    }
+  ],
+  "hierarchy": [
+    {
+      "file": "Api/Controllers/OwnersController.cs",
+      "line": 16,
+      "symbol": "OwnersController.GetAll",
+      "incoming": [
+        "Api/Controllers/OwnersController.cs#route:GET /Owners",
+        "web/src/api/owners.ts#listOwners"
+      ],
+      "outgoing": [
+        "Application/Owners/GetOwnersQuery.cs#GetOwnersQueryHandler.Handle"
+      ]
+    }
+  ],
+  "findings": []
 }

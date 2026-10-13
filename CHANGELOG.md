@@ -8,6 +8,15 @@
   reads and writes (`1 caller · 2 screens · writes Order`). Hovering a call names its route, or why it
   reaches none; hovering a route shows its callers, screens and the path to its data. Links the analyzer
   marked ambiguous are described, never jumped to. Turn it off with `clarifydoc.crossTier.enabled`.
+- **Call hierarchy across tiers.** Show Call Hierarchy on a controller action lists the frontend
+  functions that call its route, and climbs on to the components that call those. Each entry says how
+  sure the link is and how it was made. A language's own call hierarchy (TypeScript, a C# or Java
+  server) still takes precedence where one exists.
+- **Security findings name their CWE and the routes that reach them.** The Problems panel links the
+  CWE, and lists the API routes whose handlers reach the finding. Quick fixes: show those routes, or
+  suppress the finding with `clarifydoc-ignore-next-line`. A complex function's quick fix opens its
+  control flow, a layer violation's opens the architecture view, and any finding's folder can be left
+  out of the analysis.
 - **One index with the MCP server.** The editor groups the analysis by file with the MCP server's own
   index, so the two always agree.
 

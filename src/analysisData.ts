@@ -21,6 +21,10 @@ export interface SecurityIssue {
   filePath: string; // project-relative
   line: number; // 1-based
   snippet?: string;
+  /** `CWE-89` and the like, when the rule maps to one. */
+  cwe?: string;
+  /** API routes whose handlers reach this finding (capped by the analyzer). */
+  entries?: { route: string; file: string; distance: number; confidence: string }[];
 }
 export interface RouteInfo {
   httpMethod?: string;
