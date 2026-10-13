@@ -16,6 +16,8 @@ class Node extends vscode.TreeItem {
   }
 }
 
+/** Dead files and dead exports listed in the sidebar, each. */
+const DEAD_LIMIT = 50;
 const HOTSPOT_LIMIT = 20;
 
 /**
@@ -82,6 +84,8 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
     out.push(this.screensGroup(folder, a));
     out.push(this.securityGroup(folder, a));
     out.push(this.hotspotsGroup(folder, a));
+    const dead = this.deadCodeGroup(folder, a);
+    if (dead) out.push(dead);
     out.push(this.subProjectsGroup(a));
     out.push(this.frameworksGroup(a));
     return out.filter((n): n is Node => !!n);
@@ -192,6 +196,29 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
       return leaf;
     });
     return this.group("Complexity hotspots", top.length, "flame", children);
+  }
+
+  /** Unreachable files and unused exports, plus what was not judged and why. */
+  private deadCodeGroup(folder: vscode.WorkspaceFolder, a: ResolvedAnalysis): Node | null {
+    const dead = a.deadCode;
+    if (!dead) return null;
+    const children: Node[] = [];
+    for (const f of dead.files.slice(0, DEAD_LIMIT)) {
+      children.push(this.revealLeaf(folder, f.filePath, f.filePath, undefined, new vscode.ThemeIcon("circle-slash")));
+    }
+    for (const e of dead.exports.slice(0, DEAD_LIMIT)) {
+      children.push(this.revealLeaf(folder, `${e.name} (unused export)`, e.filePath, e.line, new vscode.ThemeIcon("symbol-variable")));
+    }
+    for (const p of dead.skippedProjects ?? []) {
+      const leaf = new Node("leaf", `not judged: ${p.root || "."}`);
+      leaf.description = p.reason;
+      leaf.tooltip = `${p.files} files not judged — ${p.reason}`;
+      leaf.iconPath = new vscode.ThemeIcon("info");
+      children.push(leaf);
+    }
+    const g = this.group("Dead code", dead.files.length + dead.exports.length, "circle-slash", children);
+    g.tooltip = `Judged from the import graph of ${dead.judgedFiles} files (${dead.languages.join(", ")}). Show these in the editor with clarifydoc.diagnostics.include → deadCode.`;
+    return g;
   }
 
   private subProjectsGroup(a: ResolvedAnalysis): Node {

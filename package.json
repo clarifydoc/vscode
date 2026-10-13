@@ -483,7 +483,14 @@
             "enum": [
               "security",
               "complexity",
-              "layers"
+              "layers",
+              "deadCode"
+            ],
+            "enumDescriptions": [
+              "Security findings, with their CWE and the routes that reach them",
+              "Functions at or above the complexity threshold",
+              "Imports that cross the layer order or a team rule",
+              "Unused exports and unreachable files, as faded text (off by default: every finding is an accusation)"
             ]
           },
           "default": [

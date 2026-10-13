@@ -18,6 +18,7 @@ interface Labels {
   findings: { file: string; line: number; code: string; reachedFrom: { file: string; lines: number[] }[] }[];
   symbols: { query: string; name: string; file: string; lines: number[] }[];
   types: { file: string; line: number; name: string; supertypes: string[]; subtypes: string[] }[];
+  deadCode: { file: string; line: number; lines: number; includes: string }[];
 }
 
 /** Diagnostics are published after activation reads the analysis; wait for them. */
@@ -198,6 +199,19 @@ suite(`Cross-tier navigation: ${fixture}`, () => {
       const sub = await vscode.commands.executeCommand<vscode.TypeHierarchyItem[]>("vscode.provideSubtypes", item);
       assert.deepStrictEqual(sup.map(name).sort(), [...t.supertypes].sort(), `${t.name} supertypes`);
       for (const want of t.subtypes) assert.ok(sub.map(name).includes(want), `${want} not in ${JSON.stringify(sub.map(name))}`);
+    }
+  });
+
+  test("dead code shows as faded text where it is turned on", async () => {
+    for (const want of labels.deadCode) {
+      const uri = vscode.Uri.file(path.join(root(), want.file));
+      const diags = await diagnosticsFor(uri);
+      const d = diags.find((x) => x.code === "dead-code" && x.message.includes(want.includes));
+      assert.ok(d, `${want.file}: ${JSON.stringify(diags.map((x) => x.message))}`);
+      assert.strictEqual(d.severity, vscode.DiagnosticSeverity.Hint);
+      assert.ok(d.tags?.includes(vscode.DiagnosticTag.Unnecessary));
+      assert.strictEqual(d.range.start.line, want.line - 1);
+      assert.strictEqual(d.range.end.line - d.range.start.line + 1, want.lines);
     }
   });
 });

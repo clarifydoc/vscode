@@ -11,7 +11,7 @@ import { runTests } from "@vscode/test-electron";
 //               fixture's source and its analysis, the way an analyzed project
 //               looks. Needs the monorepo (test-fixtures/, test-output/);
 //               skipped in a bare checkout of the extension.
-const FIXTURES = ["sample-fullstack-cqrs", "sample-v-app", "sample-csharp-api"];
+const FIXTURES = ["sample-fullstack-cqrs", "sample-v-app", "sample-csharp-api", "sample-dead-code"];
 
 /** A temp workspace: the fixture's source, with its analysis under `.clarifydoc/<name>/`. */
 function fixtureWorkspace(monorepo: string, name: string): string | undefined {
@@ -21,6 +21,13 @@ function fixtureWorkspace(monorepo: string, name: string): string | undefined {
   const workspace = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "clarifydoc-fixture-")), name);
   fs.cpSync(source, workspace, { recursive: true });
   fs.cpSync(analysis, path.join(workspace, ".clarifydoc", name), { recursive: true });
+  // A fixture's labels may turn settings on (dead code is off by default).
+  const labels = path.join(__dirname, "..", "..", "test", "labels", `${name}.json`);
+  const settings = fs.existsSync(labels) ? JSON.parse(fs.readFileSync(labels, "utf8")).settings : undefined;
+  if (settings) {
+    fs.mkdirSync(path.join(workspace, ".vscode"), { recursive: true });
+    fs.writeFileSync(path.join(workspace, ".vscode", "settings.json"), JSON.stringify(settings, null, 2));
+  }
   return workspace;
 }
 

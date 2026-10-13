@@ -1,0 +1,32 @@
+{
+  "comment": "Written by hand from test-fixtures/sample-dead-code (the same labels as the CLI's dead-code-fixture.test.ts). src/lib/dates.ts:5 exports parseDate, which nothing imports; clib/oldfmt.c (4 lines) is compiled but nothing calls into it. Lines are 1-based.",
+  "settings": {
+    "clarifydoc.diagnostics.include": [
+      "security",
+      "complexity",
+      "layers",
+      "deadCode"
+    ]
+  },
+  "calls": [],
+  "routes": [],
+  "notCalls": [],
+  "hierarchy": [],
+  "findings": [],
+  "symbols": [],
+  "types": [],
+  "deadCode": [
+    {
+      "file": "src/lib/dates.ts",
+      "line": 5,
+      "lines": 1,
+      "includes": "parseDate"
+    },
+    {
+      "file": "clib/oldfmt.c",
+      "line": 1,
+      "lines": 4,
+      "includes": "No entry point reaches this file"
+    }
+  ]
+}

@@ -25,6 +25,10 @@
 - **Type hierarchy in any language the analyzer reads.** Show Type Hierarchy lists a type's supertypes
   and subtypes among the project's own types — an interface's implementations, a base controller's
   subclasses — where no language extension provides a hierarchy.
+- **Dead code as faded text, when you ask for it.** Add `deadCode` to `clarifydoc.diagnostics.include` and
+  unused exports and unreachable files fade in the editor, each saying what the analyzer judged. The
+  sidebar lists them under *Dead code*, with any project it did not judge and why. Off by default:
+  every finding is an accusation.
 - **One index with the MCP server.** The editor groups the analysis by file with the MCP server's own
   index, so the two always agree.
 

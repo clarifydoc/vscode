@@ -1,14 +1,14 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { ExtensionState } from "./state";
-import { LayerViolation, loadAnalysis, ResolvedAnalysis, SecurityIssue } from "./analysisData";
+import { DeadCode, LayerViolation, loadAnalysis, ResolvedAnalysis, SecurityIssue } from "./analysisData";
 
 const FULL_LINE_END = 1_000_000; // Range end col; VS Code clamps to the real line length.
 
 interface DiagSettings {
   enabled: boolean;
   complexityThreshold: number;
-  include: { security: boolean; complexity: boolean; layers: boolean };
+  include: { security: boolean; complexity: boolean; layers: boolean; deadCode: boolean };
 }
 
 function diagSettings(scope: vscode.Uri): DiagSettings {
@@ -21,6 +21,7 @@ function diagSettings(scope: vscode.Uri): DiagSettings {
       security: include.includes("security"),
       complexity: include.includes("complexity"),
       layers: include.includes("layers"),
+      deadCode: include.includes("deadCode"),
     },
   };
 }
@@ -89,6 +90,43 @@ function layerDiag(v: LayerViolation): vscode.Diagnostic {
   d.source = "ClarifyDoc";
   d.code = "layer-violation";
   return d;
+}
+
+/**
+ * Dead code as faded text: an unused export at its line, an unreachable file
+ * over its whole length. Hints, so they never count as problems. Every one is
+ * an accusation the analyzer makes from its import graph, so the message says
+ * what was judged.
+ */
+function deadCodeDiags(dead: DeadCode): { file: string; diag: vscode.Diagnostic }[] {
+  const judged = `judged from the import graph of ${dead.judgedFiles} ${dead.languages.join("/")} files`;
+  const out: { file: string; diag: vscode.Diagnostic }[] = [];
+  for (const e of dead.exports) {
+    const also = e.usedInFile ? "; it is used in this file, so only the export is unused" : "";
+    const diag = new vscode.Diagnostic(
+      lineRange(e.line),
+      `${e.name} is exported, but nothing imports it${also} (${judged})`,
+      vscode.DiagnosticSeverity.Hint,
+    );
+    diag.source = "ClarifyDoc";
+    diag.code = "dead-code";
+    diag.tags = [vscode.DiagnosticTag.Unnecessary];
+    out.push({ file: e.filePath, diag });
+  }
+  for (const f of dead.files) {
+    const lines = Math.max(1, f.lineCount ?? 1);
+    const importers = f.deadImporters ? `; only unreachable files import it (${f.deadImporters})` : "";
+    const diag = new vscode.Diagnostic(
+      new vscode.Range(0, 0, lines - 1, FULL_LINE_END),
+      `No entry point reaches this file${importers} (${judged})`,
+      vscode.DiagnosticSeverity.Hint,
+    );
+    diag.source = "ClarifyDoc";
+    diag.code = "dead-code";
+    diag.tags = [vscode.DiagnosticTag.Unnecessary];
+    out.push({ file: f.filePath, diag });
+  }
+  return out;
 }
 
 /**
@@ -189,6 +227,9 @@ export class DiagnosticsManager {
     }
     if (s.include.layers) {
       for (const v of a.layerViolations) push(v.sourceFile, layerDiag(v));
+    }
+    if (s.include.deadCode && a.deadCode) {
+      for (const d of deadCodeDiags(a.deadCode)) push(d.file, d.diag);
     }
   }
 }
