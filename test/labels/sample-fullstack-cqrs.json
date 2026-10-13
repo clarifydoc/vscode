@@ -96,5 +96,6 @@
     }
   ],
   "types": [],
-  "deadCode": []
+  "deadCode": [],
+  "sarif": []
 }

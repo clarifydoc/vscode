@@ -29,6 +29,9 @@
   unused exports and unreachable files fade in the editor, each saying what the analyzer judged. The
   sidebar lists them under *Dead code*, with any project it did not judge and why. Off by default:
   every finding is an accusation.
+- **Export security findings as SARIF.** *Export Security Findings as SARIF* writes the latest analysis's
+  findings as SARIF 2.1.0 (what GitHub code scanning reads) without analyzing again, and opens it in the
+  SARIF Viewer when that is installed.
 - **One index with the MCP server.** The editor groups the analysis by file with the MCP server's own
   index, so the two always agree.
 

@@ -19,6 +19,7 @@ interface Labels {
   symbols: { query: string; name: string; file: string; lines: number[] }[];
   types: { file: string; line: number; name: string; supertypes: string[]; subtypes: string[] }[];
   deadCode: { file: string; line: number; lines: number; includes: string }[];
+  sarif: { ruleId: string; file: string; line: number }[];
 }
 
 /** Diagnostics are published after activation reads the analysis; wait for them. */
@@ -213,5 +214,22 @@ suite(`Cross-tier navigation: ${fixture}`, () => {
       assert.strictEqual(d.range.start.line, want.line - 1);
       assert.strictEqual(d.range.end.line - d.range.start.line + 1, want.lines);
     }
+  });
+
+  test("security findings export as SARIF the editor can resolve", async () => {
+    if (labels.sarif.length === 0) return;
+    const folder = vscode.workspace.workspaceFolders![0];
+    await vscode.commands.executeCommand("clarifydoc.exportSarif", folder);
+    const file = path.join(root(), ".clarifydoc", fixture, "clarifydoc.sarif");
+    const log = JSON.parse(fs.readFileSync(file, "utf8"));
+    const run = log.runs[0];
+    assert.strictEqual(log.version, "2.1.0");
+    assert.ok(run.originalUriBaseIds["%SRCROOT%"].uri.startsWith("file://"));
+    const results = run.results.map((r: any) => ({
+      ruleId: r.ruleId,
+      file: decodeURI(r.locations[0].physicalLocation.artifactLocation.uri),
+      line: r.locations[0].physicalLocation.region.startLine,
+    }));
+    for (const want of labels.sarif) assert.ok(results.some((r: any) => r.ruleId === want.ruleId && r.file === want.file && r.line === want.line), JSON.stringify(results));
   });
 });

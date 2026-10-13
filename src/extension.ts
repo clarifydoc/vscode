@@ -20,6 +20,7 @@ import { ClarifyDocCodeActions } from "./codeActions";
 import { ClarifyDocWorkspaceSymbols } from "./workspaceSymbols";
 import { ImpactView } from "./impactView";
 import { ClarifyDocTypeHierarchyProvider } from "./typeHierarchy";
+import { exportSarif } from "./sarifExport";
 import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
@@ -113,6 +114,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const folder = await pickWorkspaceFolder(target);
     if (folder) await showReport(state, folder, { location: "browser" });
   });
+  register("clarifydoc.exportSarif", (target?: vscode.WorkspaceFolder | vscode.Uri) => exportSarif(state, target));
   register("clarifydoc.ignoreFolder", (uri?: vscode.Uri, uris?: vscode.Uri[]) => ignoreFolders(state, uri, uris));
   register("clarifydoc.detectFrameworks", (target) => detectFrameworks(state, target));
   register("clarifydoc.impact", (target) => impactOfChanges(state, target));
