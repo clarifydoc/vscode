@@ -1,5 +1,17 @@
 # Change Log
 
+## Unreleased
+
+- **The status bar says when the analysis is out of date.** It counts the files changed or removed
+  since the last analysis (`ClarifyDoc: B · 3 changed`), or says the analyzer was updated, and clicking
+  it re-analyzes. The check reruns when the window regains focus. With analyze-on-save on, a folder
+  whose analysis went stale while VS Code was closed is re-analyzed at startup.
+- **Compare the impact with a branch.** *Compare Impact With…* in the ClarifyDoc Impact view diffs
+  against a branch, tag or commit instead of HEAD — from the point your branch forked, as a pull
+  request shows it. The view's caption names the base, and each folder remembers its own.
+- **Report links open the editor you use.** A report opened in the browser from Cursor, Windsurf,
+  VSCodium or VS Code Insiders opens files back in that editor, not in VS Code.
+
 ## 0.1.12
 
 Bundles analyzer 0.7.0, which now exports its MCP index, agent guidance, workflows and SARIF writer, and draws

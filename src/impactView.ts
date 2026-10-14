@@ -1,10 +1,13 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
+import { execFile } from "child_process";
 import { ExtensionState } from "./state";
 import { resolveCli, runClarifyDoc } from "./cli";
 import { outputBaseDir, summaryPath } from "./paths";
 import { absFor } from "./reveal";
 import { ImpactIcon, ImpactNode, ImpactResult, impactNodes } from "./impactModel";
+import { CompareBase, describeBase, parseRefs } from "./compareBase";
+import { pickWorkspaceFolder } from "./workspace";
 
 const ICONS: Record<ImpactIcon, string> = {
   risk: "warning",
@@ -25,6 +28,17 @@ const RISK_COLOR: Record<ImpactResult["risk"]["level"], string | undefined> = {
   low: undefined,
 };
 
+/** `git -C folder …`, resolving to stdout. */
+function git(folder: vscode.WorkspaceFolder, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) =>
+    execFile("git", ["-C", folder.uri.fsPath, ...args], { maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) =>
+      err ? reject(new Error((stderr || err.message).trim())) : resolve(stdout),
+    ),
+  );
+}
+
+const baseKey = (folder: vscode.WorkspaceFolder) => `clarifydoc.impactBase:${folder.uri.fsPath}`;
+
 /** Waits this long after the last git state change before recomputing. */
 const DEBOUNCE_MS = 1500;
 
@@ -41,7 +55,8 @@ interface GitApi {
  * changes reach, per the last analysis — the API routes and screens above
  * them, the data below, the tests to run — with a risk level and its reasons.
  * Recomputed with `clarifydoc impact --json` when git state changes, only while
- * the view is visible. The badge counts the affected routes.
+ * the view is visible. The badge counts the affected routes. "Compare with…"
+ * sets a branch, tag or commit per folder to diff against instead of HEAD.
  */
 export class ImpactView implements vscode.TreeDataProvider<Row> {
   private readonly changed = new vscode.EventEmitter<Row | undefined>();
@@ -63,7 +78,9 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       state.onAnalysisChanged(() => this.schedule(0)),
       vscode.workspace.onDidSaveTextDocument(() => this.schedule()),
       vscode.commands.registerCommand("clarifydoc.refreshImpact", () => this.schedule(0)),
+      vscode.commands.registerCommand("clarifydoc.impactCompareWith", (target) => this.pickBase(target)),
     );
+    this.describe();
     void this.watchGit();
   }
 
@@ -108,11 +125,85 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
     }
   }
 
+  private baseOf(folder: vscode.WorkspaceFolder): CompareBase | undefined {
+    return this.state.context.workspaceState.get<CompareBase>(baseKey(folder));
+  }
+
+  /** The view caption says what it compares against, when that is not HEAD (one folder only). */
+  private describe(): void {
+    const folders = vscode.workspace.workspaceFolders ?? [];
+    this.view.description = folders.length === 1 ? describeBase(this.baseOf(folders[0])) : undefined;
+  }
+
+  /** "Compare with…": HEAD, a branch, a tag, or any ref or commit typed in. */
+  private async pickBase(target?: vscode.WorkspaceFolder | vscode.Uri): Promise<void> {
+    const folder = await pickWorkspaceFolder(target);
+    if (!folder) return;
+    let refs: ReturnType<typeof parseRefs> = [];
+    try {
+      refs = parseRefs(
+        await git(folder, [
+          "for-each-ref",
+          "--sort=-committerdate",
+          "--count=60",
+          "--format=%(refname)%09%(committerdate:relative)",
+          "refs/heads",
+          "refs/remotes",
+          "refs/tags",
+        ]),
+      );
+    } catch (err) {
+      void vscode.window.showWarningMessage(`ClarifyDoc: ${folder.name} is not a git repository (${err instanceof Error ? err.message : err}).`);
+      return;
+    }
+    const current = this.baseOf(folder);
+    type Item = vscode.QuickPickItem & { ref?: string; head?: true; other?: true };
+    const icon = { branch: "$(git-branch)", remote: "$(cloud)", tag: "$(tag)" } as const;
+    const items: Item[] = [
+      { label: "$(edit) HEAD", description: "uncommitted changes only", detail: current ? undefined : "current", head: true },
+      { label: "", kind: vscode.QuickPickItemKind.Separator },
+      ...refs.map((r) => ({
+        label: `${icon[r.kind]} ${r.ref}`,
+        description: r.when,
+        detail: current?.label === r.ref ? "current" : undefined,
+        ref: r.ref,
+      })),
+      { label: "", kind: vscode.QuickPickItemKind.Separator },
+      { label: "$(git-commit) Another ref or commit…", other: true },
+    ];
+    const picked = await vscode.window.showQuickPick(items, {
+      title: `Compare ${folder.name} with…`,
+      placeHolder: "What your branch adds since it forked from this — merge-base, as a pull request shows it",
+    });
+    if (!picked) return;
+    let ref = picked.ref;
+    if (picked.other) {
+      ref = (await vscode.window.showInputBox({ prompt: "A branch, tag or commit", placeHolder: "main, v1.4.0, a1b2c3d" }))?.trim();
+      if (!ref) return;
+    }
+    let base: CompareBase | undefined;
+    if (!picked.head && ref) {
+      try {
+        // Fork point with HEAD; a ref with no common history is compared directly.
+        const commit = (await git(folder, ["merge-base", ref, "HEAD"]).catch(() => git(folder, ["rev-parse", "--verify", `${ref}^{commit}`]))).trim();
+        base = { label: ref, commit };
+      } catch (err) {
+        void vscode.window.showWarningMessage(`ClarifyDoc: cannot compare with ${ref}: ${err instanceof Error ? err.message : err}`);
+        return;
+      }
+    }
+    await this.state.context.workspaceState.update(baseKey(folder), base);
+    this.describe();
+    this.schedule(0);
+  }
+
   private async impactOf(folder: vscode.WorkspaceFolder): Promise<{ nodes: ImpactNode[]; routes: number } | { message: string }> {
     if (!fs.existsSync(summaryPath(this.state.context, folder))) return { message: "Analyze the workspace to see what your changes reach" };
     if (!vscode.workspace.isTrusted) return { message: "Needs a trusted workspace" };
     const cli = await resolveCli(this.state.context.extensionPath);
     const args = ["impact", folder.uri.fsPath, "-o", outputBaseDir(this.state.context, folder), "--json"];
+    const base = this.baseOf(folder);
+    if (base) args.push("--base", base.commit);
     try {
       const result = await runClarifyDoc(cli, args, { cwd: folder.uri.fsPath });
       if (result.code !== 0) {
@@ -149,6 +240,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
     if ("header" in row) {
       const item = new vscode.TreeItem(row.folder.name, vscode.TreeItemCollapsibleState.Expanded);
       item.iconPath = new vscode.ThemeIcon("root-folder");
+      item.description = describeBase(this.baseOf(row.folder));
       return item;
     }
     const { node, folder } = row;

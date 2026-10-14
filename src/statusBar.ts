@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
-import { loadSummary } from "./analysisData";
+import { freshnessOf, invalidateFreshness, loadSummary } from "./analysisData";
+import { describeFreshness } from "./freshness";
 import { ExtensionState } from "./state";
 import { escapeMd } from "./markdown";
 import { bundledAnalyzerVersion } from "./cli";
@@ -22,6 +23,16 @@ export class StatusBar {
     state.context.subscriptions.push(
       this.item,
       vscode.window.onDidChangeActiveTextEditor(() => void this.refresh()),
+      // Files may have changed outside the editor (a pull, a branch switch).
+      vscode.window.onDidChangeWindowState((w) => {
+        if (!w.focused) return;
+        invalidateFreshness();
+        void this.refresh();
+      }),
+      state.onAnalysisChanged(() => {
+        invalidateFreshness();
+        void this.refresh();
+      }),
     );
   }
 
@@ -58,8 +69,12 @@ export class StatusBar {
       return;
     }
 
+    const note = describeFreshness(await freshnessOf(this.state.context, folder));
+    if (folder !== this.folder() || this.state.isRunning(folder.uri.fsPath)) return;
+
     const grade = summary.health?.grade;
-    this.item.text = grade ? `$(book) ClarifyDoc${name}: ${grade}` : `$(book) ClarifyDoc${name}`;
+    const icon = note.stale ? "$(sync)" : "$(book)";
+    this.item.text = `${icon} ClarifyDoc${name}${grade ? `: ${grade}` : ""}${note.suffix}`;
     this.item.tooltip = new vscode.MarkdownString(
       [
         `**ClarifyDoc — ${escapeMd(folder.name)}**`,
@@ -68,12 +83,15 @@ export class StatusBar {
         `Files: ${summary.counts.files} · Routes: ${summary.counts.routes} · Links: ${summary.counts.links}`,
         `Traces: ${summary.counts.traces} · Security: ${summary.counts.security}`,
         "",
-        "Click to open the report.",
+        ...(note.stale ? [note.detail, "", `[Open the report](command:clarifydoc.openReport)`] : ["Click to open the report."]),
         "",
         `_${escapeMd(this.versions)}_`,
       ].join("\n"),
     );
-    this.item.command = { title: "Open Report", command: "clarifydoc.openReport", arguments: [folder] };
+    if (note.stale) (this.item.tooltip as vscode.MarkdownString).isTrusted = { enabledCommands: ["clarifydoc.openReport"] };
+    this.item.command = note.stale
+      ? { title: "Re-analyze", command: "clarifydoc.analyze", arguments: [folder] }
+      : { title: "Open Report", command: "clarifydoc.openReport", arguments: [folder] };
     this.item.show();
   }
 }
