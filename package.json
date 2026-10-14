@@ -165,6 +165,12 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "clarifydoc.impactCompareWith",
+        "title": "Compare Impact With…",
+        "category": "ClarifyDoc",
+        "icon": "$(git-compare)"
+      },
+      {
         "command": "clarifydoc.exportSarif",
         "title": "Export Security Findings as SARIF",
         "category": "ClarifyDoc"
@@ -347,6 +353,11 @@
           "command": "clarifydoc.openSettings",
           "when": "view == clarifydoc.summary",
           "group": "overflow@7"
+        },
+        {
+          "command": "clarifydoc.impactCompareWith",
+          "when": "view == clarifydoc.impact",
+          "group": "navigation@0"
         },
         {
           "command": "clarifydoc.refreshImpact",

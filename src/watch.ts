@@ -3,6 +3,7 @@ import { getConfig } from "./config";
 import { ExtensionState } from "./state";
 import { resolveCli, ResolvedCli, runClarifyDoc } from "./cli";
 import { sourceGlobFrom } from "./sourceGlob";
+import { freshnessOf } from "./analysisData";
 
 // Used only when the analyzer cannot say what it reads (an older CLI set
 // through clarifydoc.cliPath): the languages it has always supported.
@@ -44,7 +45,8 @@ async function sourceGlob(state: ExtensionState): Promise<string> {
 /**
  * Auto-re-analysis driven by a `FileSystemWatcher` (a superset of save events —
  * it also catches external edits, branch switches, generated files). Opt-in via
- * `clarifydoc.analyzeOnSave`; debounced per folder. A change that arrives while
+ * `clarifydoc.analyzeOnSave`; debounced per folder. When it starts it also
+ * re-analyzes a folder whose analysis no longer matches its files. A change that arrives while
  * the folder is being analyzed is not lost: one more run follows when the
  * current one ends.
  *
@@ -98,6 +100,17 @@ export function registerAutoAnalyze(
       watcher.onDidCreate(onChange);
       watcher.onDidDelete(onChange);
       watchers.push(watcher);
+      // The watcher only sees changes from now on. Catch up on the ones made
+      // while VS Code was closed (a pull, a branch switch), or on an analyzer
+      // update, once — never for a folder that has no analysis yet: that one
+      // gets the first-open offer instead.
+      void freshnessOf(state.context, folder).then((report) => {
+        if (mine !== generation) return;
+        if (report?.state === "changed" || report?.state === "extractor-changed") {
+          state.output.info(`[watch] ${folder.name}: the analysis is out of date (${report.state}) — re-analyzing`);
+          schedule(folder);
+        }
+      });
     }
   };
 

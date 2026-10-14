@@ -7,6 +7,7 @@ import { AnalysisSummary, summarize } from "./summary";
 import { relativeInside } from "./pathUtil";
 import { CallMiss, CrossTierData, DataFlow, groupBy } from "./crossTier";
 import { TypeGraph, typeGraph } from "./typeGraph";
+import type { FreshnessReport } from "./freshness";
 
 // ─── Shapes we consume (a loose view of the analyzer's ProjectAnalysis) ──────
 export interface FnComplexity {
@@ -201,6 +202,8 @@ export interface AnalysisReader {
   AGENT_GUIDANCE?: string;
   /** The MCP server's named workflows. */
   WORKFLOW_PROMPTS?: WorkflowPrompt[];
+  /** Whether an analysis still matches the files on disk. Absent in an older analyzer. */
+  assessFreshness?(outputDir: string, projectRoot: string): Promise<FreshnessReport>;
 }
 
 /** One of the MCP server's workflows: the order of tool calls that answers one question. */
@@ -238,6 +241,42 @@ function loadReader(context: vscode.ExtensionContext): Promise<AnalysisReader | 
 /** The bundled analyzer's API, for features beyond reading the summary. */
 export function loadAnalyzer(context: vscode.ExtensionContext): Promise<AnalysisReader | undefined> {
   return loadReader(context);
+}
+
+// ─── Freshness: does the analysis still match the files? ────────────────────
+/** How long a freshness answer is reused. Each check stats every analyzed file. */
+const FRESHNESS_TTL_MS = 20_000;
+const freshness = new Map<string, { at: number; report: Promise<FreshnessReport | undefined> }>();
+
+/**
+ * The bundled analyzer's freshness check for `folder`, reused for a few seconds
+ * so switching editors does not stat every file each time. Undefined when there
+ * is no analysis or the analyzer predates the check.
+ */
+export function freshnessOf(
+  context: vscode.ExtensionContext,
+  folder: vscode.WorkspaceFolder,
+): Promise<FreshnessReport | undefined> {
+  const key = folder.uri.fsPath;
+  const hit = freshness.get(key);
+  if (hit && Date.now() - hit.at < FRESHNESS_TTL_MS) return hit.report;
+  const report = loadReader(context).then(async (reader) => {
+    if (!reader?.assessFreshness) return undefined;
+    try {
+      return await reader.assessFreshness(resultsDir(context, folder), folder.uri.fsPath);
+    } catch (err) {
+      log("warn", `[freshness] ${folder.name}: ${errorText(err)}`);
+      return undefined;
+    }
+  });
+  freshness.set(key, { at: Date.now(), report });
+  return report;
+}
+
+/** Forget cached freshness — after an analysis, or when the window regains focus. */
+export function invalidateFreshness(folder?: vscode.WorkspaceFolder): void {
+  if (folder) freshness.delete(folder.uri.fsPath);
+  else freshness.clear();
 }
 
 // ─── Per-folder cache keyed by the summary's mtime ───────────────────────────

@@ -16,9 +16,13 @@ async function statMs(p: string): Promise<number | undefined> {
   }
 }
 
-/** Version of the bundled viewer that last generated report.html for a folder. */
+/**
+ * What last generated report.html for a folder: the bundled viewer's version,
+ * and the editor its file links open in (VS Code, Cursor, Windsurf… each have
+ * their own URL scheme, and two of them can share one analysis).
+ */
 function extensionVersion(state: ExtensionState): string {
-  return (state.context.extension?.packageJSON?.version as string) ?? "0";
+  return `${(state.context.extension?.packageJSON?.version as string) ?? "0"} ${vscode.env.uriScheme}`;
 }
 function stampPath(state: ExtensionState, folder: vscode.WorkspaceFolder): string {
   return path.join(resultsDir(state.context, folder), ".clarifydoc-viewer");
@@ -67,12 +71,23 @@ export async function ensureReport(
 
   const cli = opts.cli ?? (await resolveCli(state.context.extensionPath));
   const lines = lineSink((line) => state.output.info(line));
-  const run = (token: vscode.CancellationToken) =>
-    runClarifyDoc(cli, ["report", resultsDir(state.context, folder), "--no-open"], {
-      cwd: folder.uri.fsPath,
-      token,
-      onOutput: (c) => lines.push(c),
-    }).finally(() => lines.end());
+  // A report opened in a browser cannot know which editor sent it there; VS
+  // Code itself is the default and needs no flag.
+  const scheme = vscode.env.uriScheme;
+  const args = ["report", resultsDir(state.context, folder), "--no-open"];
+  const report = (token: vscode.CancellationToken, extra: string[]) =>
+    runClarifyDoc(cli, [...args, ...extra], { cwd: folder.uri.fsPath, token, onOutput: (c) => lines.push(c) });
+  const run = async (token: vscode.CancellationToken) => {
+    try {
+      if (scheme === "vscode") return await report(token, []);
+      const first = await report(token, ["--editor-scheme", scheme]);
+      // A CLI set through clarifydoc.cliPath may predate the flag.
+      if (first.code !== 0 && /unknown option/i.test(first.stderr)) return await report(token, []);
+      return first;
+    } finally {
+      lines.end();
+    }
+  };
   // Inside an analysis the caller's progress (and its Cancel) covers this run;
   // on its own it gets one, since a large report takes a while to build.
   const result = await (opts.token
