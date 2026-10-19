@@ -73,6 +73,9 @@
     .then(({ svg }) => {
       container.innerHTML = svg;
 
+      // Redrawn after a follow or an edit: keep the cursor's node lit.
+      if (typeof payload.cursor === "number") highlightLine(payload.cursor);
+
       for (const el of container.querySelectorAll(".node")) {
         const id = cfgIdOf(el);
         if (!id || !spans.has(id)) continue;
@@ -114,17 +117,25 @@
     saveMermaid.addEventListener("click", () => vscode.postMessage({ type: "save", format: "mermaid" }));
   }
 
-  // Editor → diagram: highlight the innermost node covering the cursor line.
-  window.addEventListener("message", (event) => {
-    const message = event.data;
-    if (!message || message.type !== "cursor") return;
+  const follow = document.getElementById("cf-follow");
+  if (follow) {
+    follow.addEventListener("change", () => vscode.postMessage({ type: "follow", on: follow.checked }));
+  }
 
+  // Editor → diagram: highlight the innermost node covering the cursor line.
+  function highlightLine(line) {
     let best = null;
     for (const node of nodes) {
-      if (message.line < node.line || message.line > node.endLine) continue;
+      if (line < node.line || line > node.endLine) continue;
       // Innermost wins: a `return` inside an `if` should highlight the return.
       if (!best || node.endLine - node.line <= best.endLine - best.line) best = node;
     }
     highlight(best ? best.id : null);
+  }
+
+  window.addEventListener("message", (event) => {
+    const message = event.data;
+    if (!message || message.type !== "cursor") return;
+    highlightLine(message.line);
   });
 })();

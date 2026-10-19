@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **A live control-flow panel.** The panel follows the cursor: moving into another function in the folder
+  draws that one, and editing the function drawn redraws it from the unsaved text. Neither takes focus from
+  the editor, and a cursor between functions keeps the last diagram. Which lines are functions comes from the
+  analysis when it has the file, so resting the cursor costs nothing. *Follow the cursor and redraw on edit*
+  in the panel's header turns this off.
+
 - **Frontend and backend in different workspace folders.** Each folder is analyzed alone, so a call in `web`
   never reaches a route in `api`. After both are analyzed, the extension runs the engine's route linker
   across them. When one folder's unplaced calls are served by the other's routes, it says how many, logs

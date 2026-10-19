@@ -3,6 +3,8 @@ import * as path from "path";
 import { resolveCli, runClarifyDoc, reportSpawnError } from "./cli";
 import { ExtensionState } from "./state";
 import { openSourceAt } from "./reveal";
+import { loadAnalysis, relPathOf } from "./analysisData";
+import { supportsControlFlow } from "./controlFlowSupport";
 
 /**
  * The control-flow view: what the complexity number on the CodeLens actually
@@ -15,8 +17,14 @@ import { openSourceAt } from "./reveal";
  * analyzer has never seen, and on unsaved edits, which are sent over stdin.
  *
  * The panel is bidirectional: clicking a node reveals its source, and moving
- * the cursor in the editor highlights the node covering that line.
+ * the cursor in the editor highlights the node covering that line. While
+ * "Follow" is on (the default) it is also live: the cursor entering another
+ * function re-targets it, and an edit to the function drawn redraws it from
+ * the unsaved text — without taking focus from the editor, and keeping the
+ * last diagram when a redraw has nothing to show.
  */
+
+const FOLLOW = "clarifydoc.controlFlow.follow";
 
 /** One reusable panel per workspace folder, keyed by folder path. */
 const panels = new Map<string, ControlFlowPanel>();
@@ -55,6 +63,9 @@ interface Shown {
   /** The diagram as Mermaid source, and the function it draws (save names). */
   mermaid: string;
   functionName: string;
+  /** The function's span, so a cursor inside it re-targets nothing. */
+  line: number;
+  endLine: number;
 }
 
 function nonce(): string {
@@ -68,14 +79,20 @@ class ControlFlowPanel {
   private shown: Shown | undefined;
   private readonly disposables: vscode.Disposable[] = [];
   private pending: vscode.CancellationTokenSource | undefined;
+  private followTimer: NodeJS.Timeout | undefined;
+  private editTimer: NodeJS.Timeout | undefined;
+  /** The last place a follow found no function, so resting there does not re-run the analyzer. */
+  private lastMiss: string | undefined;
 
   constructor(
     private readonly state: ExtensionState,
     private readonly panel: vscode.WebviewPanel,
     private readonly key: string,
+    private readonly folder: vscode.WorkspaceFolder,
   ) {
     panel.webview.onDidReceiveMessage(
-      (message: { type: string; line?: number; format?: string; svg?: string }) => {
+      (message: { type: string; line?: number; format?: string; svg?: string; on?: boolean }) => {
+        if (message.type === "follow") void this.state.context.workspaceState.update(FOLLOW, message.on !== false);
         if (message.type === "save" && this.shown) {
           void this.save(message.format === "svg" ? "svg" : "mermaid", message.svg);
         }
@@ -98,17 +115,29 @@ class ControlFlowPanel {
     // reading an unrelated file does not make the highlight wander.
     this.disposables.push(
       vscode.window.onDidChangeTextEditorSelection((event) => {
-        if (!this.shown || !this.panel.visible) return;
-        if (event.textEditor.document.uri.fsPath !== this.shown.sourcePath) return;
-        void this.panel.webview.postMessage({
-          type: "cursor",
-          line: event.selections[0]!.active.line + 1,
-        });
+        if (!this.panel.visible) return;
+        const line = event.selections[0]!.active.line + 1;
+        if (this.shown && event.textEditor.document.uri.fsPath === this.shown.sourcePath) {
+          void this.panel.webview.postMessage({ type: "cursor", line });
+        }
+        this.followCursor(event.textEditor.document, line);
+      }),
+      vscode.window.onDidChangeActiveTextEditor((editor) => {
+        if (editor && this.panel.visible) this.followCursor(editor.document, editor.selection.active.line + 1);
+      }),
+      // Diagram ← edit: the function drawn, redrawn from what is on screen.
+      vscode.workspace.onDidChangeTextDocument((event) => {
+        if (!this.following() || !this.shown || event.contentChanges.length === 0) return;
+        if (event.document.uri.fsPath !== this.shown.sourcePath) return;
+        clearTimeout(this.editTimer);
+        this.editTimer = setTimeout(() => void this.redrawAfterEdit(event.document), 700);
       }),
     );
 
     panel.onDidDispose(
       () => {
+        clearTimeout(this.followTimer);
+        clearTimeout(this.editTimer);
         this.pending?.cancel();
         this.pending?.dispose();
         panels.delete(this.key);
@@ -121,6 +150,46 @@ class ControlFlowPanel {
 
   reveal(): void {
     this.panel.reveal(this.panel.viewColumn ?? vscode.ViewColumn.Beside);
+  }
+
+  following(): boolean {
+    return this.state.context.workspaceState.get<boolean>(FOLLOW) ?? true;
+  }
+
+  /**
+   * The cursor moved: when it left the function drawn for another function
+   * in this folder, draw that one. Which lines are functions comes from the
+   * analysis when it has the file, so a cursor between functions costs
+   * nothing; a file it has not seen asks the analyzer, once per line.
+   */
+  private followCursor(doc: vscode.TextDocument, line: number): void {
+    if (!this.following() || doc.uri.scheme !== "file") return;
+    const shown = this.shown;
+    if (shown && doc.uri.fsPath === shown.sourcePath && line >= shown.line && line <= shown.endLine) return;
+    if (vscode.workspace.getWorkspaceFolder(doc.uri)?.uri.fsPath !== this.key || !supportsControlFlow(doc)) return;
+    clearTimeout(this.followTimer);
+    this.followTimer = setTimeout(() => void this.retarget(doc, line), 300);
+  }
+
+  private async retarget(doc: vscode.TextDocument, line: number): Promise<void> {
+    const at = `${doc.uri.fsPath}:${line}`;
+    if (at === this.lastMiss) return;
+    const rel = relPathOf(this.folder, doc.uri);
+    const rows = rel ? (await loadAnalysis(this.state.context, this.folder))?.byFile.get(rel)?.complexity : undefined;
+    // An edited file's rows are stale, so only a saved one may say "no function here".
+    if (rows?.length && !doc.isDirty && !rows.some((r) => r.line <= line && line <= (r.endLine ?? r.line))) return;
+    const drawn = await drawControlFlow(this.state, this, this.folder, doc, undefined, line, true);
+    if (!drawn) this.lastMiss = at;
+  }
+
+  private async redrawAfterEdit(doc: vscode.TextDocument): Promise<void> {
+    const shown = this.shown;
+    if (!shown || doc.uri.fsPath !== shown.sourcePath) return;
+    const editor = vscode.window.activeTextEditor;
+    const cursor = editor?.document === doc ? editor.selection.active.line + 1 : undefined;
+    // The cursor is in the function being edited, nearly always, and it survives a rename;
+    // the name holds the function only while the cursor is elsewhere. Both at once must agree.
+    await drawControlFlow(this.state, this, this.folder, doc, cursor === undefined ? shown.functionName : undefined, cursor, true);
   }
 
   /**
@@ -158,12 +227,16 @@ class ControlFlowPanel {
     return this.pending.token;
   }
 
-  /** Render a graph, replacing whatever the panel was showing. */
-  render(sourcePath: string, entry: CfgResponse["diagrams"][number], language: string): void {
-    this.shown = { sourcePath, nodes: entry.cfg.nodes, mermaid: entry.mermaid, functionName: entry.cfg.functionName };
+  /** Render a graph, replacing whatever the panel was showing; `quiet` leaves focus where it is. */
+  render(sourcePath: string, entry: CfgResponse["diagrams"][number], language: string, cursor?: number, quiet = false): void {
+    this.lastMiss = undefined;
+    this.shown = {
+      sourcePath, nodes: entry.cfg.nodes, mermaid: entry.mermaid, functionName: entry.cfg.functionName,
+      line: entry.cfg.line, endLine: entry.cfg.endLine,
+    };
     this.panel.title = `Control flow — ${entry.cfg.functionName}`;
-    this.panel.webview.html = this.html(entry, language);
-    this.reveal();
+    this.panel.webview.html = this.html(entry, language, cursor);
+    if (!quiet) this.reveal();
   }
 
   /** Show a message in the panel's own surface rather than a toast. */
@@ -214,7 +287,7 @@ class ControlFlowPanel {
 </html>`;
   }
 
-  private html(entry: CfgResponse["diagrams"][number], language: string): string {
+  private html(entry: CfgResponse["diagrams"][number], language: string, cursor?: number): string {
     const n = nonce();
     const { cfg, mermaid, note } = entry;
     const inline = cfg.nodes.reduce((sum, node) => sum + node.inlineBranches, 0);
@@ -235,6 +308,7 @@ class ControlFlowPanel {
 
     const payload = JSON.stringify({
       diagram: mermaid,
+      cursor: cursor ?? null,
       nodes: cfg.nodes.map((node) => ({
         id: node.id,
         line: node.line,
@@ -258,6 +332,7 @@ class ControlFlowPanel {
     ${cfg.approximate ? `<p class="cf-approx">Approximate — ${escapeHtml(language)} has no parser here, so this was read off the source text.</p>` : ""}
     ${note ? `<p class="cf-note">${escapeHtml(note)}.</p>` : ""}
     <p class="cf-hint">Click a node to jump to it. Move the cursor in the editor to highlight the node it is in.</p>
+    <label class="cf-follow"><input type="checkbox" id="cf-follow"${this.following() ? " checked" : ""}> Follow the cursor and redraw on edit</label>
     <button type="button" id="cf-report" class="cf-link">Open the Complexity report for this file</button>
     <button type="button" id="cf-save-svg" class="cf-link">Save as SVG</button>
     <button type="button" id="cf-save-mermaid" class="cf-link">Save as Mermaid</button>
@@ -308,7 +383,7 @@ function panelFor(state: ExtensionState, folder: vscode.WorkspaceFolder): Contro
       localResourceRoots: [vscode.Uri.joinPath(state.context.extensionUri, "media")],
     },
   );
-  const wrapper = new ControlFlowPanel(state, panel, key);
+  const wrapper = new ControlFlowPanel(state, panel, key, folder);
   panels.set(key, wrapper);
   return wrapper;
 }
@@ -357,6 +432,23 @@ export async function showControlFlow(
       ? editor.selection.active.line + 1
       : undefined);
 
+  await drawControlFlow(state, panelFor(state, folder), folder, doc, functionName, selectedLine, false);
+}
+
+/**
+ * Run `clarifydoc cfg` for one function and draw it. Quiet (a follow or an
+ * edit): no progress, no focus change, and a run with nothing to draw leaves
+ * the last diagram up. Resolves whether a diagram was drawn.
+ */
+async function drawControlFlow(
+  state: ExtensionState,
+  view: ControlFlowPanel,
+  folder: vscode.WorkspaceFolder,
+  doc: vscode.TextDocument,
+  functionName: string | undefined,
+  selectedLine: number | undefined,
+  quiet: boolean,
+): Promise<boolean> {
   const args = ["cfg", doc.uri.fsPath, "--format", "json", "--no-styled"];
   if (functionName) args.push("--function", functionName);
   if (selectedLine !== undefined) args.push("--line", String(selectedLine));
@@ -365,28 +457,31 @@ export async function showControlFlow(
   if (stdin !== undefined) args.push("--stdin");
 
   const cli = await resolveCli(state.context.extensionPath);
-  const view = panelFor(state, folder);
 
   let result;
   try {
+    const token = view.cancellation();
+    const spawn = (withStdin: boolean) =>
+      runClarifyDoc(cli, withStdin ? args : args.filter((a) => a !== "--stdin"), {
+        cwd: folder.uri.fsPath,
+        token,
+        stdin: withStdin ? stdin : undefined,
+      });
     const run = (withStdin: boolean) =>
-      vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Window, title: "ClarifyDoc: building control flow…" },
-        () =>
-          runClarifyDoc(cli, withStdin ? args : args.filter((a) => a !== "--stdin"), {
-            cwd: folder.uri.fsPath,
-            token: view.cancellation(),
-            stdin: withStdin ? stdin : undefined,
-          }),
-      );
+      quiet
+        ? spawn(withStdin)
+        : vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title: "ClarifyDoc: building control flow…" }, () => spawn(withStdin));
     result = await run(stdin !== undefined);
     // An analyzer set through clarifydoc.cliPath may predate --stdin: draw the saved file instead.
     if (stdin !== undefined && result.code !== 0 && /unknown option '--stdin'/.test(result.stderr)) result = await run(false);
+    // A newer request took over this panel; what this run found is no longer wanted.
+    if (token.isCancellationRequested) return false;
   } catch (error) {
-    reportSpawnError(error, cli);
-    return;
+    if (!quiet) reportSpawnError(error, cli);
+    return false;
   }
 
+  if (quiet && result.code !== 0) return false;
   if (result.code !== 0) {
     // The CLI prints the file's functions on stderr when nothing matched;
     // that listing is more use to the reader than "command failed".
@@ -394,7 +489,7 @@ export async function showControlFlow(
       "No control flow to show",
       result.stderr.trim() || `clarifydoc cfg exited with code ${result.code}.`,
     );
-    return;
+    return false;
   }
 
   let parsed: CfgResponse;
@@ -402,15 +497,16 @@ export async function showControlFlow(
     parsed = JSON.parse(result.stdout) as CfgResponse;
   } catch {
     state.output.error(`[cfg] could not parse cfg output:\n${result.stdout.slice(0, 500)}`);
-    view.renderMessage("Control flow unavailable", "The analyzer returned output this view could not read; see the ClarifyDoc output channel.");
-    return;
+    if (!quiet) view.renderMessage("Control flow unavailable", "The analyzer returned output this view could not read; see the ClarifyDoc output channel.");
+    return false;
   }
 
   const entry = parsed.diagrams[0];
   if (!entry) {
-    view.renderMessage("No control flow to show", `Nothing in ${path.basename(doc.uri.fsPath)} has a body to draw.`);
-    return;
+    if (!quiet) view.renderMessage("No control flow to show", `Nothing in ${path.basename(doc.uri.fsPath)} has a body to draw.`);
+    return false;
   }
 
-  view.render(doc.uri.fsPath, entry, parsed.language);
+  view.render(doc.uri.fsPath, entry, parsed.language, selectedLine, quiet);
+  return true;
 }
