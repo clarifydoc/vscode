@@ -5,6 +5,8 @@ import { pickWorkspaceFolder } from "./workspace";
 import { resolveCli, runClarifyDoc } from "./cli";
 import { resultsDir, summaryPath } from "./paths";
 import { existsSync } from "fs";
+import * as path from "path";
+import { loadAnalysis } from "./analysisData";
 
 /** The diagrams and documents `clarifydoc export` renders, as the picker offers them. */
 const CHOICES = [
@@ -50,7 +52,42 @@ export async function createArchitectureDiagram(state: ExtensionState, target?: 
   showDiagram(state, folder, choice.format, res.stdout);
 }
 
-function showDiagram(state: ExtensionState, folder: vscode.WorkspaceFolder, format: string, mermaid: string): void {
+/**
+ * "Sequence": what a route does, in order, as a Mermaid sequence diagram
+ * (`clarifydoc seq`) — its handler, the calls it makes, the tables it reads
+ * and writes, the HTTP calls it makes into another tier. From a route's
+ * CodeLens (the route given), or the command palette (a route picked).
+ */
+export async function showSequence(state: ExtensionState, target?: unknown, route?: string, file?: string): Promise<void> {
+  const folder = await pickWorkspaceFolder(target);
+  if (!folder) return;
+  if (!existsSync(summaryPath(state.context, folder))) {
+    void vscode.window.showInformationMessage("ClarifyDoc: analyze this folder first.");
+    return;
+  }
+  if (!route) {
+    const analysis = await loadAnalysis(state.context, folder);
+    const api = (analysis?.routes ?? []).filter((r) => r.httpMethod && r.kind !== "frontend");
+    const picked = await vscode.window.showQuickPick(
+      api.map((r) => ({ label: `${r.httpMethod} ${r.path}`, description: r.filePath ? `${r.filePath}:${r.line}` : "", route: `${r.httpMethod} ${r.path}`, file: r.filePath })),
+      { placeHolder: "Which route's sequence?" },
+    );
+    if (!picked) return;
+    route = picked.route;
+    file = picked.file ?? undefined;
+  }
+  const cli = await resolveCli(state.context.extensionPath);
+  const args = ["seq", folder.uri.fsPath, "--route", route, "--analysis-dir", resultsDir(state.context, folder), ...(file ? ["--file", file] : [])];
+  const res = await runClarifyDoc(cli, args, { cwd: folder.uri.fsPath });
+  if (res.code !== 0 || !res.stdout.trim()) {
+    void vscode.window.showErrorMessage(`ClarifyDoc: no sequence for ${route}: ${res.stderr.trim().split("\n").pop() || "no output"}`);
+    return;
+  }
+  const save = `sequence-${route.replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase()}`;
+  showDiagram(state, folder, `sequence of ${route}${file ? ` (${path.basename(file)})` : ""}`, res.stdout, save);
+}
+
+function showDiagram(state: ExtensionState, folder: vscode.WorkspaceFolder, format: string, mermaid: string, saveName?: string): void {
   const panel = vscode.window.createWebviewPanel("clarifydoc.diagram", `${folder.name}: ${format}`, vscode.ViewColumn.Active, {
     enableScripts: true,
     localResourceRoots: [vscode.Uri.joinPath(state.context.extensionUri, "media")],
@@ -84,7 +121,7 @@ function showDiagram(state: ExtensionState, folder: vscode.WorkspaceFolder, form
     if (m.type !== "save") return;
     const svg = m.format === "svg";
     if (svg && !m.svg) return;
-    const base = format.replace(/\.mmd$/, "");
+    const base = saveName ?? format.replace(/\.mmd$/, "");
     const target = await vscode.window.showSaveDialog({
       defaultUri: vscode.Uri.joinPath(folder.uri, svg ? `${base}.svg` : `${base}.md`),
       filters: svg ? { SVG: ["svg"] } : { Markdown: ["md"], Mermaid: ["mmd"] },

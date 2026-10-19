@@ -112,6 +112,12 @@
         "icon": "$(graph)"
       },
       {
+        "command": "clarifydoc.showSequence",
+        "title": "Show a Route as a Sequence Diagram",
+        "category": "ClarifyDoc",
+        "icon": "$(list-ordered)"
+      },
+      {
         "command": "clarifydoc.openReport",
         "title": "Open Report",
         "category": "ClarifyDoc",

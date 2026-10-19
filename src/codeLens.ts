@@ -1,3 +1,4 @@
+import * as path from "path";
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
 import { loadAnalysis, loadFileIndex, linkCommands, relPathOf, FileFacts, FileIndex, ResolvedAnalysis } from "./analysisData";
@@ -125,6 +126,15 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
         command: "clarifydoc.openReportForFile",
         arguments: [doc.uri, "routes"],
       }));
+      // What the endpoint does, in order: its handler's calls, tables and outbound HTTP.
+      if (r.httpMethod && r.kind !== "frontend") {
+        out.push(new vscode.CodeLens(range, {
+          title: "$(list-ordered) sequence",
+          tooltip: "What this route does, in order, as a sequence diagram",
+          command: "clarifydoc.showSequence",
+          arguments: [folder, `${r.httpMethod} ${r.path}`, path.relative(folder.uri.fsPath, doc.uri.fsPath).split(path.sep).join("/")],
+        }));
+      }
       if (!crossTier) continue;
 
       // Who calls this endpoint, from which screens, and what it stores.

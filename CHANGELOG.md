@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **A route as a sequence diagram.** Each API route gets a *sequence* CodeLens: what the route does, in
+  order — its handler, the calls it makes, the tables it reads and writes, the HTTP calls into another tier —
+  drawn by the engine's `clarifydoc seq` in the diagram panel, which saves it as Mermaid, Markdown or SVG.
+  *ClarifyDoc: Show a Route as a Sequence Diagram* picks a route from the palette.
+
 - **Other tools' findings in Problems.** A finding the analysis imported from another tool's SARIF
   (`clarifydoc analyze --import-sarif`) says whose it is — *ClarifyDoc · Semgrep*, the tool's rule id in the
   message — beside the CWE link and the routes that reach it.
