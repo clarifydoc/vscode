@@ -25,3 +25,13 @@ describe("surfaceNode", () => {
     expect(surfaceNode({ changes: [], counts: { total: 0, breaking: 0, risky: 0, routesAdded: 0, routesRemoved: 0 } }, "v2")).toEqual({ label: "API surface vs v2", description: "no change", icon: "info" });
   });
 });
+
+describe("mergeCodexToml", () => {
+  it("adds ClarifyDoc's table, replaces an earlier one, and keeps the rest", async () => {
+    const { mergeCodexToml } = await import("./mcpInstall.js");
+    const entry = { command: "/bin/clarifydoc-mcp" };
+    const first = mergeCodexToml('model = "o3"\n\n[mcp_servers.other]\ncommand = "x"\n', entry, "/repo");
+    expect(first).toBe('model = "o3"\n\n[mcp_servers.other]\ncommand = "x"\n\n[mcp_servers.clarifydoc]\ncommand = "/bin/clarifydoc-mcp"\nargs = ["/repo"]\n');
+    expect(mergeCodexToml(first, { command: "/new/clarifydoc-mcp", args: ["/repo", "--analysis-dir", "/s"] }, "/repo")).toBe('model = "o3"\n\n[mcp_servers.other]\ncommand = "x"\n\n[mcp_servers.clarifydoc]\ncommand = "/new/clarifydoc-mcp"\nargs = ["/repo","--analysis-dir","/s"]\n');
+  });
+});

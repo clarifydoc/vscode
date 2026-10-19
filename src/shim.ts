@@ -25,12 +25,22 @@ export function shimPath(context: vscode.ExtensionContext): string {
   return path.join(context.globalStorageUri.fsPath, "bin", name);
 }
 
+/**
+ * The same launcher without the `mcp` subcommand — `clarifydoc hook …`,
+ * `clarifydoc install …` — for what an agent host runs besides the server
+ * (Claude Code hooks). Written beside it, refreshed with it.
+ */
+export function cliShimPath(context: vscode.ExtensionContext): string {
+  const name = process.platform === "win32" ? "clarifydoc.cmd" : "clarifydoc";
+  return path.join(context.globalStorageUri.fsPath, "bin", name);
+}
+
 /** Quote a path for POSIX sh (single-quoted, with embedded quotes escaped). */
 function shQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
-function posixShim(cli: ResolvedCli, version: string): string {
+function posixShim(cli: ResolvedCli, version: string, sub: string | null = "mcp"): string {
   const target = [cli.command, ...cli.baseArgs].map(shQuote).join(" ");
   return [
     "#!/bin/sh",
@@ -41,14 +51,14 @@ function posixShim(cli: ResolvedCli, version: string): string {
     "# Args are forwarded, so `clarifydoc-mcp` serves the project in the current",
     "# directory and `clarifydoc-mcp /path/to/project` serves that one.",
     cli.electronAsNode ? "export ELECTRON_RUN_AS_NODE=1" : "",
-    `exec ${target} mcp "$@"`,
+    `exec ${target}${sub ? ` ${sub}` : ""} "$@"`,
     "",
   ]
     .filter((line) => line !== "")
     .join("\n");
 }
 
-function windowsShim(cli: ResolvedCli, version: string): string {
+function windowsShim(cli: ResolvedCli, version: string, sub: string | null = "mcp"): string {
   const target = [cli.command, ...cli.baseArgs].map((p) => `"${p}"`).join(" ");
   return [
     "@echo off",
@@ -57,7 +67,7 @@ function windowsShim(cli: ResolvedCli, version: string): string {
     "rem and an extension update cannot break it.",
     "setlocal",
     cli.electronAsNode ? 'set "ELECTRON_RUN_AS_NODE=1"' : "",
-    `${target} mcp %*`,
+    `${target}${sub ? ` ${sub}` : ""} %*`,
     "",
   ]
     .filter((line) => line !== "")
@@ -77,6 +87,10 @@ export async function writeMcpShim(
   const cli = await resolveCli(context.extensionPath);
   const version = String(context.extension?.packageJSON?.version ?? "0.1.0");
   const body = process.platform === "win32" ? windowsShim(cli, version) : posixShim(cli, version);
+  // The general launcher too, for hooks; its failure costs only those.
+  const general = process.platform === "win32" ? windowsShim(cli, version, null) : posixShim(cli, version, null);
+  await fs.mkdir(path.dirname(target), { recursive: true }).catch(() => undefined);
+  await fs.writeFile(cliShimPath(context), general, "utf-8").then(() => (process.platform !== "win32" ? fs.chmod(cliShimPath(context), 0o755) : undefined)).catch(() => undefined);
 
   try {
     await fs.mkdir(path.dirname(target), { recursive: true });

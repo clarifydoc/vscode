@@ -4,7 +4,8 @@ import * as os from "os";
 import * as path from "path";
 import { execFile } from "child_process";
 import { resultsDir, storageFor } from "./paths";
-import { shimPath } from "./shim";
+import { cliShimPath, shimPath } from "./shim";
+import { resolveCli, runClarifyDoc } from "./cli";
 import { ExtensionState } from "./state";
 
 /**
@@ -42,8 +43,29 @@ export function configJson(entry: ServerEntry): string {
 
 type Target =
   | { kind: "claude-cli"; label: string; detail: string }
-  | { kind: "json"; label: string; detail: string; file: string; key: "mcpServers" }
+  | { kind: "json"; label: string; detail: string; file: string; key: "mcpServers"; claude?: true; userLevel?: true }
+  | { kind: "toml"; label: string; detail: string; file: string }
   | { kind: "clipboard"; label: string; detail: string };
+
+/** Where Claude Desktop reads its MCP servers on this platform. */
+function claudeDesktopConfig(): string {
+  const home = os.homedir();
+  if (process.platform === "darwin") return path.join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json");
+  if (process.platform === "win32") return path.join(process.env.APPDATA ?? path.join(home, "AppData", "Roaming"), "Claude", "claude_desktop_config.json");
+  return path.join(home, ".config", "Claude", "claude_desktop_config.json");
+}
+
+/**
+ * Merge our server into a Codex `config.toml` as its own table, replacing
+ * an earlier ClarifyDoc table and nothing else. Codex reads user-level
+ * config, so the project is always named.
+ */
+export function mergeCodexToml(existing: string, entry: ServerEntry, root: string): string {
+  const args = entry.args?.length ? entry.args : [root];
+  const block = `[mcp_servers.clarifydoc]\ncommand = ${JSON.stringify(entry.command)}\nargs = ${JSON.stringify(args)}\n`;
+  const without = existing.replace(/\n?\[mcp_servers\.clarifydoc\]\n(?:(?!\[)[^\n]*\n?)*/g, "\n").replace(/\n{3,}/g, "\n\n");
+  return `${without.trimEnd()}${without.trim() ? "\n\n" : ""}${block}`;
+}
 
 /** Run the `claude` CLI without blocking the extension host. On Windows it is
  *  a `.cmd` shim, which only a shell can start. */
@@ -98,6 +120,7 @@ async function targetsFor(folder: vscode.WorkspaceFolder): Promise<Target[]> {
     detail: `${projectMcp} — this machine only; the entry holds your local path, so don't commit it`,
     file: projectMcp,
     key: "mcpServers",
+    claude: true,
   });
   targets.push({
     kind: "json",
@@ -112,7 +135,14 @@ async function targetsFor(folder: vscode.WorkspaceFolder): Promise<Target[]> {
     detail: windsurf,
     file: windsurf,
     key: "mcpServers",
+    userLevel: true,
   });
+  const gemini = path.join(folder.uri.fsPath, ".gemini", "settings.json");
+  targets.push({ kind: "json", label: "Gemini CLI (this project)", detail: gemini, file: gemini, key: "mcpServers" });
+  const codex = path.join(home, ".codex", "config.toml");
+  targets.push({ kind: "toml", label: "Codex", detail: `${codex} — names this project`, file: codex });
+  const desktop = claudeDesktopConfig();
+  targets.push({ kind: "json", label: "Claude Desktop", detail: `${desktop} — names this project`, file: desktop, key: "mcpServers", userLevel: true });
   targets.push({
     kind: "clipboard",
     label: "Copy the config instead",
@@ -200,13 +230,33 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
       );
       return;
     }
+    await offerClaudeExtras(state, folder);
     void vscode.window
       .showInformationMessage(`ClarifyDoc: ${result.message} Restart Claude Code to pick it up.`, GUIDANCE_ACTION)
       .then((choice) => offerGuidance(choice, folder));
     return;
   }
 
-  const merged = await mergeIntoJson(target.file, target.key, entry).catch((err: Error) => {
+  if (target.kind === "toml") {
+    try {
+      const existing = await fs.readFile(target.file, "utf-8").catch(() => "");
+      const next = mergeCodexToml(existing, entry, folder.uri.fsPath);
+      if (next !== existing) {
+        await fs.mkdir(path.dirname(target.file), { recursive: true });
+        await fs.writeFile(target.file, next, "utf-8");
+      }
+      output.info(`[mcp] installed clarifydoc into ${target.file}`);
+      void vscode.window.showInformationMessage(`ClarifyDoc: added to ${target.file}. Restart Codex to pick it up.`, GUIDANCE_ACTION).then((c) => offerGuidance(c, folder));
+    } catch (err) {
+      await vscode.env.clipboard.writeText(mergeCodexToml("", entry, folder.uri.fsPath));
+      void vscode.window.showWarningMessage(`ClarifyDoc: ${target.file} could not be updated (${(err as Error).message}). The table is on your clipboard.`);
+    }
+    return;
+  }
+
+  // A user-level config has no working directory to find the project from: name it.
+  const written = target.userLevel && !entry.args?.length ? { ...entry, args: [folder.uri.fsPath] } : entry;
+  const merged = await mergeIntoJson(target.file, target.key, written).catch((err: Error) => {
     output.error(`[mcp] could not write ${target.file}: ${err.message}`);
     return false;
   });
@@ -218,6 +268,7 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
     return;
   }
   output.info(`[mcp] installed clarifydoc into ${target.file}`);
+  if (target.claude) await offerClaudeExtras(state, folder);
   const choice = await vscode.window.showInformationMessage(
     `ClarifyDoc: added to ${path.basename(target.file)}. Restart ${target.label} to pick it up.`,
     "Open File",
@@ -228,6 +279,29 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
     await vscode.window.showTextDocument(doc);
   }
   await offerGuidance(choice, folder);
+}
+
+/**
+ * Claude Code can do more than call the server: hooks that put what the map
+ * knows beside a search, an edit or a new session, and skills made from the
+ * ClarifyDoc workflows. Opt-in, through the CLI's own installer pointed at
+ * the extension's stable launcher, so an update never breaks them; it
+ * writes only what changed.
+ */
+async function offerClaudeExtras(state: ExtensionState, folder: vscode.WorkspaceFolder): Promise<void> {
+  const picks = await vscode.window.showQuickPick(
+    [
+      { label: "Hooks", detail: "Before Grep/Glob: what the map knows about the name. After an edit: who depends on the file. At session start: what the map covers. Never blocks.", flag: "--hooks" },
+      { label: "Skills", detail: "One Claude Code skill per ClarifyDoc workflow (before editing, trace a feature, endpoint gaps…)", flag: "--skills" },
+    ],
+    { canPickMany: true, title: "Also set up for Claude Code (optional)", placeHolder: "Pick none to skip" },
+  );
+  if (!picks?.length) return;
+  const cli = await resolveCli(state.context.extensionPath);
+  const args = ["install", folder.uri.fsPath, "--no-mcp", ...picks.map((p) => p.flag), "--command", cliShimPath(state.context)];
+  const res = await runClarifyDoc(cli, args, { cwd: folder.uri.fsPath });
+  state.output[res.code === 0 ? "info" : "warn"](`[mcp] clarifydoc ${args.join(" ")}: ${res.stdout.trim() || res.stderr.trim()}`);
+  if (res.code !== 0) void vscode.window.showWarningMessage(`ClarifyDoc: could not add ${picks.map((p) => p.label.toLowerCase()).join(" and ")} (see the output).`);
 }
 
 /** Installing the server says the tools exist; the guidance says when to use them. */

@@ -24,12 +24,12 @@ async function read(file: string): Promise<string | undefined> {
 
 /**
  * Where an agent looks for project instructions: an existing AGENTS.md, then
- * CLAUDE.md; else a Cursor rule when the project uses Cursor; else a new
+ * CLAUDE.md, then Copilot's .github/copilot-instructions.md; else a Cursor rule when the project uses Cursor; else a new
  * AGENTS.md (read by Codex, Copilot, Cursor and others).
  */
 async function targetFile(folder: vscode.WorkspaceFolder): Promise<{ file: string; header: string }> {
   const root = folder.uri.fsPath;
-  for (const name of ["AGENTS.md", "CLAUDE.md"]) {
+  for (const name of ["AGENTS.md", "CLAUDE.md", path.join(".github", "copilot-instructions.md")]) {
     const file = path.join(root, name);
     if ((await read(file)) !== undefined) return { file, header: "" };
   }

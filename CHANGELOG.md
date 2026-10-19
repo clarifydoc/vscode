@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **More agents set up from the editor.** *Set up AI agents* now also writes the MCP server into Gemini CLI
+  (`.gemini/settings.json`), Codex (`~/.codex/config.toml`) and Claude Desktop, and reads an existing
+  `.github/copilot-instructions.md` as a guidance file. For Claude Code it offers the hooks (the map in each
+  session's context, a search answered from it, the map refreshed after an edit) and the skills, written by the
+  bundled CLI through a `clarifydoc` launcher in the extension's storage — no global install needed.
+
 - **Risk at the top of a file.** A file the analysis rates high or critical risk to change gets a lens on its
   first line — *high risk to change* — with why on hover: what it is (an edge of the system, a shared
   contract…), what behaviour depends on it, and the rules that fired. `clarifydoc.codeLens.risk` turns it off.
