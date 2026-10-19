@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Who to ask.** The Impact view gains *Usually changed with* — files that history says move with one you
+  changed, which this change leaves alone — and *Reviewers*: the CODEOWNERS owners of the changed files and
+  the people who made most of their commits. A function's hover card names the file's owners and main
+  authors, and says so when one person made most of its changes. Both need the analysis's git history
+  (`clarifydoc.gitHistory`, on by default).
 - **Layer 2 without Docker.** After each analysis, the language servers this editor already runs are
   asked where the calls ClarifyDoc could not resolve lead — within a budget (2000 questions, two
   minutes), with ClarifyDoc's own providers quiet meanwhile so it never answers itself — and the

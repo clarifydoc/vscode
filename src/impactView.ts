@@ -20,6 +20,8 @@ const ICONS: Record<ImpactIcon, string> = {
   unknown: "question",
   chain: "arrow-right",
   info: "info",
+  cochange: "git-compare",
+  person: "person",
 };
 
 const RISK_COLOR: Record<ImpactResult["risk"]["level"], string | undefined> = {

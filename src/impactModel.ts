@@ -21,9 +21,15 @@ export interface ImpactResult {
   testCount: number;
   chains: { path: string[]; endsAt: "screen" | "route" }[];
   risk: { level: "low" | "moderate" | "high"; reasons: string[] };
+  /** Files that usually change with a changed one but are not in this change (git history). */
+  missingCoChanges?: { file: string; with: string; count: number; score: number; hidden?: boolean }[];
+  /** CODEOWNERS owners of the changed files. */
+  owners?: { owner: string; files: number }[];
+  /** Who knows the changed files best, by commits (the change's author left out). */
+  reviewers?: { name: string; files: number; commits: number }[];
 }
 
-export type ImpactIcon = "risk" | "route" | "screen" | "data" | "queue" | "test" | "file" | "unknown" | "chain" | "info";
+export type ImpactIcon = "risk" | "route" | "screen" | "data" | "queue" | "test" | "file" | "unknown" | "chain" | "info" | "cochange" | "person";
 
 export interface ImpactNode {
   label: string;
@@ -78,6 +84,19 @@ export function impactNodes(r: ImpactResult): ImpactNode[] {
   section("Data", r.entityCount, "data", r.entities.map((e) => ({ label: e, icon: "data" })));
   section("Queues", r.queueCount, "queue", r.queues.map((q) => ({ label: q, icon: "queue" })));
   section("Tests to run", r.testCount, "test", r.tests.map((t) => ({ label: t, icon: "test", file: t })));
+  // History says these move together; this change moves only one of them.
+  const coChanges = (r.missingCoChanges ?? []).filter((c) => !c.hidden);
+  section(
+    "Usually changed with",
+    coChanges.length,
+    "cochange",
+    coChanges.map((c) => ({ label: c.file, description: `with ${c.with} · ${c.count}×`, icon: "cochange", file: c.file })),
+  );
+  const people: ImpactNode[] = [
+    ...(r.owners ?? []).map((o) => ({ label: o.owner, description: `owns ${o.files} changed file${o.files === 1 ? "" : "s"} (CODEOWNERS)`, icon: "person" as const })),
+    ...(r.reviewers ?? []).map((x) => ({ label: x.name, description: `${x.commits} commit${x.commits === 1 ? "" : "s"} to ${x.files} of these files`, icon: "person" as const })),
+  ];
+  if (people.length) out.push({ label: "Reviewers", description: String(people.length), icon: "person", children: people });
   out.push({
     label: "Changed files",
     description: String(r.changedFiles.length),

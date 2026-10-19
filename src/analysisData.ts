@@ -172,6 +172,15 @@ export interface ResolvedAnalysis {
   isTest?: (file: string) => boolean;
   /** Whether the project has any test file at all — "no test caller" means nothing without one. */
   hasTests?: boolean;
+  /** Who knows each file, from git history and CODEOWNERS (absent when history was not read). */
+  history?: FileHistory;
+}
+
+/** Per-file knowledge from the analysis's git pass. */
+export interface FileHistory {
+  churn: Map<string, { commits: number; authors: string[]; shares?: { name: string; commits: number }[]; busFactor?: number }>;
+  /** CODEOWNERS owners of a file, when the project has one and the analyzer can match it. */
+  ownersOf?: (file: string) => string[];
 }
 
 /** A dependency a manifest declares (`ProjectAnalysis.externalPackages`). */
@@ -219,6 +228,8 @@ export interface AnalysisReader {
   AGENT_GUIDANCE?: string;
   /** The MCP server's named workflows. */
   WORKFLOW_PROMPTS?: WorkflowPrompt[];
+  /** CODEOWNERS matching (the last matching rule's owners). Absent in an older analyzer. */
+  ownersOf?(rules: readonly { pattern: string; owners: string[] }[], relPath: string): string[];
   /** Whether an analysis still matches the files on disk. Absent in an older analyzer. */
   assessFreshness?(outputDir: string, projectRoot: string): Promise<FreshnessReport>;
 }
@@ -334,7 +345,7 @@ function fileFacts(f: any): FileFacts {
 export function indexProject(
   p: any,
   buildIndex: AnalysisReader["buildIndex"],
-  testRules?: Pick<AnalysisReader, "isTestFile" | "getLanguageForFile">,
+  testRules?: Pick<AnalysisReader, "isTestFile" | "getLanguageForFile" | "ownersOf">,
 ): ResolvedAnalysis {
   const store = buildIndex(p);
   const byFile = new Map<string, FileFacts>();
@@ -425,7 +436,20 @@ export function indexProject(
     packages: arr<DeclaredDependency>(Array.isArray(p.externalPackages) ? p.externalPackages : p.externalPackages?.packages)
       .filter((d) => typeof d?.name === "string"),
     ...testPredicate(files, testRules),
+    ...historyOf(p, testRules),
   };
+}
+
+/** Churn per file and a CODEOWNERS lookup, from what the analysis's git pass wrote. */
+function historyOf(p: any, reader?: Pick<AnalysisReader, "ownersOf">): { history?: FileHistory } {
+  const rows = arr<any>(p.fileChurn).filter((r) => typeof r?.file === "string");
+  const rules = Array.isArray(p.codeOwners?.rules) ? p.codeOwners.rules : null;
+  if (rows.length === 0 && !rules) return {};
+  const churn: FileHistory["churn"] = new Map(
+    rows.map((r) => [r.file as string, { commits: num(r.commits) ?? 0, authors: arr<string>(r.authors), shares: Array.isArray(r.authorShares) ? r.authorShares : undefined, busFactor: typeof r.busFactor === "number" ? r.busFactor : undefined }]),
+  );
+  const ownersOf = rules && reader?.ownersOf ? (file: string) => reader.ownersOf!(rules, file) : undefined;
+  return { history: { churn, ...(ownersOf ? { ownersOf } : {}) } };
 }
 
 /** A memoized test-file check over the analysis's files, when the analyzer offers its rules. */

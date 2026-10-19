@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { ExtensionState } from "./state";
-import { ApiRouteLink, loadFileIndex, linkCommands } from "./analysisData";
+import { ApiRouteLink, loadAnalysis, loadFileIndex, linkCommands } from "./analysisData";
+import { ownershipLine } from "./ownership";
 import { escapeMd } from "./markdown";
 import { absFor } from "./reveal";
 import { DocFacts, crossTierEnabled, docFacts } from "./docFacts";
@@ -73,7 +74,9 @@ export class ClarifyDocHoverProvider implements vscode.HoverProvider {
       const complexity = def.complexity !== undefined ? ` — complexity **${def.complexity}**` : "";
       const parts = links.map((c) => `[${c.title}](${cmd(c.command, c.arguments ?? [])})`);
       if (def.kind !== "class") parts.push(`[$(list-tree) Traces](${cmd("clarifydoc.openReportForFile", [uriArg, "traces"])})`);
-      sections.push(`**$(${icon}) ${escapeMd(def.symbol)}**${complexity}\n\n${parts.join(" · ")}`);
+      // Who to ask about it: CODEOWNERS and the file's history, on the definition card only.
+      const own = ownershipLine(d.rel, (await loadAnalysis(this.state.context, d.folder))?.history);
+      sections.push(`**$(${icon}) ${escapeMd(def.symbol)}**${complexity}\n\n${parts.join(" · ")}${own ? `\n\n${own}` : ""}`);
     }
 
     for (const s of d.facts.security.filter((x) => here(x.line))) {

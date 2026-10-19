@@ -36,6 +36,24 @@ describe("impactNodes", () => {
     expect(impactNodes({ ...base, truncated: true })[1].description).toBe("1+");
   });
 
+  it("lists what usually changes with the change, and who to ask", () => {
+    const nodes = impactNodes({
+      ...base,
+      missingCoChanges: [
+        { file: "Application/Owners/OwnerDto.cs", with: "Application/Owners/GetOwnersQuery.cs", count: 6, score: 0.8 },
+        { file: "noise.cs", with: "x.cs", count: 3, score: 0.3, hidden: true },
+      ],
+      owners: [{ owner: "@acme/owners-team", files: 1 }],
+      reviewers: [{ name: "Ada", files: 1, commits: 9 }],
+    });
+    expect(nodes.map((n) => n.label)).toEqual(["Risk: moderate", "API routes", "Data", "Usually changed with", "Reviewers", "Changed files"]);
+    expect(nodes[3].children).toEqual([{ label: "Application/Owners/OwnerDto.cs", description: "with Application/Owners/GetOwnersQuery.cs · 6×", icon: "cochange", file: "Application/Owners/OwnerDto.cs" }]);
+    expect(nodes[4].children!.map((c) => `${c.label} — ${c.description}`)).toEqual([
+      "@acme/owners-team — owns 1 changed file (CODEOWNERS)",
+      "Ada — 9 commits to 1 of these files",
+    ]);
+  });
+
   it("says so when nothing changed", () => {
     expect(impactNodes({ ...base, changedFiles: [] }).map((n) => n.label)).toEqual(["No changes against the last commit"]);
   });
