@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Frontend and backend in different workspace folders.** Each folder is analyzed alone, so a call in `web`
+  never reaches a route in `api`. After both are analyzed, the extension runs the engine's route linker
+  across them. When one folder's unplaced calls are served by the other's routes, it says how many, logs
+  examples, and offers to reopen on the folders' common parent and analyze it as one map. It never offers
+  the filesystem root or the home directory, and *Don't Ask Again* is remembered per folder set.
+
 - **More agents set up from the editor.** *Set up AI agents* now also writes the MCP server into Gemini CLI
   (`.gemini/settings.json`), Codex (`~/.codex/config.toml`) and Claude Desktop, and reads an existing
   `.github/copilot-instructions.md` as a guidance file. For Claude Code it offers the hooks (the map in each

@@ -24,6 +24,7 @@ import { ImpactView } from "./impactView";
 import { ClarifyDocTypeHierarchyProvider } from "./typeHierarchy";
 import { exportSarif } from "./sarifExport";
 import { onboard } from "./onboarding";
+import { registerSplitRoots } from "./splitRoots";
 import { registerReportSerializer } from "./reportPanel";
 import { installAgentGuidance, registerProposalProvider } from "./agentGuidance";
 import { askAgent } from "./askAgent";
@@ -244,6 +245,7 @@ export function activate(context: vscode.ExtensionContext): void {
   state.refresh();
 
   onboard(state);
+  registerSplitRoots(state);
 
   function logStorage(): void {
     for (const folder of vscode.workspace.workspaceFolders ?? []) {
