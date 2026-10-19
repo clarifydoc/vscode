@@ -5,6 +5,7 @@ import { getConfig } from "./config";
 import { analyzeWorkspace } from "./analyze";
 import { showReport } from "./report";
 import { showControlFlow } from "./controlFlowPanel";
+import { createArchitectureDiagram } from "./architectureDiagram";
 import { primeControlFlowSupport, resetControlFlowSupport } from "./controlFlowSupport";
 import { detectFrameworks, impactOfChanges } from "./extraCommands";
 import { jumpToFileView } from "./jump";
@@ -145,6 +146,7 @@ export function activate(context: vscode.ExtensionContext): void {
   register("clarifydoc.showControlFlow", (uri?: string | vscode.Uri, fn?: string, line?: number) =>
     showControlFlow(state, uri, fn, line),
   );
+  register("clarifydoc.createArchitectureDiagram", (target?: unknown) => createArchitectureDiagram(state, target));
   register("clarifydoc.showCallers", (uri: string, symbol: string) => showLinkedSymbols(state, uri, symbol, "callers"));
   register("clarifydoc.showCallees", (uri: string, symbol: string) => showLinkedSymbols(state, uri, symbol, "callees"));
   register("clarifydoc.revealSource", (absPath: string, line?: number) => openSourceAt(absPath, line));

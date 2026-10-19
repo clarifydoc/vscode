@@ -106,6 +106,12 @@
         "icon": "$(type-hierarchy)"
       },
       {
+        "command": "clarifydoc.createArchitectureDiagram",
+        "title": "Create Architecture Diagram",
+        "category": "ClarifyDoc",
+        "icon": "$(graph)"
+      },
+      {
         "command": "clarifydoc.openReport",
         "title": "Open Report",
         "category": "ClarifyDoc",
