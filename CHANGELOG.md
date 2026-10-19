@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Risk at the top of a file.** A file the analysis rates high or critical risk to change gets a lens on its
+  first line — *high risk to change* — with why on hover: what it is (an edge of the system, a shared
+  contract…), what behaviour depends on it, and the rules that fired. `clarifydoc.codeLens.risk` turns it off.
+
 - **A route as a sequence diagram.** Each API route gets a *sequence* CodeLens: what the route does, in
   order — its handler, the calls it makes, the tables it reads and writes, the HTTP calls into another tier —
   drawn by the engine's `clarifydoc seq` in the diagram panel, which saves it as Mermaid, Markdown or SVG.

@@ -663,6 +663,12 @@
           "description": "Show CodeLens above functions (callers/callees/complexity/traces), classes (references) and routes.",
           "scope": "resource"
         },
+        "clarifydoc.codeLens.risk": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a lens at the top of a file the analysis rates high or critical risk to change, with the reasons on hover.",
+          "scope": "resource"
+        },
         "clarifydoc.hover.enabled": {
           "type": "boolean",
           "default": true,

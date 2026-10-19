@@ -60,3 +60,13 @@ describe("thinFilesOf", () => {
     expect(thinFilesOf(undefined).size).toBe(0);
   });
 });
+
+describe("riskyFilesOf", () => {
+  it("keeps the files rated high or critical to change", async () => {
+    const { riskyFilesOf } = await import("./analysisData.js");
+    const v = (level: string) => ({ category: "edge", level, summary: "s", behaviourAtRisk: [], reasons: ["r"] });
+    const m = riskyFilesOf([{ filePath: "a.ts", verdict: v("high") }, { filePath: "b.ts", verdict: v("medium") }, { filePath: "c.ts", verdict: v("critical") }, { filePath: "d.ts" }]);
+    expect([...m.keys()]).toEqual(["a.ts", "c.ts"]);
+    expect(riskyFilesOf(undefined).size).toBe(0);
+  });
+});

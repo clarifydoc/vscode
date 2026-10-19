@@ -50,6 +50,21 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     const lenses: vscode.CodeLens[] = [];
     const uriArg = document.uri.toString();
 
+    // A file the risk verdict rates high or critical: one lens at the top, the reasons on hover.
+    const risk = analysis!.risky.get(rel);
+    if (risk && riskLensEnabled(document.uri)) {
+      lenses.push(new vscode.CodeLens(new vscode.Range(0, 0, 0, 0), {
+        title: `$(warning) ${risk.level} risk to change`,
+        tooltip: [
+          risk.summary,
+          ...(risk.behaviourAtRisk.length ? [`At risk: ${risk.behaviourAtRisk.slice(0, 6).join(", ")}${risk.behaviourAtRisk.length > 6 ? ", …" : ""}`] : []),
+          `Rules: ${risk.reasons.join(", ")}`,
+        ].join("\n"),
+        command: "clarifydoc.openReportForFile",
+        arguments: [document.uri, "blast"],
+      }));
+    }
+
     const idx = await loadFileIndex(this.state.context, folder, rel, facts);
     const tests = analysis!.isTest ? { isTest: analysis!.isTest, hasTests: analysis!.hasTests === true } : undefined;
     this.definitionLenses(idx, document, uriArg, threshold, lenses, supportsControlFlow(document), tests);
@@ -166,4 +181,9 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
 /** A lens title shows `$(name)` as an icon; text from the analysis must not. */
 function plain(text: string): string {
   return text.replace(/\$\(/g, "$\u200b(");
+}
+
+/** `clarifydoc.codeLens.risk`: the risk lens on files rated high to change (default on). */
+function riskLensEnabled(uri: vscode.Uri): boolean {
+  return vscode.workspace.getConfiguration("clarifydoc.codeLens", uri).get<boolean>("risk") ?? true;
 }

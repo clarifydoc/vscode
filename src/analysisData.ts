@@ -75,6 +75,25 @@ export interface LayerViolation {
   severity?: "error" | "warn";
 }
 
+/** The analyzer's verdict on what changing a file risks (`BlastRadiusInfo.verdict`). */
+export interface RiskVerdict {
+  category: string;
+  level: "critical" | "high" | "medium" | "low";
+  summary: string;
+  behaviourAtRisk: string[];
+  reasons: string[];
+}
+
+/** The files rated high or critical to change. */
+export function riskyFilesOf(blast: unknown): Map<string, RiskVerdict> {
+  const out = new Map<string, RiskVerdict>();
+  for (const b of Array.isArray(blast) ? (blast as Array<{ filePath?: unknown; verdict?: RiskVerdict }>) : []) {
+    const v = b.verdict;
+    if (typeof b.filePath === "string" && v && (v.level === "high" || v.level === "critical") && typeof v.summary === "string") out.set(b.filePath, v);
+  }
+  return out;
+}
+
 /** One file the analysis read thinly (`ProjectAnalysis.coverage`). */
 export interface ThinFile {
   /** Share of the file's text inside syntax the parser could not follow (0..1). */
@@ -187,6 +206,8 @@ export interface ResolvedAnalysis {
   deadCode?: DeadCode;
   /** Files the map stands on thinly: read in part, or importing what resolves nowhere (`coverage`). */
   thinFiles: Map<string, ThinFile>;
+  /** Files the risk verdict rates high or critical to change, with why (`blastRadius[].verdict`). */
+  risky: Map<string, RiskVerdict>;
   /** Project types' supertypes and subtypes, from the class graph. */
   types: TypeGraph;
   /** The MCP store's own index (entities by name, reach by symbol, …), for
@@ -460,6 +481,7 @@ export function indexProject(
     types: typeGraph(p.classGraph),
     deadCode: p.deadCode && Array.isArray(p.deadCode.files) && Array.isArray(p.deadCode.exports) ? p.deadCode : undefined,
     thinFiles: thinFilesOf(p.coverage),
+    risky: riskyFilesOf(p.blastRadius),
     store,
     files,
     packages: arr<DeclaredDependency>(Array.isArray(p.externalPackages) ? p.externalPackages : p.externalPackages?.packages)
