@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as vscode from "vscode";
-import { routeMissDiag } from "./diagnostics";
+import { contractDiag, routeMissDiag } from "./diagnostics";
 
 const folder = { uri: vscode.Uri.file("/repo"), name: "repo", index: 0 } as unknown as vscode.WorkspaceFolder;
 
@@ -20,5 +20,14 @@ describe("routeMissDiag", () => {
     const d = routeMissDiag({ file: "web/b.ts", line: 5, method: "GET", url: "/v1/charges", reason: "unmatched" }, folder);
     expect(d.severity).toBe(vscode.DiagnosticSeverity.Information);
     expect(d.relatedInformation).toBeUndefined();
+  });
+});
+
+describe("contractDiag", () => {
+  it("names the field and points at the route", async () => {
+    const d = contractDiag({ file: "web/api.ts", line: 4, method: "POST", url: "/users", route: { file: "api/users.ts", line: 6, path: "/users" }, kind: "missing-field", field: "age" }, folder);
+    expect(d.message).toBe('POST /users does not send "age", which /users requires');
+    expect(d.severity).toBe(vscode.DiagnosticSeverity.Warning);
+    expect(d.relatedInformation![0]!.location.uri.fsPath).toBe("/repo/api/users.ts");
   });
 });

@@ -5,7 +5,7 @@ import { pathToFileURL } from "url";
 import { resultsDir, summaryPath } from "./paths";
 import { AnalysisSummary, summarize } from "./summary";
 import { relativeInside } from "./pathUtil";
-import { CallMiss, CrossTierData, DataFlow, groupBy } from "./crossTier";
+import { CallMiss, ContractFinding, CrossTierData, DataFlow, groupBy } from "./crossTier";
 import { TypeGraph, typeGraph } from "./typeGraph";
 import type { FreshnessReport } from "./freshness";
 
@@ -400,6 +400,7 @@ export function indexProject(
     screensByFile: groupBy(screens, (sc) => sc.filePath),
     flowsByEntryFile: groupBy(arr<DataFlow>(p.dataFlows), (f) => (typeof f?.entryFile === "string" ? f.entryFile : undefined)),
     missesByFile: groupBy(arr<CallMiss>(stats.misses), (m) => (typeof m?.file === "string" ? m.file : undefined)),
+    contractsByFile: groupBy(arr<ContractFinding>(p.contractFindings), (c) => (typeof c?.file === "string" ? c.file : undefined)),
     uncalled: new Set(arr<{ file: string; line: number }>(stats.uncalled).map((u) => `${u.file}:${u.line}`)),
     uncalledCount: num(stats.uncalledCount),
   };

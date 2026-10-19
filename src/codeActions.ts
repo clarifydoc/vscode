@@ -7,6 +7,7 @@ const COMPLEXITY = "complexity";
 const LAYER = "layer-violation";
 const DEAD = "dead-code";
 const ROUTE_MISS = "route-miss";
+const CONTRACT = "contract";
 
 function codeOf(d: vscode.Diagnostic): string | undefined {
   const c = d.code;
@@ -34,6 +35,9 @@ export class ClarifyDocCodeActions implements vscode.CodeActionProvider {
         out.push(command("Show control flow", d, "clarifydoc.showControlFlow", [doc.uri, undefined, line + 1]));
       } else if (code === LAYER) {
         out.push(command("Open the architecture view", d, "clarifydoc.openReportForFile", [doc.uri, "links"]));
+      } else if (code === CONTRACT) {
+        const r = d.relatedInformation?.[0];
+        if (r) out.push(command("Open the route's handler", d, "vscode.open", [r.location.uri, { selection: r.location.range }]));
       } else if (code === ROUTE_MISS) {
         // Open the route the backend does serve: the call probably meant it.
         for (const r of (d.relatedInformation ?? []).slice(0, 3)) {

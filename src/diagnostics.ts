@@ -2,19 +2,19 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { ExtensionState } from "./state";
 import { DeadCode, LayerViolation, loadAnalysis, ResolvedAnalysis, SecurityIssue } from "./analysisData";
-import type { CallMiss } from "./crossTier";
+import type { CallMiss, ContractFinding } from "./crossTier";
 
 const FULL_LINE_END = 1_000_000; // Range end col; VS Code clamps to the real line length.
 
 interface DiagSettings {
   enabled: boolean;
   complexityThreshold: number;
-  include: { security: boolean; complexity: boolean; layers: boolean; deadCode: boolean; routeGaps: boolean };
+  include: { security: boolean; complexity: boolean; layers: boolean; deadCode: boolean; routeGaps: boolean; contracts: boolean };
 }
 
 function diagSettings(scope: vscode.Uri): DiagSettings {
   const c = vscode.workspace.getConfiguration("clarifydoc.diagnostics", scope);
-  const include = c.get<string[]>("include") ?? ["security", "complexity", "layers", "routeGaps"];
+  const include = c.get<string[]>("include") ?? ["security", "complexity", "layers", "routeGaps", "contracts"];
   return {
     enabled: c.get<boolean>("enabled") ?? true,
     complexityThreshold: c.get<number>("complexityThreshold") ?? 15,
@@ -24,6 +24,7 @@ function diagSettings(scope: vscode.Uri): DiagSettings {
       layers: include.includes("layers"),
       deadCode: include.includes("deadCode"),
       routeGaps: include.includes("routeGaps"),
+      contracts: include.includes("contracts"),
     },
   };
 }
@@ -111,6 +112,28 @@ export function routeMissDiag(m: CallMiss, folder: vscode.WorkspaceFolder): vsco
       `${r.method ?? "*"} ${r.path}`,
     ));
   }
+  return d;
+}
+
+/**
+ * A request body that disagrees with its route, at the call: a required field
+ * not sent or one sent with the wrong type is a warning (the request fails),
+ * an undeclared field is information. The route is the related location.
+ */
+export function contractDiag(c: ContractFinding, folder: vscode.WorkspaceFolder): vscode.Diagnostic {
+  const call = `${c.method ? c.method + " " : ""}${c.url}`;
+  const what = c.kind === "missing-field"
+    ? `does not send "${c.field}", which ${c.route.path} requires`
+    : c.kind === "unknown-field"
+      ? `sends "${c.field}", which ${c.route.path} does not declare`
+      : `sends "${c.field}" as ${c.actual}; ${c.route.path} declares ${c.expected}`;
+  const d = new vscode.Diagnostic(lineRange(c.line), `${call} ${what}`, c.kind === "unknown-field" ? vscode.DiagnosticSeverity.Information : vscode.DiagnosticSeverity.Warning);
+  d.source = "ClarifyDoc";
+  d.code = "contract";
+  d.relatedInformation = [new vscode.DiagnosticRelatedInformation(
+    new vscode.Location(vscode.Uri.file(path.join(folder.uri.fsPath, c.route.file)), lineRange(c.route.line)),
+    `the route: ${c.route.path}`,
+  )];
   return d;
 }
 
@@ -264,6 +287,11 @@ export class DiagnosticsManager {
     }
     if (s.include.deadCode && a.deadCode) {
       for (const d of deadCodeDiags(a.deadCode)) push(d.file, d.diag);
+    }
+    if (s.include.contracts) {
+      for (const list of a.crossTier.contractsByFile?.values() ?? []) {
+        for (const c of list) push(c.file, contractDiag(c, folder));
+      }
     }
     if (s.include.routeGaps) {
       for (const misses of a.crossTier.missesByFile.values()) {

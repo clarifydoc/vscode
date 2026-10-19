@@ -21,6 +21,19 @@ export interface CallMiss {
   existing?: Array<{ method: string | null; path: string; file: string; line: number }>;
 }
 
+/** A request body that disagrees with the route it reaches (`ProjectAnalysis.contractFindings`). */
+export interface ContractFinding {
+  file: string;
+  line: number;
+  method?: string | null;
+  url: string;
+  route: { file: string; line: number; path: string };
+  kind: "missing-field" | "unknown-field" | "type-mismatch";
+  field: string;
+  expected?: string;
+  actual?: string;
+}
+
 /** A route's path from entry to effect (`ProjectAnalysis.dataFlows`). */
 export interface DataFlow {
   entryKind: "route" | "screen";
@@ -42,6 +55,8 @@ export interface CrossTierData {
   flowsByEntryFile: Map<string, DataFlow[]>;
   /** Unlinked calls keyed by their file. */
   missesByFile: Map<string, CallMiss[]>;
+  /** Request-contract findings, by calling file. */
+  contractsByFile?: Map<string, ContractFinding[]>;
   /** `file:line` of routes nothing calls (only sub-projects some caller calls). */
   uncalled: Set<string>;
   /** Exact number of uncalled routes — the listed ones are capped. */
