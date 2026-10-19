@@ -229,6 +229,11 @@
         "icon": "$(clippy)"
       },
       {
+        "command": "clarifydoc.toggleCoverage",
+        "title": "Toggle Coverage Overlay",
+        "category": "ClarifyDoc"
+      },
+      {
         "command": "clarifydoc.bookmarkView",
         "title": "Bookmark This View",
         "category": "ClarifyDoc",
@@ -808,6 +813,12 @@
           "type": "boolean",
           "default": true,
           "description": "Open the interactive report automatically after a successful analysis.",
+          "scope": "resource"
+        },
+        "clarifydoc.coverage.overlay": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Mark the lines no test runs, from the coverage report the analysis read (`coverage/lcov.info`, `coverage.xml`, JaCoCo, Clover, Go — found at the usual paths). Shows only in files a report covers.",
           "scope": "resource"
         },
         "clarifydoc.decorations.risk": {

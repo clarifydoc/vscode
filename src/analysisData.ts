@@ -103,6 +103,40 @@ export interface ThinFile {
   totalImports?: number;
 }
 
+/** One file's test coverage from the analysis (`ProjectAnalysis.testCoverage`). */
+export interface FileTestCoverage {
+  total: number;
+  covered: number;
+  /** Lines no test ran, as 1-based [start, end] ranges. */
+  uncovered: Array<[number, number]>;
+  /** Report files it came from, and whether any is older than the sources. */
+  sources: string[];
+  stale: boolean;
+}
+
+/** `3-5,9` → [[3,5],[9,9]]. */
+export function parseLineRanges(text: string): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (const part of text.split(",")) {
+    const m = /^(\d+)(?:-(\d+))?$/.exec(part.trim());
+    if (m) out.push([Number(m[1]), Number(m[2] ?? m[1])]);
+  }
+  return out;
+}
+
+/** Per-file test coverage, from the analysis's `testCoverage`. */
+export function testCoverageOf(raw: unknown): Map<string, FileTestCoverage> {
+  const out = new Map<string, FileTestCoverage>();
+  const r = raw as { sources?: Array<{ file: string; stale?: boolean }>; files?: Array<{ file: string; total: number; covered: number; uncovered?: string }> } | undefined;
+  const sources = (r?.sources ?? []).map((s) => s.file);
+  const stale = (r?.sources ?? []).some((s) => s.stale);
+  for (const f of r?.files ?? []) {
+    if (typeof f?.file !== "string" || !(f.total > 0)) continue;
+    out.set(f.file, { total: f.total, covered: f.covered, uncovered: parseLineRanges(f.uncovered ?? ""), sources, stale });
+  }
+  return out;
+}
+
 /** The files `coverage` names: the worst parse errors and the most unresolved imports (each list capped by the analyzer). */
 export function thinFilesOf(coverage: unknown): Map<string, ThinFile> {
   const out = new Map<string, ThinFile>();
@@ -208,6 +242,8 @@ export interface ResolvedAnalysis {
   thinFiles: Map<string, ThinFile>;
   /** Files the risk verdict rates high or critical to change, with why (`blastRadius[].verdict`). */
   risky: Map<string, RiskVerdict>;
+  /** Test coverage per file, when the analysis read a coverage report (`testCoverage`). */
+  testCoverage: Map<string, FileTestCoverage>;
   /** Project types' supertypes and subtypes, from the class graph. */
   types: TypeGraph;
   /** The MCP store's own index (entities by name, reach by symbol, …), for
@@ -482,6 +518,7 @@ export function indexProject(
     deadCode: p.deadCode && Array.isArray(p.deadCode.files) && Array.isArray(p.deadCode.exports) ? p.deadCode : undefined,
     thinFiles: thinFilesOf(p.coverage),
     risky: riskyFilesOf(p.blastRadius),
+    testCoverage: testCoverageOf(p.testCoverage),
     store,
     files,
     packages: arr<DeclaredDependency>(Array.isArray(p.externalPackages) ? p.externalPackages : p.externalPackages?.packages)

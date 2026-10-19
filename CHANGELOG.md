@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Lines no test runs.** When the analysis reads a coverage report (`coverage/lcov.info`, `coverage.xml`,
+  JaCoCo, Clover or Go, found at the usual paths), the editor marks the lines no test runs: a faint background
+  and a mark in the overview ruler. Hovering one says how much of the file is run, which report it came from,
+  and whether that report is older than the code. `clarifydoc.coverage.overlay` and *ClarifyDoc: Toggle
+  Coverage Overlay* turn it off.
+
 - **Notes on the map, readable by agents.** The report's Notes, on a file in Architecture or an entity in Data
   Model, now work in the editor. Previously only the ClarifyDoc server kept them. Notes are tied to the file or
   entity, not a line, so they survive re-analysis. They live beside the analysis as `notes.json`, and as

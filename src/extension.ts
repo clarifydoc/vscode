@@ -29,6 +29,7 @@ import { reportIssue } from "./reportIssue";
 import { showFilesGraph } from "./filesGraphCommand";
 import { RiskDecorations } from "./riskDecorations";
 import { registerBookmarks } from "./bookmarks";
+import { CoverageOverlay } from "./coverageOverlay";
 import { registerFollowEditor, registerReportSerializer } from "./reportPanel";
 import { installAgentGuidance, registerProposalProvider } from "./agentGuidance";
 import { askAgent } from "./askAgent";
@@ -91,6 +92,7 @@ export function activate(context: vscode.ExtensionContext): void {
   new ThinMapStatus(state);
   new RiskDecorations(state);
   registerBookmarks(state);
+  new CoverageOverlay(state);
 
   // Editor-integration providers (data-driven, refresh on analysis change).
   const diagnostics = new DiagnosticsManager(state);
