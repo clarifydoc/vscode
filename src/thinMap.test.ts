@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gapIssueUrl, thinFileNote, thinMapNotes } from "./thinMap";
+import { thinFileNote, thinMapNotes } from "./thinMap";
 import { thinFilesOf } from "./analysisData";
 
 describe("thinMapNotes", () => {
@@ -27,16 +27,6 @@ describe("thinMapNotes", () => {
 
   it("says when nothing was analyzed at all", () => {
     expect(thinMapNotes({ files: 0, routes: 0, screens: 0, packages: [] })[0]).toMatch(/no source file/);
-  });
-});
-
-describe("gapIssueUrl", () => {
-  it("prefills the notes, frameworks and versions — and no path", () => {
-    const url = new URL(gapIssueUrl(["express is a dependency, yet no API route was found"], ["Express", "Prisma"], "0.1.13", "darwin"));
-    expect(url.origin + url.pathname).toBe("https://github.com/clarifydoc/vscode/issues/new");
-    expect(url.searchParams.get("title")).toBe("Analysis gap: express is a dependency, yet no API route was found");
-    expect(url.searchParams.get("body")).toContain("**Detected frameworks:** Express, Prisma");
-    expect(url.searchParams.get("body")).toContain("0.1.13");
   });
 });
 

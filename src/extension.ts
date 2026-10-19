@@ -25,6 +25,7 @@ import { ClarifyDocTypeHierarchyProvider } from "./typeHierarchy";
 import { exportSarif } from "./sarifExport";
 import { onboard } from "./onboarding";
 import { registerSplitRoots } from "./splitRoots";
+import { reportIssue } from "./reportIssue";
 import { registerReportSerializer } from "./reportPanel";
 import { installAgentGuidance, registerProposalProvider } from "./agentGuidance";
 import { askAgent } from "./askAgent";
@@ -137,6 +138,7 @@ export function activate(context: vscode.ExtensionContext): void {
   register("clarifydoc.ignoreFolder", (uri?: vscode.Uri, uris?: vscode.Uri[]) => ignoreFolders(state, uri, uris));
   register("clarifydoc.detectFrameworks", (target) => detectFrameworks(state, target));
   register("clarifydoc.impact", (target) => impactOfChanges(state, target));
+  register("clarifydoc.reportIssue", (preset?: Parameters<typeof reportIssue>[1]) => reportIssue(state, preset));
 
   // Right-click-in-code jumps into the report focused on the current file.
   register("clarifydoc.jumpScreens", () => jumpToFileView(state, "ui"));

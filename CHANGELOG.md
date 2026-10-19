@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Report an Issue.** *ClarifyDoc: Report an Issue* (palette, and the sidebar's ⋯ menu) asks whether it is a
+  bug, a gap in the analysis or an idea. It then opens a GitHub issue prefilled with what a maintainer asks
+  first: the extension and analyzer versions, editor, OS, remote and the settings that change behaviour.
+  For each folder it adds the file counts by extension, frameworks, routes, screens and calls found, calls
+  that reached no route, and thin spots. It names no file, folder or route. Nothing is sent until you submit
+  it on GitHub, and *Copy Text* is there instead. *Report a Gap* after a thin analysis now opens the same
+  issue.
+
 - **A live control-flow panel.** The panel follows the cursor: moving into another function in the folder
   draws that one, and editing the function drawn redraws it from the unsaved text. Neither takes focus from
   the editor, and a cursor between functions keeps the last diagram. Which lines are functions comes from the

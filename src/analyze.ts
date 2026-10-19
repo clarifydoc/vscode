@@ -8,7 +8,7 @@ import { ensureReport, showReport } from "./report";
 import { hasOpenReport, readLatestImpact } from "./reportPanel";
 import { pickWorkspaceFolder } from "./workspace";
 import { loadAnalysis } from "./analysisData";
-import { gapIssueUrl, thinMapNotes } from "./thinMap";
+import { thinMapNotes } from "./thinMap";
 import { cancelEditorPass, maybeResolveWithEditor } from "./editorLsp";
 
 const OUTPUT_FLUSH_MS = 250;
@@ -172,15 +172,11 @@ export async function analyzeWorkspace(
           const notes = a ? thinMapNotes({ files: a.files.size, routes: a.routes.length, screens: a.screens.length, packages: a.packages }) : [];
           if (notes.length > 0) {
             state.output.warn(`analysis of ${folder.name}: ${notes.join("; ")}`);
-            const frameworks = a?.frameworks.map((f) => f.name) ?? [];
             void vscode.window
               .showWarningMessage(`ClarifyDoc: analysis of ${folder.name} complete — but ${notes.join("; ")}.`, "Open Report", "Report a Gap")
               .then((choice) => {
                 if (choice === "Open Report") void showReport(state, folder, { cli });
-                if (choice === "Report a Gap") {
-                  const version = String(state.context.extension.packageJSON.version ?? "?");
-                  void vscode.env.openExternal(vscode.Uri.parse(gapIssueUrl(notes, frameworks, version, process.platform)));
-                }
+                if (choice === "Report a Gap") void vscode.commands.executeCommand("clarifydoc.reportIssue", { kind: "gap", folder, summary: notes[0] });
               });
             if (!cfg.openReportAfterAnalyze) return;
           }

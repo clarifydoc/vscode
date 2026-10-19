@@ -45,23 +45,3 @@ export function thinMapNotes(a: ThinMapInput): string[] {
   if (frontend && a.screens === 0) notes.push(`${frontend} is a dependency, yet no screen was found`);
   return notes;
 }
-
-/**
- * A prefilled "report a gap" issue: the notes, the detected frameworks and the
- * versions — opened in the browser for the user to read, edit and submit;
- * nothing is sent from the editor. No paths or code are included.
- */
-export function gapIssueUrl(notes: readonly string[], frameworks: readonly string[], extensionVersion: string, platform: string): string {
-  const title = `Analysis gap: ${notes[0] ?? "missing results"}`;
-  const body = [
-    "**What the analysis missed**",
-    ...notes.map((n) => `- ${n}`),
-    "",
-    `**Detected frameworks:** ${frameworks.length > 0 ? frameworks.join(", ") : "none"}`,
-    `**Extension:** ${extensionVersion} · **OS:** ${platform}`,
-    "",
-    "**What I expected to see** (a route, screen or file it should have found):",
-    "",
-  ].join("\n");
-  return `https://github.com/clarifydoc/vscode/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
-}
