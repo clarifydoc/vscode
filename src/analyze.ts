@@ -5,7 +5,7 @@ import { outputBaseDir, ensureOutputDir } from "./paths";
 import { ExtensionState } from "./state";
 import { lineSink } from "./lineSink";
 import { ensureReport, showReport } from "./report";
-import { hasOpenReport } from "./reportPanel";
+import { hasOpenReport, readLatestImpact } from "./reportPanel";
 import { pickWorkspaceFolder } from "./workspace";
 import { loadAnalysis } from "./analysisData";
 import { gapIssueUrl, thinMapNotes } from "./thinMap";
@@ -187,6 +187,12 @@ export async function analyzeWorkspace(
         }
 
         if (opts.quiet) {
+          // What this save reached, in the status bar for a moment.
+          const impact = await readLatestImpact(state.context, folder);
+          if (impact && impact.changedFiles.length) {
+            const reach = [impact.routeCount ? `${impact.routeCount} route${impact.routeCount === 1 ? "" : "s"}` : "", impact.screenCount ? `${impact.screenCount} screen${impact.screenCount === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ");
+            vscode.window.setStatusBarMessage(`$(pulse) ClarifyDoc: the last change reaches ${reach || "no route or screen"}`, 15_000);
+          }
           // Keep an open report current; never open one unasked.
           if (hasOpenReport(folder)) await ensureReport(state, folder, { force: true, cli, token });
         } else if (cfg.openReportAfterAnalyze) {

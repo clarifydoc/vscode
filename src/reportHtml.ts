@@ -19,12 +19,14 @@ export const REPORT_CSP =
  * VS Code webviews can block fragment navigation, so `location.hash` alone is
  * unreliable there; the global always survives (the hash is set too).
  */
-export function prepareReportHtml(html: string, hash?: string, viewState?: Record<string, string>): string {
+export function prepareReportHtml(html: string, hash?: string, viewState?: Record<string, string>, impact?: unknown): string {
   // JSON is a JS literal; `<` is escaped so a value cannot close the tag.
   const literal = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c");
   let head = `<meta http-equiv="Content-Security-Policy" content="${REPORT_CSP}">`;
   const script: string[] = [];
   if (viewState) script.push(`window.__CLARIFYDOC_VIEW_STATE__=${literal(viewState)};`);
+  // The last incremental run's impact (impact-latest.json): the viewer marks what it changed and reached.
+  if (impact) script.push(`window.__CLARIFYDOC_IMPACT__=${literal(impact)};`);
   if (hash) {
     const h = literal("#" + hash);
     script.push(`window.__CLARIFYDOC_HASH__=${h};try{location.hash=${h}}catch(e){}`);

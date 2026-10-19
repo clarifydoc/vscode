@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { reportPath, projectName } from "./paths";
+import { reportPath, projectName, resultsDir } from "./paths";
 import { ExtensionState } from "./state";
 import { openSourceAt } from "./reveal";
 import { relativeInside } from "./pathUtil";
@@ -26,8 +26,9 @@ const panelOptions: vscode.WebviewPanelOptions & vscode.WebviewOptions = {
 /** The report page for a folder, ready for the webview. */
 async function reportHtml(context: vscode.ExtensionContext, folder: vscode.WorkspaceFolder, hash?: string): Promise<string> {
   const raw = await fs.readFile(reportPath(context, folder), "utf8");
+  const impact = await readLatestImpact(context, folder);
   // The viewer keeps this in its webview state, so a reload knows the folder.
-  return prepareReportHtml(raw, hash, { folder: folder.uri.toString() });
+  return prepareReportHtml(raw, hash, { folder: folder.uri.toString() }, impact ?? undefined);
 }
 
 /**
@@ -158,5 +159,20 @@ export async function refreshOpenReport(
     panel.webview.html = await reportHtml(context, folder, lastHash.get(key));
   } catch {
     /* report was removed; leave the last-rendered content in place */
+  }
+}
+
+/**
+ * What the last incremental run changed and reached (`impact-latest.json`,
+ * written beside the summary on every `--incremental` run). Null when there
+ * is none, or it is from before the summary it sits beside.
+ */
+export async function readLatestImpact(context: vscode.ExtensionContext, folder: vscode.WorkspaceFolder): Promise<{ changedFiles: string[]; routeCount: number; screenCount: number } | null> {
+  try {
+    const text = await fs.readFile(path.join(resultsDir(context, folder), "impact-latest.json"), "utf8");
+    const impact = JSON.parse(text) as { changedFiles?: unknown; routeCount?: number; screenCount?: number };
+    return Array.isArray(impact.changedFiles) ? (impact as { changedFiles: string[]; routeCount: number; screenCount: number }) : null;
+  } catch {
+    return null;
   }
 }

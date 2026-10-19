@@ -45,4 +45,11 @@ describe("prepareReportHtml with view state", () => {
     const html = prepareReportHtml(page, undefined, { folder: "</script><script>alert(1)//" });
     expect(html).not.toContain("</script><script>alert(1)");
   });
+
+  it("hands the viewer the last run's impact, escaped like every literal", () => {
+    const html = prepareReportHtml("<html><head></head><body></body></html>", undefined, undefined, { changedFiles: ["a</script>.ts"], routeCount: 1 });
+    expect(html).toContain("window.__CLARIFYDOC_IMPACT__=");
+    expect(html).not.toContain("a</script>");
+    expect(prepareReportHtml("<html><head></head></html>")).not.toContain("__CLARIFYDOC_IMPACT__");
+  });
 });

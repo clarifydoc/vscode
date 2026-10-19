@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **What the last save reached.** After an automatic analysis the status bar says what the change reaches
+  ("the last change reaches 2 routes"), the report's Overview shows the latest change's impact, and the
+  Routes tab marks the routes whose file changed (`~ changed`) and those the change reaches (`→ reached`) —
+  told apart by colour, glyph and border, not colour alone.
 - **What your change breaks, function by function.** When the diff's lines are known, the Impact view leads
   with *Signature changes* (a function removed or given a new required parameter, and whether that breaks
   the callers as written), then *Will break* — the direct callers, routes named by their route — *Likely
