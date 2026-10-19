@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Save the report's graphs.** SVG and PNG on a report graph (Architecture, Data Model, Call Traces…) now go
+  through the editor's save dialog. A webview ignores a browser download, and PNG export was blocked outright
+  by the report's own content policy, which allows images only from `data:` URLs.
+- **Open in Mermaid Live.** The diagram and control-flow panels have an *Open in Mermaid Live* button. It
+  opens mermaid.live in your browser with the diagram in the link's fragment. It runs only when you click it
+  and is never written into a saved file.
+
 - **The report moves in place.** A jump into an open report (a CodeLens, *Jump to…*, a quick fix) is a message
   to the viewer that is already up, rather than a new page that inflates the whole payload again. On the
   largest stored scan that takes a jump from 0.36–0.48 s to 0.04–0.08 s. A new analysis reloads the open

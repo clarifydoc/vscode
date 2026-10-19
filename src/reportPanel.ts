@@ -66,7 +66,11 @@ function adopt(state: ExtensionState, folder: vscode.WorkspaceFolder, panel: vsc
   // resolved against this folder (the report's file paths are folder-relative).
   // The page is built from the analyzed repository's contents, so a path it
   // sends is opened only when it stays inside the folder.
-  const onMessage = panel.webview.onDidReceiveMessage((msg: { type?: string; file?: unknown; line?: unknown; hash?: unknown }) => {
+  const onMessage = panel.webview.onDidReceiveMessage((msg: { type?: string; file?: unknown; line?: unknown; hash?: unknown; filename?: unknown; base64?: unknown }) => {
+    if (msg?.type === "clarifydoc:save") {
+      void saveFromReport(folder, msg.filename, msg.base64);
+      return;
+    }
     if (msg?.type === "clarifydoc:ready") {
       ready.add(panel);
       return;
@@ -207,6 +211,31 @@ export async function refreshOpenReport(
   } catch {
     /* report was removed; leave the last-rendered content in place */
   }
+}
+
+/** What a report may hand over to be saved: its graphs, as images. */
+const SAVABLE = /\.(svg|png)$/i;
+const MAX_SAVE_BYTES = 64 * 1024 * 1024;
+
+/**
+ * A graph the report's viewer exported, written where the user picks through
+ * the editor's save dialog (a webview cannot download). The page is built from
+ * the analyzed repository, so its name is reduced to a plain file name and
+ * only an image type is accepted.
+ */
+async function saveFromReport(folder: vscode.WorkspaceFolder, filename: unknown, base64: unknown): Promise<void> {
+  if (typeof filename !== "string" || typeof base64 !== "string") return;
+  const name = path.basename(filename).replace(/[^\w.-]+/g, "_");
+  if (!SAVABLE.test(name) || base64.length > (MAX_SAVE_BYTES * 4) / 3) return;
+  const ext = path.extname(name).slice(1).toLowerCase();
+  const target = await vscode.window.showSaveDialog({
+    defaultUri: vscode.Uri.joinPath(folder.uri, name),
+    filters: ext === "svg" ? { "SVG image": ["svg"] } : { "PNG image": ["png"] },
+    title: "Save the graph",
+  });
+  if (!target) return;
+  await vscode.workspace.fs.writeFile(target, Buffer.from(base64, "base64"));
+  vscode.window.setStatusBarMessage(`ClarifyDoc: saved ${path.basename(target.fsPath)}`, 3000);
 }
 
 /** The report tabs that focus one file, and so can follow the editor. */

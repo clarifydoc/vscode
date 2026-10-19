@@ -5,6 +5,8 @@ import { ExtensionState } from "./state";
 import { openSourceAt } from "./reveal";
 import { loadAnalysis, relPathOf } from "./analysisData";
 import { supportsControlFlow } from "./controlFlowSupport";
+import { mermaidLiveUrl } from "./mermaidLive";
+import { isDarkTheme } from "./architectureDiagram";
 
 /**
  * The control-flow view: what the complexity number on the CodeLens actually
@@ -95,6 +97,9 @@ class ControlFlowPanel {
         if (message.type === "follow") void this.state.context.workspaceState.update(FOLLOW, message.on !== false);
         if (message.type === "save" && this.shown) {
           void this.save(message.format === "svg" ? "svg" : "mermaid", message.svg);
+        }
+        if (message.type === "live" && this.shown) {
+          void vscode.env.openExternal(vscode.Uri.parse(mermaidLiveUrl(this.shown.mermaid, isDarkTheme())));
         }
         if (message.type === "reveal" && this.shown && typeof message.line === "number") {
           void openSourceAt(this.shown.sourcePath, message.line, vscode.ViewColumn.One);
@@ -336,6 +341,7 @@ class ControlFlowPanel {
     <button type="button" id="cf-report" class="cf-link">Open the Complexity report for this file</button>
     <button type="button" id="cf-save-svg" class="cf-link">Save as SVG</button>
     <button type="button" id="cf-save-mermaid" class="cf-link">Save as Mermaid</button>
+    <button type="button" id="cf-live" class="cf-link" title="Opens mermaid.live in your browser, with this diagram in the link">Open in Mermaid Live</button>
   </header>
   <div id="cf-graph" class="cf-graph"></div>
   <script nonce="${n}" type="application/json" id="cf-payload">${escapeJson(payload)}</script>

@@ -8,6 +8,7 @@ import { existsSync } from "fs";
 import * as path from "path";
 import { loadAnalysis } from "./analysisData";
 import { openSourceAt } from "./reveal";
+import { mermaidLiveUrl } from "./mermaidLive";
 import type { GraphView } from "./filesGraph";
 
 /** The diagrams and documents `clarifydoc export` renders, as the picker offers them. */
@@ -123,6 +124,7 @@ export function showDiagram(
     <button type="button" id="dg-save-mermaid" class="cf-link">Save as Mermaid / Markdown</button>
     <button type="button" id="dg-save-svg" class="cf-link">Save as SVG</button>
     <button type="button" id="dg-copy" class="cf-link">Copy Mermaid</button>
+    <button type="button" id="dg-live" class="cf-link" title="Opens mermaid.live in your browser, with this diagram in the link">Open in Mermaid Live</button>
   </header>
   <div id="dg-graph" class="cf-graph"></div>
   <script nonce="${nonce}" type="application/json" id="dg-payload">${payload}</script>
@@ -135,6 +137,10 @@ export function showDiagram(
     if (m.type === "open" && m.node) {
       const at = views[current]!.nodes[m.node];
       if (at) void openSourceAt(path.join(folder.uri.fsPath, at.file), at.line, vscode.ViewColumn.One);
+      return;
+    }
+    if (m.type === "live") {
+      void vscode.env.openExternal(vscode.Uri.parse(mermaidLiveUrl(mermaid, isDarkTheme())));
       return;
     }
     if (m.type === "copy") {
@@ -155,6 +161,12 @@ export function showDiagram(
     await vscode.workspace.fs.writeFile(target, Buffer.from(text, "utf8"));
     vscode.window.setStatusBarMessage(`ClarifyDoc: saved ${target.fsPath}`, 3000);
   });
+}
+
+/** Whether the editor's theme is dark, for the Mermaid Live theme. */
+export function isDarkTheme(): boolean {
+  const k = vscode.window.activeColorTheme.kind;
+  return k === vscode.ColorThemeKind.Dark || k === vscode.ColorThemeKind.HighContrast;
 }
 
 function escapeHtml(value: string): string {

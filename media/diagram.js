@@ -51,9 +51,10 @@
   }
 
   for (const b of document.querySelectorAll(".dg-view")) b.addEventListener("click", () => render(Number(b.dataset.view)));
-  for (const [id, format] of [["dg-save-svg", "svg"], ["dg-save-mermaid", "mermaid"], ["dg-copy", "copy"]]) {
+  for (const [id, format] of [["dg-save-svg", "svg"], ["dg-save-mermaid", "mermaid"], ["dg-copy", "copy"], ["dg-live", "live"]]) {
     const button = document.getElementById(id);
-    if (button) button.addEventListener("click", () => vscode.postMessage({ type: format === "copy" ? "copy" : "save", format, svg: svgText, view: current }));
+    const type = format === "copy" || format === "live" ? format : "save";
+    if (button) button.addEventListener("click", () => vscode.postMessage({ type, format, svg: svgText, view: current }));
   }
   render(0);
 })();

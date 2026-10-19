@@ -117,6 +117,9 @@
     saveMermaid.addEventListener("click", () => vscode.postMessage({ type: "save", format: "mermaid" }));
   }
 
+  const live = document.getElementById("cf-live");
+  if (live) live.addEventListener("click", () => vscode.postMessage({ type: "live" }));
+
   const follow = document.getElementById("cf-follow");
   if (follow) {
     follow.addEventListener("change", () => vscode.postMessage({ type: "follow", on: follow.checked }));
