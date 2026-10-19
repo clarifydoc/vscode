@@ -297,7 +297,7 @@ export function invalidateFreshness(folder?: vscode.WorkspaceFolder): void {
 }
 
 // ─── Per-folder cache keyed by the summary's mtime ───────────────────────────
-const cache = new Map<string, { mtimeMs: number; loaded: Promise<LoadedSummary | undefined> }>();
+const cache = new Map<string, { version: string; loaded: Promise<LoadedSummary | undefined> }>();
 
 function num(v: unknown): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
@@ -487,12 +487,15 @@ function loadSummaryFile(
   folder: vscode.WorkspaceFolder,
 ): Promise<LoadedSummary | undefined> {
   const sp = summaryPath(context, folder);
-  return fs.stat(sp).then(
-    ({ mtimeMs }) => {
+  // An `lsp-update` writes its delta beside an unchanged summary; it is part of what is loaded.
+  const delta = fs.stat(path.join(path.dirname(sp), "lsp-enhancement.json")).then((s) => s.mtimeMs, () => 0);
+  return Promise.all([fs.stat(sp), delta]).then(
+    ([{ mtimeMs: summaryMtime }, deltaMtime]) => {
+      const version = `${summaryMtime}:${deltaMtime}`;
       const hit = cache.get(sp);
-      if (hit && hit.mtimeMs === mtimeMs) return hit.loaded;
+      if (hit && hit.version === version) return hit.loaded;
       const loaded = parseSummary(context, sp);
-      const entry = { mtimeMs, loaded };
+      const entry = { version, loaded };
       cache.set(sp, entry);
       // A failed read (a summary caught mid-write) is retried on the next ask.
       void loaded.then((l) => {
@@ -511,7 +514,7 @@ function loadSummaryFile(
  * Load and resolve the latest analysis for a folder — path-based, line-bearing
  * data suitable for diagnostics / CodeLens / the sidebar. Returns undefined when
  * there is no analysis yet (or the bundled analyzer cannot be loaded).
- * Cached by the summary's mtime, so repeated provider calls are cheap and a
+ * Cached by the summary's (and its LSP delta's) mtime, so repeated provider calls are cheap and a
  * re-analysis is picked up automatically.
  */
 export async function loadAnalysis(

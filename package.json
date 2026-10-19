@@ -177,6 +177,11 @@
         "icon": "$(git-compare)"
       },
       {
+        "command": "clarifydoc.resolveWithEditorLsp",
+        "title": "Resolve Calls with the Editor's Language Servers",
+        "category": "ClarifyDoc"
+      },
+      {
         "command": "clarifydoc.exportSarif",
         "title": "Export Security Findings as SARIF",
         "category": "ClarifyDoc"
@@ -649,6 +654,19 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "Run the optional layer-2 LSP enhancement to resolve cross-file calls the text linker missed. **Requires Docker.** Off by default.",
+          "scope": "resource"
+        },
+        "clarifydoc.editorLsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "After each analysis, ask the language servers this editor already runs where the calls ClarifyDoc could not resolve lead, and add the unambiguous answers as layer-2 links — layer 2 without Docker. Only servers you have installed are asked; an answer naming two places is left out. Skipped while `#clarifydoc.enableLsp#` is on. Run it by hand with *ClarifyDoc: Resolve Calls with the Editor's Language Servers*.",
+          "scope": "resource"
+        },
+        "clarifydoc.editorLsp.maxQueries": {
+          "type": "number",
+          "default": 2000,
+          "minimum": 1,
+          "description": "At most this many definition questions per pass over the editor's language servers (a pass also stops after two minutes).",
           "scope": "resource"
         },
         "clarifydoc.lspTimeout": {

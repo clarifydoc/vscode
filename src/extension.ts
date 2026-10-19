@@ -36,6 +36,7 @@ import { maybeOfferMcpInstall } from "./mcpInstall";
 import { outputBaseDir, resetStorageResolution, storageFor } from "./paths";
 import { setAnalysisLog } from "./analysisData";
 import { LineTracker } from "./lineTracker";
+import { resolveWithEditor } from "./editorLsp";
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("ClarifyDoc", { log: true });
@@ -128,6 +129,7 @@ export function activate(context: vscode.ExtensionContext): void {
   });
   register("clarifydoc.askAgent", () => askAgent(state));
   register("clarifydoc.installAgentGuidance", (target?: vscode.WorkspaceFolder | vscode.Uri) => installAgentGuidance(state, target));
+  register("clarifydoc.resolveWithEditorLsp", (target?: vscode.WorkspaceFolder | vscode.Uri) => resolveWithEditor(state, target));
   register("clarifydoc.exportSarif", (target?: vscode.WorkspaceFolder | vscode.Uri) => exportSarif(state, target));
   register("clarifydoc.ignoreFolder", (uri?: vscode.Uri, uris?: vscode.Uri[]) => ignoreFolders(state, uri, uris));
   register("clarifydoc.detectFrameworks", (target) => detectFrameworks(state, target));

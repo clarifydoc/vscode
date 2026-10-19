@@ -12,6 +12,9 @@ export interface ClarifyDocConfig {
   incremental: boolean;
   enableLsp: boolean;
   lspTimeout: number;
+  /** Layer 2 through the editor's own language servers, after each analysis. */
+  editorLsp: boolean;
+  editorLspMaxQueries: number;
   gitHistory: boolean;
   maxFiles: number;
   includeGlobs: string[];
@@ -32,6 +35,8 @@ export function getConfig(scope?: vscode.Uri): ClarifyDocConfig {
     incremental: c.get<boolean>("incremental") ?? true,
     enableLsp: c.get<boolean>("enableLsp") ?? false,
     lspTimeout: c.get<number>("lspTimeout") ?? 0,
+    editorLsp: c.get<boolean>("editorLsp.enabled") ?? true,
+    editorLspMaxQueries: Math.max(1, c.get<number>("editorLsp.maxQueries") ?? 2000),
     gitHistory: c.get<boolean>("gitHistory") ?? true,
     maxFiles: c.get<number>("maxFiles") ?? 0,
     includeGlobs: c.get<string[]>("includeGlobs") ?? [],

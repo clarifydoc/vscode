@@ -9,6 +9,7 @@ import { hasOpenReport } from "./reportPanel";
 import { pickWorkspaceFolder } from "./workspace";
 import { loadAnalysis } from "./analysisData";
 import { gapIssueUrl, thinMapNotes } from "./thinMap";
+import { cancelEditorPass, maybeResolveWithEditor } from "./editorLsp";
 
 const OUTPUT_FLUSH_MS = 250;
 
@@ -89,6 +90,8 @@ export async function analyzeWorkspace(
 
   state.setRunning(folderPath, true);
   state.refresh();
+  // A pass over the analysis being replaced would merge into the new one.
+  cancelEditorPass(folder);
 
   try {
     await vscode.window.withProgress(
@@ -159,6 +162,7 @@ export async function analyzeWorkspace(
         state.lines.reset(folder.uri);
         state.refresh();
         state.fireAnalysisChanged();
+        maybeResolveWithEditor(state, folder, cli);
 
         // "Complete" is not "complete" when a framework the project depends on
         // left nothing on the map: say which, so an empty Routes list is not

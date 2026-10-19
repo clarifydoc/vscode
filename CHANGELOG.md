@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Layer 2 without Docker.** After each analysis, the language servers this editor already runs are
+  asked where the calls ClarifyDoc could not resolve lead — within a budget (2000 questions, two
+  minutes), with ClarifyDoc's own providers quiet meanwhile so it never answers itself — and the
+  unambiguous answers become call links in the report, CodeLens and call hierarchy. Only servers you have
+  installed answer; one naming two places is left out unless exactly one of them is a declaration the
+  analysis knows. *ClarifyDoc: Resolve Calls with the Editor's Language Servers* runs it by hand;
+  `clarifydoc.editorLsp.enabled` turns it off. It stands aside while `clarifydoc.enableLsp` (Docker) is on.
 - **API gaps in the sidebar.** A new *API gaps* group lists the API calls that reach no route — with why:
   no route serves the path, a route serves it for another method, the service it goes to has no such
   route — and the routes no call in the repository reaches. A renamed endpoint shows up as the client

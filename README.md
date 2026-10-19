@@ -293,6 +293,8 @@ All under the **ClarifyDoc** category in the Command Palette:
 | `clarifydoc.crossTier.enabled` | `true` | Go to Definition from API calls to routes, Find References on routes, and the route CodeLens/hover |
 | `clarifydoc.incremental` | `true` | Reuse cache for unchanged files |
 | `clarifydoc.enableLsp` | `false` | Layer-2 LSP enhancement (needs Docker) |
+| `clarifydoc.editorLsp.enabled` | `true` | Layer 2 through the editor's own language servers after each analysis (no Docker) |
+| `clarifydoc.editorLsp.maxQueries` | `2000` | Definition questions per pass over the editor's language servers |
 | `clarifydoc.lspTimeout` | `0` | LSP startup timeout (ms; 0 = analyzer default) |
 | `clarifydoc.gitHistory` | `true` | Collect git churn / hotspots |
 | `clarifydoc.maxFiles` | `0` | Cap files analyzed (0 = unlimited) |

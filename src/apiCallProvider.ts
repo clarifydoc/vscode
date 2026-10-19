@@ -4,6 +4,7 @@ import { absFor } from "./reveal";
 import { callersOf, callsAtLine, linksAtLine, navigableLinks, urlRange } from "./crossTier";
 import { crossTierEnabled, docFacts, lineIn } from "./docFacts";
 import { ApiRouteLink, FileFacts } from "./analysisData";
+import { editorPassActive } from "./editorLspCore";
 
 /** The calls whose analyzed line is now at `line`, with the links they made. */
 function callLinksAt(facts: FileFacts, line: number, isAt: (analyzed: number, line: number) => boolean) {
@@ -24,7 +25,7 @@ export class ApiCallDefinitionProvider implements vscode.DefinitionProvider {
   constructor(private readonly state: ExtensionState) {}
 
   async provideDefinition(doc: vscode.TextDocument, pos: vscode.Position): Promise<vscode.DefinitionLink[] | undefined> {
-    if (!crossTierEnabled(doc.uri)) return undefined;
+    if (editorPassActive() || !crossTierEnabled(doc.uri)) return undefined;
     const d = await docFacts(this.state, doc);
     if (!d) return undefined;
     const at = callLinksAt(d.facts, pos.line, d.isAt);
@@ -68,7 +69,7 @@ export class RouteReferenceProvider implements vscode.ReferenceProvider {
   constructor(private readonly state: ExtensionState) {}
 
   async provideReferences(doc: vscode.TextDocument, pos: vscode.Position): Promise<vscode.Location[] | undefined> {
-    if (!crossTierEnabled(doc.uri)) return undefined;
+    if (editorPassActive() || !crossTierEnabled(doc.uri)) return undefined;
     const d = await docFacts(this.state, doc);
     if (!d) return undefined;
     const routes = d.facts.routes.filter((r) => d.isAt(r.line, pos.line));
