@@ -4,8 +4,12 @@
  * extension-less file names (`Jenkinsfile`). Names are matched both as
  * reported and capitalized, since a glob is case-sensitive on most file
  * systems and conventions differ (`routes`, `Jenkinsfile`).
+ *
+ * Several globs, one per watcher: VS Code's file watcher delivers no event at
+ * all for nested braces (`{**\/*.{ts},**\/{Jenkinsfile}}`), which is how the
+ * save loop went silent once named files joined the list.
  */
-export function sourceGlobFrom(detected: { analyzableExtensions?: unknown; namedFiles?: unknown }): string | undefined {
+export function sourceGlobFrom(detected: { analyzableExtensions?: unknown; namedFiles?: unknown }): string[] | undefined {
   const exts = strings(detected.analyzableExtensions)
     .map((e) => e.replace(/^\./, ""))
     .filter((e) => /^[\w.+-]+$/.test(e));
@@ -18,7 +22,7 @@ export function sourceGlobFrom(detected: { analyzableExtensions?: unknown; named
   if (exts.length === 0) return undefined;
   const parts = [`**/*.{${exts.join(",")}}`];
   if (names.size) parts.push(`**/{${[...names].sort().join(",")}}`);
-  return parts.length === 1 ? parts[0] : `{${parts.join(",")}}`;
+  return parts;
 }
 
 function strings(v: unknown): string[] {

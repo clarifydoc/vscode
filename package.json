@@ -774,9 +774,15 @@
           "scope": "resource"
         },
         "clarifydoc.analyzeOnSave": {
-          "type": "boolean",
-          "default": false,
-          "description": "Re-analyze the workspace (incrementally) a few seconds after source files change on disk — saves, branch switches, generated files. Runs quietly in the status bar; an open report is refreshed, never opened.",
+          "type": "string",
+          "enum": ["auto", "on", "off"],
+          "enumDescriptions": [
+            "On where it is cheap: when the folder's last analysis took 5 seconds or less.",
+            "Always re-analyze after a change, however long it takes.",
+            "Never; analyze from the command or the sidebar."
+          ],
+          "default": "auto",
+          "markdownDescription": "Re-analyze the folder (incrementally) shortly after source files change on disk — saves, branch switches, generated files. Runs quietly in the status bar; an open report is refreshed, never opened. `auto` turns it on where the last analysis was quick, and a small folder is analyzed a second after a save. Earlier `true` / `false` values still mean `on` / `off`.",
           "scope": "resource"
         },
         "clarifydoc.mcp.enabled": {

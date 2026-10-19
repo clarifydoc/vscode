@@ -10,6 +10,8 @@ import { pickWorkspaceFolder } from "./workspace";
 import { loadAnalysis } from "./analysisData";
 import { thinMapNotes } from "./thinMap";
 import { cancelEditorPass, maybeResolveWithEditor } from "./editorLsp";
+import { isUpToDateRun } from "./saveLoop";
+import { recordAnalysisTime } from "./watch";
 
 const OUTPUT_FLUSH_MS = 250;
 
@@ -108,6 +110,10 @@ export async function analyzeWorkspace(
         let pending = "";
         let timer: NodeJS.Timeout | undefined;
         const lines = lineSink((line) => state.output.info(line));
+        // How long a real run takes is what decides whether the save loop is cheap enough to be on.
+        const started = Date.now();
+        let tail = "";
+        let upToDate = false;
         const flush = () => {
           timer = undefined;
           if (!pending) return;
@@ -127,6 +133,8 @@ export async function analyzeWorkspace(
             for (const m of chunk.matchAll(/Failed to start LSP server '([^']+)'/g)) lspFailures.push(m[1]);
             if (/Docker is not available/.test(chunk)) lspFailures.push("docker");
             pending += chunk;
+            tail = (tail + chunk).slice(-400);
+            upToDate ||= isUpToDateRun(tail);
             timer ??= setTimeout(flush, OUTPUT_FLUSH_MS);
           },
         }).catch((err) => reportSpawnError(err, cli));
@@ -159,6 +167,8 @@ export async function analyzeWorkspace(
           return;
         }
 
+        // An up-to-date exit costs nothing whatever the folder's size; it says nothing about a change.
+        if (!upToDate) await recordAnalysisTime(state.context, folder, Date.now() - started);
         state.lines.reset(folder.uri);
         state.refresh();
         state.fireAnalysisChanged();

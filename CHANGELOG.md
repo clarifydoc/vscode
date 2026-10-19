@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Analyze on save, on by default where it is cheap.** `clarifydoc.analyzeOnSave` is now `auto` | `on` |
+  `off`, and defaults to `auto`. Auto turns the save loop on for a folder whose last real analysis took 5 s or
+  less (an "up to date" exit is not counted) and re-judges it after every run. A quick folder is analyzed a
+  second after a save rather than 2.5 s. The old `true` / `false` still mean `on` / `off`. Measured save →
+  refreshed analysis: 1.2–1.3 s on the React, FastAPI and ASP.NET fixtures (auto: on). On Chatwoot, 7.6–7.7 s
+  with `on`; auto leaves it off, since its runs take 5.5–8.4 s.
+- **Fix: the save watcher saw no change at all.** It watched one glob with nested braces
+  (`{**/*.{ts,…},**/{Jenkinsfile,…}}`), and VS Code's file watcher delivers no event for that shape. That has
+  been the case since the analyzer started listing extension-less file names. It now watches one flat glob
+  per part.
+
 - **Report an Issue.** *ClarifyDoc: Report an Issue* (palette, and the sidebar's ⋯ menu) asks whether it is a
   bug, a gap in the analysis or an idea. It then opens a GitHub issue prefilled with what a maintainer asks
   first: the extension and analyzer versions, editor, OS, remote and the settings that change behaviour.

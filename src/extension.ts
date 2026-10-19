@@ -219,7 +219,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // that, where "Copy MCP Server Config" covers external agents).
   registerMcpProvider(state);
 
-  // Debounced auto re-analysis via a FileSystemWatcher (opt-in: analyzeOnSave).
+  // Debounced auto re-analysis via a FileSystemWatcher (analyzeOnSave: auto — on where the last analysis was quick).
   registerAutoAnalyze(state, (folder) => analyzeWorkspace(state, folder, { quiet: true }));
 
   // The analyzer is bundled inside the extension; warn once if the bundle is

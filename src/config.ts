@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { saveLoopSetting, type SaveLoopSetting } from "./saveLoop";
 
 /**
  * Typed accessors over the `clarifydoc.*` configuration. Everything is read
@@ -21,7 +22,8 @@ export interface ClarifyDocConfig {
   excludeGlobs: string[];
   openReportAfterAnalyze: boolean;
   reportLocation: "editor" | "browser";
-  analyzeOnSave: boolean;
+  /** `auto` (default): on where the folder's last analysis was quick — see saveLoop.ts. */
+  analyzeOnSave: SaveLoopSetting;
   mcpEnabled: boolean;
   mcpAllowAnalyze: boolean;
 }
@@ -43,7 +45,7 @@ export function getConfig(scope?: vscode.Uri): ClarifyDocConfig {
     excludeGlobs: c.get<string[]>("excludeGlobs") ?? [],
     openReportAfterAnalyze: c.get<boolean>("openReportAfterAnalyze") ?? true,
     reportLocation: c.get<"editor" | "browser">("reportLocation") ?? "editor",
-    analyzeOnSave: c.get<boolean>("analyzeOnSave") ?? false,
+    analyzeOnSave: saveLoopSetting(c.get<unknown>("analyzeOnSave")),
     mcpEnabled: c.get<boolean>("mcp.enabled") ?? true,
     mcpAllowAnalyze: c.get<boolean>("mcp.allowAnalyze") ?? false,
   };

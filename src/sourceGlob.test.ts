@@ -3,13 +3,15 @@ import { sourceGlobFrom } from "./sourceGlob";
 
 describe("sourceGlobFrom", () => {
   it("globs every extension and named file", () => {
-    expect(sourceGlobFrom({ analyzableExtensions: [".ts", ".vue"], namedFiles: ["jenkinsfile"] })).toBe(
-      "{**/*.{ts,vue},**/{Jenkinsfile,jenkinsfile}}",
-    );
+    // Never nested braces: VS Code's watcher delivers nothing for them.
+    expect(sourceGlobFrom({ analyzableExtensions: [".ts", ".vue"], namedFiles: ["jenkinsfile"] })).toEqual([
+      "**/*.{ts,vue}",
+      "**/{Jenkinsfile,jenkinsfile}",
+    ]);
   });
 
   it("is a plain extension glob without named files", () => {
-    expect(sourceGlobFrom({ analyzableExtensions: [".py"] })).toBe("**/*.{py}");
+    expect(sourceGlobFrom({ analyzableExtensions: [".py"] })).toEqual(["**/*.{py}"]);
   });
 
   it("refuses output it cannot use", () => {
