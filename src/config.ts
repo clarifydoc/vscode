@@ -24,6 +24,8 @@ export interface ClarifyDocConfig {
   reportLocation: "editor" | "browser";
   /** Move an open report's file-focused tab to the active editor's file. */
   reportFollowEditor: boolean;
+  /** Mark files rated high or critical to change in the Explorer. */
+  riskDecorations: boolean;
   /** `auto` (default): on where the folder's last analysis was quick — see saveLoop.ts. */
   analyzeOnSave: SaveLoopSetting;
   mcpEnabled: boolean;
@@ -48,6 +50,7 @@ export function getConfig(scope?: vscode.Uri): ClarifyDocConfig {
     openReportAfterAnalyze: c.get<boolean>("openReportAfterAnalyze") ?? true,
     reportLocation: c.get<"editor" | "browser">("reportLocation") ?? "editor",
     reportFollowEditor: c.get<boolean>("report.followEditor") ?? false,
+    riskDecorations: c.get<boolean>("decorations.risk") ?? true,
     analyzeOnSave: saveLoopSetting(c.get<unknown>("analyzeOnSave")),
     mcpEnabled: c.get<boolean>("mcp.enabled") ?? true,
     mcpAllowAnalyze: c.get<boolean>("mcp.allowAnalyze") ?? false,

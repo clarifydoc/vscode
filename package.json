@@ -773,6 +773,12 @@
           "description": "Open the interactive report automatically after a successful analysis.",
           "scope": "resource"
         },
+        "clarifydoc.decorations.risk": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Mark files the analysis rates **high** (`!`) or **critical** (`!!`) risk to change in the Explorer and on editor tabs, with the verdict on hover — the same verdict as the risk CodeLens.",
+          "scope": "resource"
+        },
         "clarifydoc.report.followEditor": {
           "type": "boolean",
           "default": false,

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Risky files marked in the Explorer.** A file the analysis rates high (`!`) or critical (`!!`) risk to change
+  gets a badge and a tint in the Explorer and on its editor tab. Hovering shows the verdict and its reasons,
+  the same verdict as the risk CodeLens, before you open the file. `clarifydoc.decorations.risk` turns it
+  off.
+
 - **Save the report's graphs.** SVG and PNG on a report graph (Architecture, Data Model, Call Traces…) now go
   through the editor's save dialog. A webview ignores a browser download, and PNG export was blocked outright
   by the report's own content policy, which allows images only from `data:` URLs.

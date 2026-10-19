@@ -27,6 +27,7 @@ import { onboard } from "./onboarding";
 import { registerSplitRoots } from "./splitRoots";
 import { reportIssue } from "./reportIssue";
 import { showFilesGraph } from "./filesGraphCommand";
+import { RiskDecorations } from "./riskDecorations";
 import { registerFollowEditor, registerReportSerializer } from "./reportPanel";
 import { installAgentGuidance, registerProposalProvider } from "./agentGuidance";
 import { askAgent } from "./askAgent";
@@ -87,6 +88,7 @@ export function activate(context: vscode.ExtensionContext): void {
   new ImpactView(state);
   statusBar = new StatusBar(state);
   new ThinMapStatus(state);
+  new RiskDecorations(state);
 
   // Editor-integration providers (data-driven, refresh on analysis change).
   const diagnostics = new DiagnosticsManager(state);
