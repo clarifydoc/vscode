@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { gapIssueUrl, thinMapNotes } from "./thinMap";
+import { gapIssueUrl, thinFileNote, thinMapNotes } from "./thinMap";
+import { thinFilesOf } from "./analysisData";
 
 describe("thinMapNotes", () => {
   it("names the server or frontend framework the map shows nothing of", () => {
@@ -36,5 +37,26 @@ describe("gapIssueUrl", () => {
     expect(url.searchParams.get("title")).toBe("Analysis gap: express is a dependency, yet no API route was found");
     expect(url.searchParams.get("body")).toContain("**Detected frameworks:** Express, Prisma");
     expect(url.searchParams.get("body")).toContain("0.1.13");
+  });
+});
+
+describe("thinFileNote", () => {
+  it("says why answers about a file may be incomplete, or nothing", () => {
+    expect(thinFileNote({ parseRatio: 0.234, unresolvedImports: 2, totalImports: 5 })).toBe(
+      "ClarifyDoc's map is thin here: 23% of it is syntax the parser could not follow; 2 of its 5 relative imports resolve to no file. A missing caller, route or link in this file may be a blind spot, not a fact.",
+    );
+    expect(thinFileNote({ parseRatio: 0.001 })).toMatch(/^ClarifyDoc's map is thin here: 1% of it/);
+    expect(thinFileNote({ unresolvedImports: 1, totalImports: 1 })).toMatch(/its one relative import resolves to no file/);
+    expect(thinFileNote({ unresolvedImports: 1, totalImports: 3 })).toMatch(/1 of its 3 relative imports resolves to no file/);
+    expect(thinFileNote(undefined)).toBeNull();
+    expect(thinFileNote({})).toBeNull();
+  });
+});
+
+describe("thinFilesOf", () => {
+  it("merges the coverage lists by file", () => {
+    const m = thinFilesOf({ parseErrors: { worst: [{ file: "a.ts", ratio: 0.2, nodes: 3 }] }, imports: { worst: [{ file: "a.ts", unresolved: 1, total: 4 }, { file: "b.ts", unresolved: 2, total: 2 }] } });
+    expect(Object.fromEntries(m)).toEqual({ "a.ts": { parseRatio: 0.2, unresolvedImports: 1, totalImports: 4 }, "b.ts": { unresolvedImports: 2, totalImports: 2 } });
+    expect(thinFilesOf(undefined).size).toBe(0);
   });
 });

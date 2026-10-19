@@ -71,6 +71,28 @@ export interface LayerViolation {
   severity?: "error" | "warn";
 }
 
+/** One file the analysis read thinly (`ProjectAnalysis.coverage`). */
+export interface ThinFile {
+  /** Share of the file's text inside syntax the parser could not follow (0..1). */
+  parseRatio?: number;
+  /** Relative imports of code that resolved to no file, out of how many. */
+  unresolvedImports?: number;
+  totalImports?: number;
+}
+
+/** The files `coverage` names: the worst parse errors and the most unresolved imports (each list capped by the analyzer). */
+export function thinFilesOf(coverage: unknown): Map<string, ThinFile> {
+  const out = new Map<string, ThinFile>();
+  const c = coverage as { parseErrors?: { worst?: Array<{ file: string; ratio: number }> }; imports?: { worst?: Array<{ file: string; unresolved: number; total: number }> } } | undefined;
+  for (const w of c?.parseErrors?.worst ?? []) {
+    if (typeof w?.file === "string" && w.ratio > 0) out.set(w.file, { ...out.get(w.file), parseRatio: w.ratio });
+  }
+  for (const w of c?.imports?.worst ?? []) {
+    if (typeof w?.file === "string" && w.unresolved > 0) out.set(w.file, { ...out.get(w.file), unresolvedImports: w.unresolved, totalImports: w.total });
+  }
+  return out;
+}
+
 /** What the analyzer judged unreachable (`ProjectAnalysis.deadCode`). */
 export interface DeadCode {
   /** Languages whose plugin declares a reachability model — only these are judged. */
@@ -159,6 +181,8 @@ export interface ResolvedAnalysis {
   crossTier: CrossTierData;
   /** Unreachable files and unused exports, when the analysis judged any language. */
   deadCode?: DeadCode;
+  /** Files the map stands on thinly: read in part, or importing what resolves nowhere (`coverage`). */
+  thinFiles: Map<string, ThinFile>;
   /** Project types' supertypes and subtypes, from the class graph. */
   types: TypeGraph;
   /** The MCP store's own index (entities by name, reach by symbol, …), for
@@ -431,6 +455,7 @@ export function indexProject(
     crossTier,
     types: typeGraph(p.classGraph),
     deadCode: p.deadCode && Array.isArray(p.deadCode.files) && Array.isArray(p.deadCode.exports) ? p.deadCode : undefined,
+    thinFiles: thinFilesOf(p.coverage),
     store,
     files,
     packages: arr<DeclaredDependency>(Array.isArray(p.externalPackages) ? p.externalPackages : p.externalPackages?.packages)

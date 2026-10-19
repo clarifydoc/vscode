@@ -1,3 +1,4 @@
+import { thinFileNote } from "./thinMap";
 import * as vscode from "vscode";
 import * as path from "path";
 import { ExtensionState } from "./state";
@@ -9,12 +10,12 @@ const FULL_LINE_END = 1_000_000; // Range end col; VS Code clamps to the real li
 interface DiagSettings {
   enabled: boolean;
   complexityThreshold: number;
-  include: { security: boolean; complexity: boolean; layers: boolean; deadCode: boolean; routeGaps: boolean; contracts: boolean };
+  include: { security: boolean; complexity: boolean; layers: boolean; deadCode: boolean; routeGaps: boolean; contracts: boolean; thinMap: boolean };
 }
 
 function diagSettings(scope: vscode.Uri): DiagSettings {
   const c = vscode.workspace.getConfiguration("clarifydoc.diagnostics", scope);
-  const include = c.get<string[]>("include") ?? ["security", "complexity", "layers", "routeGaps", "contracts"];
+  const include = c.get<string[]>("include") ?? ["security", "complexity", "layers", "routeGaps", "contracts", "thinMap"];
   return {
     enabled: c.get<boolean>("enabled") ?? true,
     complexityThreshold: c.get<number>("complexityThreshold") ?? 15,
@@ -25,6 +26,7 @@ function diagSettings(scope: vscode.Uri): DiagSettings {
       deadCode: include.includes("deadCode"),
       routeGaps: include.includes("routeGaps"),
       contracts: include.includes("contracts"),
+      thinMap: include.includes("thinMap"),
     },
   };
 }
@@ -291,6 +293,16 @@ export class DiagnosticsManager {
     if (s.include.contracts) {
       for (const list of a.crossTier.contractsByFile?.values() ?? []) {
         for (const c of list) push(c.file, contractDiag(c, folder));
+      }
+    }
+    if (s.include.thinMap) {
+      for (const [file, t] of a.thinFiles) {
+        const note = thinFileNote(t);
+        if (!note) continue;
+        const d = new vscode.Diagnostic(lineRange(1), note, vscode.DiagnosticSeverity.Information);
+        d.source = "ClarifyDoc";
+        d.code = "thin-map";
+        push(file, d);
       }
     }
     if (s.include.routeGaps) {

@@ -621,7 +621,8 @@
               "layers",
               "deadCode",
               "routeGaps",
-              "contracts"
+              "contracts",
+              "thinMap"
             ],
             "enumDescriptions": [
               "Security findings, with their CWE and the routes that reach them",
@@ -629,7 +630,8 @@
               "Imports that cross the layer order or a team rule",
               "Unused exports and unreachable files, as faded text (off by default: every finding is an accusation)",
               "API calls that reach no route, at the call — with the route that does serve the path, and a quick fix to open it",
-              "Request bodies that disagree with the route they reach: a required field not sent, an undeclared one sent, a wrong type"
+              "Request bodies that disagree with the route they reach: a required field not sent, an undeclared one sent, a wrong type",
+              "Files the map stands on thinly — syntax the parser could not follow, relative imports that resolve nowhere — so an empty answer there is not read as a fact"
             ]
           },
           "default": [
@@ -637,7 +639,8 @@
             "complexity",
             "layers",
             "routeGaps",
-            "contracts"
+            "contracts",
+            "thinMap"
           ],
           "description": "Which finding categories to report as diagnostics.",
           "scope": "resource"

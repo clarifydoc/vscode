@@ -11,6 +11,7 @@ import { detectFrameworks, impactOfChanges } from "./extraCommands";
 import { jumpToFileView } from "./jump";
 import { itemReportHash, Node as TreeNode, SummaryTreeProvider } from "./treeView";
 import { StatusBar } from "./statusBar";
+import { ThinMapStatus } from "./thinStatus";
 import { pickWorkspaceFolder } from "./workspace";
 import { DiagnosticsManager } from "./diagnostics";
 import { ClarifyDocCodeLensProvider } from "./codeLens";
@@ -81,6 +82,7 @@ export function activate(context: vscode.ExtensionContext): void {
   tree = new SummaryTreeProvider(state);
   new ImpactView(state);
   statusBar = new StatusBar(state);
+  new ThinMapStatus(state);
 
   // Editor-integration providers (data-driven, refresh on analysis change).
   const diagnostics = new DiagnosticsManager(state);

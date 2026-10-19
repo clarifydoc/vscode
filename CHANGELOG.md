@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The map is thin here.** A file the analysis read only in part — syntax the parser could not follow — or
+  whose relative imports resolve to no file gets an Information note in Problems, and while it is open the
+  status bar says *thin map*: a missing caller, route or link there may be a blind spot, not a fact. A new
+  `thinMap` category of `clarifydoc.diagnostics.include`, on by default.
+
 - **What your branch changes in the API.** With the Impact view comparing against a branch, *Compare API
   Surface* (the view's title bar, or the row it adds) analyzes the base once — in a temporary git worktree,
   seeded from this analysis so only the files that differ reparse — and lists what the branch changes in the

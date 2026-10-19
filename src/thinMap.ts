@@ -13,6 +13,23 @@ export interface ThinMapInput {
   packages: readonly DeclaredDependency[];
 }
 
+/**
+ * Why answers about one file may be incomplete — said where the file is open,
+ * so "no callers" there is not read as a fact. Null when the file was read
+ * whole and its imports all resolved.
+ */
+export function thinFileNote(t: { parseRatio?: number; unresolvedImports?: number; totalImports?: number } | undefined): string | null {
+  if (!t) return null;
+  const parts: string[] = [];
+  if (t.parseRatio && t.parseRatio > 0) parts.push(`${Math.max(1, Math.round(t.parseRatio * 100))}% of it is syntax the parser could not follow`);
+  if (t.unresolvedImports) {
+    const total = t.totalImports ?? t.unresolvedImports;
+    parts.push(total === 1 ? "its one relative import resolves to no file" : `${t.unresolvedImports} of its ${total} relative imports resolve${t.unresolvedImports === 1 ? "s" : ""} to no file`);
+  }
+  if (parts.length === 0) return null;
+  return `ClarifyDoc's map is thin here: ${parts.join("; ")}. A missing caller, route or link in this file may be a blind spot, not a fact.`;
+}
+
 /** One sentence per gap, naming the dependency that made it a gap. */
 export function thinMapNotes(a: ThinMapInput): string[] {
   if (a.files === 0) return ["no source file was analyzed — check clarifydoc.exclude and the folder opened"];
