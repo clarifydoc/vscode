@@ -1,0 +1,27 @@
+import { describe, expect, it } from "vitest";
+import { surfaceNode, type SurfaceDiff } from "./surfaceModel";
+
+const diff: SurfaceDiff = {
+  changes: [
+    { kind: "route-moved", breaking: true, route: "GET /api/users/by-id/:id", file: "routes/users.ts", line: 14, reasons: ["was GET /api/users/:id"] },
+    { kind: "guard-lost", breaking: false, risky: true, route: "DELETE /api/users/:id", file: "routes/users.ts", line: 39, reasons: ["no longer guarded by requireAdmin"] },
+    { kind: "link-gained", breaking: false, route: "GET /api/orders", file: "web/a.ts", line: 3, reasons: ["GET /api/orders from web/a.ts now reaches this route"] },
+  ],
+  counts: { total: 3, breaking: 1, risky: 1, routesAdded: 0, routesRemoved: 0 },
+};
+
+describe("surfaceNode", () => {
+  it("lists what the branch changes in the API surface, breaking first, each opening its file", () => {
+    const n = surfaceNode(diff, "main");
+    expect([n.label, n.description, n.icon, n.level]).toEqual(["API surface vs main", "1 breaking · 1 risky · 3 change(s)", "break", "high"]);
+    expect(n.children!.map((c) => [c.label, c.icon, c.file, c.line])).toEqual([
+      ["GET /api/users/by-id/:id", "break", "routes/users.ts", 14],
+      ["DELETE /api/users/:id", "risk", "routes/users.ts", 39],
+      ["GET /api/orders", "route", "web/a.ts", 3],
+    ]);
+    expect(n.children![1]!.description).toBe("guard lost · risky — no longer guarded by requireAdmin");
+  });
+  it("says so when nothing changed", () => {
+    expect(surfaceNode({ changes: [], counts: { total: 0, breaking: 0, risky: 0, routesAdded: 0, routesRemoved: 0 } }, "v2")).toEqual({ label: "API surface vs v2", description: "no change", icon: "info" });
+  });
+});

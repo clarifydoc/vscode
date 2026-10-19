@@ -8,6 +8,8 @@ import { absFor } from "./reveal";
 import { ImpactIcon, ImpactNode, ImpactResult, impactNodes } from "./impactModel";
 import { CompareBase, describeBase, parseRefs } from "./compareBase";
 import { pickWorkspaceFolder } from "./workspace";
+import { analyzeBase, diffWithBase, hasBaseAnalysis } from "./surfaceCompare";
+import { surfaceNode } from "./surfaceModel";
 
 const ICONS: Record<ImpactIcon, string> = {
   risk: "warning",
@@ -83,8 +85,9 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       state.onAnalysisChanged(() => this.schedule(0)),
       vscode.workspace.onDidSaveTextDocument(() => this.schedule()),
       vscode.commands.registerCommand("clarifydoc.refreshImpact", () => this.schedule(0)),
-      vscode.commands.registerCommand("clarifydoc.impactCompareWith", (target) => this.pickBase(target)),
+      vscode.commands.registerCommand("clarifydoc.impactCompareWith", (target, ref?: string) => this.pickBase(target, ref)),
       vscode.commands.registerCommand("clarifydoc.impactCopyForAgent", (target) => this.copyForAgent(target)),
+      vscode.commands.registerCommand("clarifydoc.impactCompareSurface", (target) => this.compareSurface(target)),
     );
     this.describe();
     void this.watchGit();
@@ -141,10 +144,11 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
     this.view.description = folders.length === 1 ? describeBase(this.baseOf(folders[0])) : undefined;
   }
 
-  /** "Compare with…": HEAD, a branch, a tag, or any ref or commit typed in. */
-  private async pickBase(target?: vscode.WorkspaceFolder | vscode.Uri): Promise<void> {
+  /** "Compare with…": HEAD, a branch, a tag, or any ref or commit typed in. A ref passed in (a keybinding's argument) skips the picker; "HEAD" resets. */
+  private async pickBase(target?: vscode.WorkspaceFolder | vscode.Uri, givenRef?: string): Promise<void> {
     const folder = await pickWorkspaceFolder(target);
     if (!folder) return;
+    if (typeof givenRef === "string" && givenRef.trim()) return this.setBase(folder, givenRef.trim() === "HEAD" ? undefined : givenRef.trim());
     let refs: ReturnType<typeof parseRefs> = [];
     try {
       refs = parseRefs(
@@ -187,8 +191,12 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       ref = (await vscode.window.showInputBox({ prompt: "A branch, tag or commit", placeHolder: "main, v1.4.0, a1b2c3d" }))?.trim();
       if (!ref) return;
     }
+    return this.setBase(folder, picked.head ? undefined : ref);
+  }
+
+  private async setBase(folder: vscode.WorkspaceFolder, ref: string | undefined): Promise<void> {
     let base: CompareBase | undefined;
-    if (!picked.head && ref) {
+    if (ref) {
       try {
         // Fork point with HEAD; a ref with no common history is compared directly.
         const commit = (await git(folder, ["merge-base", ref, "HEAD"]).catch(() => git(folder, ["rev-parse", "--verify", `${ref}^{commit}`]))).trim();
@@ -228,6 +236,57 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
     void vscode.window.showInformationMessage(`ClarifyDoc: the impact of your changes${base ? ` ${describeBase(base)}` : ""} is on the clipboard, as Markdown.`);
   }
 
+  /**
+   * "Compare API Surface": analyze the compared base once (a temporary
+   * worktree, seeded from this analysis), so the view can list what the
+   * branch changes in routes, guards, bodies and cross-tier links.
+   */
+  private async compareSurface(target?: vscode.WorkspaceFolder | vscode.Uri): Promise<void> {
+    const folder = await pickWorkspaceFolder(target);
+    if (!folder) return;
+    if (!vscode.workspace.isTrusted) {
+      void vscode.window.showInformationMessage("ClarifyDoc: comparing the API surface needs a trusted workspace.");
+      return;
+    }
+    if (!fs.existsSync(summaryPath(this.state.context, folder))) {
+      void vscode.window.showInformationMessage("ClarifyDoc: analyze the workspace first.");
+      return;
+    }
+    if (!this.baseOf(folder)) await this.pickBase(folder);
+    const base = this.baseOf(folder);
+    if (!base) return;
+    try {
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: `ClarifyDoc: API surface vs ${base.label}`, cancellable: true },
+        (progress, token) => analyzeBase(this.state.context, folder, base, (message) => progress.report({ message }), token),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.state.output.warn(`[surface] ${folder.name}: ${message}`);
+      if (message !== "cancelled") void vscode.window.showWarningMessage(`ClarifyDoc: could not analyze ${base.label}: ${message}`);
+      return;
+    }
+    this.schedule(0);
+  }
+
+  /** The API-surface group: the diff when the base was analyzed, else a row that offers to. */
+  private async surfaceOf(folder: vscode.WorkspaceFolder, base: CompareBase): Promise<ImpactNode> {
+    if (!(await hasBaseAnalysis(this.state.context, folder, base.commit))) {
+      return {
+        label: `API surface vs ${base.label}`,
+        description: "click to compare routes, guards and bodies",
+        icon: "info",
+        command: { id: "clarifydoc.impactCompareSurface", title: "Compare API Surface", arguments: [folder] },
+      };
+    }
+    try {
+      return surfaceNode(await diffWithBase(this.state.context, folder, base.commit), base.label);
+    } catch (err) {
+      this.state.output.warn(`[surface] ${folder.name}: ${err instanceof Error ? err.message : String(err)}`);
+      return { label: `API surface vs ${base.label}`, description: "could not diff (see the output)", icon: "info" };
+    }
+  }
+
   private async impactOf(folder: vscode.WorkspaceFolder): Promise<{ nodes: ImpactNode[]; routes: number } | { message: string }> {
     if (!fs.existsSync(summaryPath(this.state.context, folder))) return { message: "Analyze the workspace to see what your changes reach" };
     if (!vscode.workspace.isTrusted) return { message: "Needs a trusted workspace" };
@@ -243,7 +302,9 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
         return { message: result.stderr.includes("git") ? "Needs a git repository" : "Could not compute the impact (see the output)" };
       }
       const parsed = JSON.parse(result.stdout) as ImpactResult;
-      return { nodes: impactNodes(parsed), routes: parsed.routeCount };
+      const nodes = impactNodes(parsed);
+      if (base) nodes.unshift(await this.surfaceOf(folder, base));
+      return { nodes, routes: parsed.routeCount };
     } catch (err) {
       this.state.output.warn(`[impact] ${folder.name}: ${err instanceof Error ? err.message : String(err)}`);
       return { message: "Could not compute the impact (see the output)" };
@@ -289,6 +350,8 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       item.resourceUri = vscode.Uri.file(abs);
       item.tooltip = node.line ? `${node.file}:${node.line}` : node.file;
       item.command = { command: "clarifydoc.revealSource", title: "Open", arguments: [abs, node.line] };
+    } else if (node.command) {
+      item.command = { command: node.command.id, title: node.command.title, arguments: node.command.arguments };
     }
     return item;
   }

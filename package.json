@@ -183,6 +183,12 @@
         "icon": "$(copy)"
       },
       {
+        "command": "clarifydoc.impactCompareSurface",
+        "title": "Compare API Surface with the Base",
+        "category": "ClarifyDoc",
+        "icon": "$(diff)"
+      },
+      {
         "command": "clarifydoc.resolveWithEditorLsp",
         "title": "Resolve Calls with the Editor's Language Servers",
         "category": "ClarifyDoc"
@@ -398,6 +404,11 @@
           "command": "clarifydoc.impactCopyForAgent",
           "when": "view == clarifydoc.impact",
           "group": "navigation@2"
+        },
+        {
+          "command": "clarifydoc.impactCompareSurface",
+          "when": "view == clarifydoc.impact",
+          "group": "navigation@3"
         },
         {
           "command": "clarifydoc.refreshImpact",

@@ -49,7 +49,10 @@ Laravel, FastAPI `Depends` and more), not just to the interface.
 coupled first. The **ClarifyDoc Impact** view in Source Control turns your
 uncommitted diff into the screens, routes, entities and tests it affects, with a
 risk level, and keeps it current as you work, so you can check before you open
-the PR.
+the PR. Compare with a branch and **Compare API Surface** lists what the branch
+changes in the API itself — a route removed or moved, a guard lost, a request body
+that now requires a field, a call that no longer reaches its route — breaking
+first.
 
 ### Answers in the editor, where you're reading
 

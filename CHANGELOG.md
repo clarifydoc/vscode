@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **What your branch changes in the API.** With the Impact view comparing against a branch, *Compare API
+  Surface* (the view's title bar, or the row it adds) analyzes the base once — in a temporary git worktree,
+  seeded from this analysis so only the files that differ reparse — and lists what the branch changes in the
+  API surface: a route removed or moved, a parameter that binds elsewhere, a request body that now requires a
+  field, a guard added or lost, an API version dropped, a call that no longer reaches any route. Breaking
+  changes first, a lost guard marked risky; each row opens its file. The base's analysis is kept per commit,
+  so later refreshes only re-diff. `clarifydoc.impactCompareWith` now also takes a ref as its argument.
+
 - **What the last save reached.** After an automatic analysis the status bar says what the change reaches
   ("the last change reaches 2 routes"), the report's Overview shows the latest change's impact, and the
   Routes tab marks the routes whose file changed (`~ changed`) and those the change reaches (`→ reached`) —

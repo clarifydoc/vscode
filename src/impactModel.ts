@@ -59,6 +59,8 @@ export interface ImpactNode {
   children?: ImpactNode[];
   /** For the risk node: its level, to color it. */
   level?: ImpactResult["risk"]["level"];
+  /** Runs this command when clicked (a node with no file). */
+  command?: { id: string; title: string; arguments?: unknown[] };
 }
 
 /** "3" or "3+" when the analyzer capped the list it counted from. */
