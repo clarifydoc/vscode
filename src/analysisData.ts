@@ -103,6 +103,17 @@ export interface ThinFile {
   totalImports?: number;
 }
 
+/** One reference in the project's Markdown the tree no longer bears out. */
+export interface DocDriftFinding {
+  doc: string;
+  line: number;
+  kind: "path" | "route" | "member";
+  text: string;
+  reason: string;
+  confidence: string;
+  renamedTo?: string;
+}
+
 /** One file's test coverage from the analysis (`ProjectAnalysis.testCoverage`). */
 export interface FileTestCoverage {
   total: number;
@@ -244,6 +255,8 @@ export interface ResolvedAnalysis {
   risky: Map<string, RiskVerdict>;
   /** Test coverage per file, when the analysis read a coverage report (`testCoverage`). */
   testCoverage: Map<string, FileTestCoverage>;
+  /** What the project's Markdown names that the tree no longer bears out (`docDrift.findings`). */
+  docDrift: DocDriftFinding[];
   /** Project types' supertypes and subtypes, from the class graph. */
   types: TypeGraph;
   /** The MCP store's own index (entities by name, reach by symbol, …), for
@@ -519,6 +532,7 @@ export function indexProject(
     thinFiles: thinFilesOf(p.coverage),
     risky: riskyFilesOf(p.blastRadius),
     testCoverage: testCoverageOf(p.testCoverage),
+    docDrift: arr<DocDriftFinding>(p.docDrift?.findings).filter((f) => typeof f?.doc === "string" && typeof f?.line === "number"),
     store,
     files,
     packages: arr<DeclaredDependency>(Array.isArray(p.externalPackages) ? p.externalPackages : p.externalPackages?.packages)

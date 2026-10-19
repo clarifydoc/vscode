@@ -10,12 +10,12 @@ const FULL_LINE_END = 1_000_000; // Range end col; VS Code clamps to the real li
 interface DiagSettings {
   enabled: boolean;
   complexityThreshold: number;
-  include: { security: boolean; complexity: boolean; layers: boolean; deadCode: boolean; routeGaps: boolean; contracts: boolean; thinMap: boolean };
+  include: { security: boolean; complexity: boolean; layers: boolean; deadCode: boolean; routeGaps: boolean; contracts: boolean; thinMap: boolean; docDrift: boolean };
 }
 
 function diagSettings(scope: vscode.Uri): DiagSettings {
   const c = vscode.workspace.getConfiguration("clarifydoc.diagnostics", scope);
-  const include = c.get<string[]>("include") ?? ["security", "complexity", "layers", "routeGaps", "contracts", "thinMap"];
+  const include = c.get<string[]>("include") ?? ["security", "complexity", "layers", "routeGaps", "contracts", "thinMap", "docDrift"];
   return {
     enabled: c.get<boolean>("enabled") ?? true,
     complexityThreshold: c.get<number>("complexityThreshold") ?? 15,
@@ -27,6 +27,7 @@ function diagSettings(scope: vscode.Uri): DiagSettings {
       routeGaps: include.includes("routeGaps"),
       contracts: include.includes("contracts"),
       thinMap: include.includes("thinMap"),
+      docDrift: include.includes("docDrift"),
     },
   };
 }
@@ -306,6 +307,19 @@ export class DiagnosticsManager {
         d.source = "ClarifyDoc";
         d.code = "thin-map";
         push(file, d);
+      }
+    }
+    if (s.include.docDrift) {
+      for (const f of a.docDrift) {
+        // A drift git confirms is a warning; one it cannot confirm (perhaps a plan) is a note.
+        const d = new vscode.Diagnostic(
+          lineRange(f.line),
+          `\`${f.text}\` — ${f.reason}`,
+          f.confidence === "EXTRACTED" ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Information,
+        );
+        d.source = "ClarifyDoc";
+        d.code = "doc-drift";
+        push(f.doc, d);
       }
     }
     if (s.include.routeGaps) {

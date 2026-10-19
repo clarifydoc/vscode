@@ -695,7 +695,8 @@
               "deadCode",
               "routeGaps",
               "contracts",
-              "thinMap"
+              "thinMap",
+              "docDrift"
             ],
             "enumDescriptions": [
               "Security findings, with their CWE and the routes that reach them",
@@ -704,7 +705,8 @@
               "Unused exports and unreachable files, as faded text (off by default: every finding is an accusation)",
               "API calls that reach no route, at the call — with the route that does serve the path, and a quick fix to open it",
               "Request bodies that disagree with the route they reach: a required field not sent, an undeclared one sent, a wrong type",
-              "Files the map stands on thinly — syntax the parser could not follow, relative imports that resolve nowhere — so an empty answer there is not read as a fact"
+              "Files the map stands on thinly — syntax the parser could not follow, relative imports that resolve nowhere — so an empty answer there is not read as a fact",
+              "What the project's Markdown names that the tree no longer bears out — a path git saw deleted or renamed (with a quick fix to the new name), a route nothing serves, a member a class no longer has"
             ]
           },
           "default": [
@@ -713,7 +715,8 @@
             "layers",
             "routeGaps",
             "contracts",
-            "thinMap"
+            "thinMap",
+            "docDrift"
           ],
           "description": "Which finding categories to report as diagnostics.",
           "scope": "resource"

@@ -8,6 +8,7 @@ const LAYER = "layer-violation";
 const DEAD = "dead-code";
 const ROUTE_MISS = "route-miss";
 const CONTRACT = "contract";
+const DOC_DRIFT = "doc-drift";
 
 function codeOf(d: vscode.Diagnostic): string | undefined {
   const c = d.code;
@@ -42,6 +43,18 @@ export class ClarifyDocCodeActions implements vscode.CodeActionProvider {
         // Open the route the backend does serve: the call probably meant it.
         for (const r of (d.relatedInformation ?? []).slice(0, 3)) {
           out.push(command(`Open the route that exists: ${r.message}`, d, "vscode.open", [r.location.uri, { selection: r.location.range }]));
+        }
+      } else if (code === DOC_DRIFT) {
+        // A path history renamed: write the new one where the old is written as a root path.
+        const m = /^`([^`]+)` — renamed to (\S+)$/.exec(d.message);
+        const at = m && !m[1]!.startsWith(".") ? doc.lineAt(line).text.indexOf(m[1]!) : -1;
+        if (m && at >= 0) {
+          const fix = new vscode.CodeAction(`Replace with ${m[2]}`, vscode.CodeActionKind.QuickFix);
+          fix.diagnostics = [d];
+          fix.isPreferred = true;
+          fix.edit = new vscode.WorkspaceEdit();
+          fix.edit.replace(doc.uri, new vscode.Range(line, at, line, at + m[1]!.length), m[2]!);
+          out.push(fix);
         }
       } else if (code === DEAD) {
         // Nothing to fix in place: deleting code is the reader's decision.

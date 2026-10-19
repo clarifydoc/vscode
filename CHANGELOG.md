@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Doc drift in Problems.** Paths, routes and class members your Markdown names that the code no longer has
+  show on the doc's line. A path git saw renamed or deleted is a warning, and a rename has a quick fix that
+  writes the new name. One with no history behind it is a note: it may be a plan. Category `docDrift` in
+  `clarifydoc.diagnostics.include`, on by default.
+
 - **Lines no test runs.** When the analysis reads a coverage report (`coverage/lcov.info`, `coverage.xml`,
   JaCoCo, Clover or Go, found at the usual paths), the editor marks the lines no test runs: a faint background
   and a mark in the overview ruler. Hovering one says how much of the file is run, which report it came from,
