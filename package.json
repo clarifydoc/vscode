@@ -177,6 +177,12 @@
         "icon": "$(git-compare)"
       },
       {
+        "command": "clarifydoc.impactCopyForAgent",
+        "title": "Copy Impact for Agent",
+        "category": "ClarifyDoc",
+        "icon": "$(copy)"
+      },
+      {
         "command": "clarifydoc.resolveWithEditorLsp",
         "title": "Resolve Calls with the Editor's Language Servers",
         "category": "ClarifyDoc"
@@ -387,6 +393,11 @@
           "command": "clarifydoc.impactCompareWith",
           "when": "view == clarifydoc.impact",
           "group": "navigation@0"
+        },
+        {
+          "command": "clarifydoc.impactCopyForAgent",
+          "when": "view == clarifydoc.impact",
+          "group": "navigation@2"
         },
         {
           "command": "clarifydoc.refreshImpact",

@@ -22,6 +22,9 @@ const ICONS: Record<ImpactIcon, string> = {
   info: "info",
   cochange: "git-compare",
   person: "person",
+  break: "error",
+  caller: "call-incoming",
+  function: "symbol-method",
 };
 
 const RISK_COLOR: Record<ImpactResult["risk"]["level"], string | undefined> = {
@@ -81,6 +84,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       vscode.workspace.onDidSaveTextDocument(() => this.schedule()),
       vscode.commands.registerCommand("clarifydoc.refreshImpact", () => this.schedule(0)),
       vscode.commands.registerCommand("clarifydoc.impactCompareWith", (target) => this.pickBase(target)),
+      vscode.commands.registerCommand("clarifydoc.impactCopyForAgent", (target) => this.copyForAgent(target)),
     );
     this.describe();
     void this.watchGit();
@@ -197,6 +201,31 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
     await this.state.context.workspaceState.update(baseKey(folder), base);
     this.describe();
     this.schedule(0);
+  }
+
+  /**
+   * The impact as Markdown on the clipboard (`impact --md`, against the same
+   * base): what an agent should read before it changes more — the callers that
+   * break, the routes and screens reached, the tests to run.
+   */
+  private async copyForAgent(target?: vscode.WorkspaceFolder | vscode.Uri): Promise<void> {
+    const folder = await pickWorkspaceFolder(target);
+    if (!folder) return;
+    if (!fs.existsSync(summaryPath(this.state.context, folder))) {
+      void vscode.window.showInformationMessage("ClarifyDoc: analyze the workspace first.");
+      return;
+    }
+    const cli = await resolveCli(this.state.context.extensionPath);
+    const args = ["impact", folder.uri.fsPath, "-o", outputBaseDir(this.state.context, folder), "--md"];
+    const base = this.baseOf(folder);
+    if (base) args.push("--base", base.commit);
+    const result = await runClarifyDoc(cli, args, { cwd: folder.uri.fsPath }).catch(() => undefined);
+    if (!result || result.code !== 0 || !result.stdout.trim()) {
+      void vscode.window.showWarningMessage("ClarifyDoc: could not compute the impact (see the output).");
+      return;
+    }
+    await vscode.env.clipboard.writeText(result.stdout);
+    void vscode.window.showInformationMessage(`ClarifyDoc: the impact of your changes${base ? ` ${describeBase(base)}` : ""} is on the clipboard, as Markdown.`);
   }
 
   private async impactOf(folder: vscode.WorkspaceFolder): Promise<{ nodes: ImpactNode[]; routes: number } | { message: string }> {

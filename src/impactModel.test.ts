@@ -54,6 +54,26 @@ describe("impactNodes", () => {
     ]);
   });
 
+  it("leads with what breaks at the function level, then who to read", () => {
+    const nodes = impactNodes({
+      ...base,
+      symbolImpact: {
+        changed: [{ file: "Application/Owners/GetOwnersQuery.cs", symbol: "GetOwnersQuery.Handle", line: 12, endLine: 30 }],
+        direct: [{ file: "Api/Controllers/OwnersController.cs", symbol: "OwnersController.GetAll", line: 15, depth: 1, confidence: "EXTRACTED" }],
+        transitive: [{ file: "web/src/api/owners.ts", symbol: "listOwners", line: 4, depth: 2, confidence: "INFERRED" }],
+        routes: [{ route: "GET /Owners", file: "Api/Controllers/OwnersController.cs", line: 15, depth: 1, confidence: "EXTRACTED" }],
+        reviewOnly: ["Application/Owners/OwnerDto.cs"],
+        signatureChanges: [{ file: "Application/Owners/GetOwnersQuery.cs", symbol: "GetOwnersQuery.Handle", line: 12, kind: "arity", before: 1, after: 2, callers: 1, breaking: true }],
+      },
+    });
+    expect(nodes.map((n) => n.label).slice(0, 5)).toEqual(["Risk: moderate", "Signature changes", "Will break — direct callers", "Likely affected", "Review — imports it, calls nothing changed"]);
+    expect(nodes[1].children![0]).toMatchObject({ label: "GetOwnersQuery.Handle()", description: "1 → 2 required parameters · 1 caller · breaks them", icon: "break" });
+    expect(nodes[2].children!.map((c) => c.label)).toEqual(["GET /Owners", "OwnersController.GetAll()"]);
+    expect(nodes[3].children![0]!.description).toBe("web/src/api/owners.ts:4 · 2 hops · inferred");
+    const changed = nodes.find((n) => n.label === "Changed files")!.children![0]!;
+    expect(changed.children![0]).toMatchObject({ label: "GetOwnersQuery.Handle()", icon: "function", line: 12 });
+  });
+
   it("says so when nothing changed", () => {
     expect(impactNodes({ ...base, changedFiles: [] }).map((n) => n.label)).toEqual(["No changes against the last commit"]);
   });

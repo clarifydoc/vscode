@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **What your change breaks, function by function.** When the diff's lines are known, the Impact view leads
+  with *Signature changes* (a function removed or given a new required parameter, and whether that breaks
+  the callers as written), then *Will break* — the direct callers, routes named by their route — *Likely
+  affected* (2–4 hops, with the weakest link's confidence) and *Review* (files that import the change but
+  call nothing in it). Each changed file lists the functions the change touched. **Copy Impact for Agent**
+  (the view's title bar) puts the same verdict on the clipboard as Markdown, against the compared base.
 - **Who to ask.** The Impact view gains *Usually changed with* — files that history says move with one you
   changed, which this change leaves alone — and *Reviewers*: the CODEOWNERS owners of the changed files and
   the people who made most of their commits. A function's hover card names the file's owners and main

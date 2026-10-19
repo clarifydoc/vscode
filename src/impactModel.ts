@@ -27,9 +27,27 @@ export interface ImpactResult {
   owners?: { owner: string; files: number }[];
   /** Who knows the changed files best, by commits (the change's author left out). */
   reviewers?: { name: string; files: number; commits: number }[];
+  /** The change at the level of functions, when the diff's lines were known. */
+  symbolImpact?: {
+    changed: { file: string; symbol: string; line: number; endLine: number }[];
+    direct: SymbolCaller[];
+    transitive: SymbolCaller[];
+    /** Callers that are route handlers, by their route. */
+    routes?: { route: string; file: string; line: number; depth: number; confidence: string }[];
+    reviewOnly: string[];
+    signatureChanges?: { file: string; symbol: string; line: number; kind: "removed" | "arity"; before?: number; after?: number; callers: number; breaking: boolean }[];
+  };
 }
 
-export type ImpactIcon = "risk" | "route" | "screen" | "data" | "queue" | "test" | "file" | "unknown" | "chain" | "info" | "cochange" | "person";
+export interface SymbolCaller {
+  file: string;
+  symbol: string;
+  line: number;
+  depth: number;
+  confidence: string;
+}
+
+export type ImpactIcon = "risk" | "route" | "screen" | "data" | "queue" | "test" | "file" | "unknown" | "chain" | "info" | "cochange" | "person" | "break" | "caller" | "function";
 
 export interface ImpactNode {
   label: string;
@@ -63,6 +81,31 @@ export function impactNodes(r: ImpactResult): ImpactNode[] {
   const section = (label: string, total: number, icon: ImpactIcon, children: ImpactNode[]) => {
     if (children.length) out.push({ label, description: count(total, r.truncated), icon, children });
   };
+  // Function level, when the diff's lines were known: what breaks first.
+  const si = r.symbolImpact;
+  if (si) {
+    const sig = si.signatureChanges ?? [];
+    section(
+      "Signature changes",
+      sig.length,
+      "break",
+      sig.map((c) => ({
+        label: `${c.symbol}()`,
+        description: `${c.kind === "removed" ? "removed" : `${c.before} → ${c.after} required parameters`}${c.callers ? ` · ${c.callers} caller${c.callers === 1 ? "" : "s"}` : ""}${c.breaking ? " · breaks them" : ""}`,
+        icon: c.breaking ? "break" : "function",
+        file: c.file,
+        line: c.line,
+      })),
+    );
+    const caller = (c: SymbolCaller): ImpactNode => ({ label: `${c.symbol}()`, description: `${c.file}:${c.line}${c.depth > 1 ? ` · ${c.depth} hops` : ""}${c.confidence !== "EXTRACTED" ? ` · ${c.confidence.toLowerCase()}` : ""}`, icon: "caller", file: c.file, line: c.line });
+    // A caller that is a route handler is named by its route.
+    const route = (x: NonNullable<typeof si.routes>[number]): ImpactNode => ({ label: x.route, description: `${x.file}:${x.line}${x.depth > 1 ? ` · ${x.depth} hops` : ""}${x.confidence !== "EXTRACTED" ? ` · ${x.confidence.toLowerCase()}` : ""}`, icon: "route", file: x.file, line: x.line });
+    const direct = [...(si.routes ?? []).filter((x) => x.depth === 1).map(route), ...si.direct.map(caller)];
+    const further = [...(si.routes ?? []).filter((x) => x.depth > 1).map(route), ...si.transitive.map(caller)];
+    section("Will break — direct callers", direct.length, "caller", direct);
+    section("Likely affected", further.length, "caller", further);
+    section("Review — imports it, calls nothing changed", si.reviewOnly.length, "file", si.reviewOnly.map((f) => ({ label: f, icon: "file", file: f })));
+  }
   section(
     "API routes",
     r.routeCount,
@@ -105,10 +148,14 @@ export function impactNodes(r: ImpactResult): ImpactNode[] {
       label: f,
       icon: "file",
       file: f,
-      // How this change reaches a screen or route, one sample path each.
-      children: r.chains
-        .filter((c) => c.path[0] === f && c.path.length > 1)
-        .map((c) => ({ label: c.path.slice(1).join(" → "), description: `reaches a ${c.endsAt}`, icon: "chain" as const })),
+      children: [
+        // The functions the change touched in this file.
+        ...(r.symbolImpact?.changed ?? []).filter((c) => c.file === f).map((c) => ({ label: `${c.symbol}()`, description: `lines ${c.line}–${c.endLine}`, icon: "function" as const, file: c.file, line: c.line })),
+        // How this change reaches a screen or route, one sample path each.
+        ...r.chains
+          .filter((c) => c.path[0] === f && c.path.length > 1)
+          .map((c) => ({ label: c.path.slice(1).join(" → "), description: `reaches a ${c.endsAt}`, icon: "chain" as const })),
+      ],
     })),
   });
   if (r.unknownFiles.length) {
