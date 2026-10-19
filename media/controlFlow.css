@@ -201,3 +201,12 @@ body {
   stroke-width: 3px !important;
   fill: var(--vscode-list-activeSelectionBackground, #04395e) !important;
 }
+
+.dg-views {
+  margin: 6px 0 0;
+}
+
+.dg-view.dg-current {
+  font-weight: 600;
+  text-decoration: underline;
+}

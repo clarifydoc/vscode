@@ -92,10 +92,14 @@ export async function openReport(
       `ClarifyDoc: no report found for ${folder.name}. Analyze it first.`,
       "Analyze Workspace",
     );
-    if (choice === "Analyze Workspace") {
-      await vscode.commands.executeCommand("clarifydoc.analyze", folder);
+    if (choice !== "Analyze Workspace") return;
+    await vscode.commands.executeCommand("clarifydoc.analyze", folder);
+    // The analysis may have opened the report at its default tab; the place asked for is still owed.
+    try {
+      html = await reportHtml(state.context, folder, hash);
+    } catch {
+      return; // the analysis failed, and said so
     }
-    return;
   }
 
   const key = folder.uri.fsPath;

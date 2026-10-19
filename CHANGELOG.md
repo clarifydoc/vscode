@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Show in a Graph.** Select files or folders in the Explorer (or use the editor's ClarifyDoc menu) and
+  *Show in a Graph* draws them: each file as a group of its functions and the routes it declares, the calls
+  between them, and the calls into and out of the selection, folded onto the files at the other end. HTTP
+  calls that cross a tier go to the route that serves them, named by method and path. *Functions* and
+  *Files* switch the level, a node opens its source on click, and Save / Copy take the view on screen. A
+  selected folder stands for the analyzed files under it, up to 40.
+- **Fix: a report deep link survives a first analysis.** Opening the report at a place (a CodeLens, a jump)
+  in a folder with no analysis offered to analyze it, then forgot where you were going. It now opens there.
+
 - **Analyze on save, on by default where it is cheap.** `clarifydoc.analyzeOnSave` is now `auto` | `on` |
   `off`, and defaults to `auto`. Auto turns the save loop on for a folder whose last real analysis took 5 s or
   less (an "up to date" exit is not counted) and re-judges it after every run. A quick folder is analyzed a

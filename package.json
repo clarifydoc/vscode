@@ -229,6 +229,12 @@
         "icon": "$(clippy)"
       },
       {
+        "command": "clarifydoc.showFilesGraph",
+        "title": "Show in a Graph",
+        "category": "ClarifyDoc",
+        "icon": "$(type-hierarchy)"
+      },
+      {
         "command": "clarifydoc.reportIssue",
         "title": "Report an Issue",
         "category": "ClarifyDoc",
@@ -333,6 +339,10 @@
         {
           "command": "clarifydoc.jumpBlast",
           "group": "1_file@3"
+        },
+        {
+          "command": "clarifydoc.showFilesGraph",
+          "group": "2_context@0"
         },
         {
           "command": "clarifydoc.jumpArchitecture",
@@ -453,6 +463,10 @@
           "command": "clarifydoc.ignoreFolder",
           "when": "explorerResourceIsFolder && !explorerResourceIsRoot",
           "group": "clarifydoc@2"
+        },
+        {
+          "command": "clarifydoc.showFilesGraph",
+          "group": "clarifydoc@3"
         }
       ],
       "commandPalette": [

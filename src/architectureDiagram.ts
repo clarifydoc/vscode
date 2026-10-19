@@ -7,6 +7,8 @@ import { resultsDir, summaryPath } from "./paths";
 import { existsSync } from "fs";
 import * as path from "path";
 import { loadAnalysis } from "./analysisData";
+import { openSourceAt } from "./reveal";
+import type { GraphView } from "./filesGraph";
 
 /** The diagrams and documents `clarifydoc export` renders, as the picker offers them. */
 const CHOICES = [
@@ -87,7 +89,21 @@ export async function showSequence(state: ExtensionState, target?: unknown, rout
   showDiagram(state, folder, `sequence of ${route}${file ? ` (${path.basename(file)})` : ""}`, res.stdout, save);
 }
 
-function showDiagram(state: ExtensionState, folder: vscode.WorkspaceFolder, format: string, mermaid: string, saveName?: string): void {
+/**
+ * One diagram panel. `views` gives the same picture at more than one level
+ * (functions, files): the panel switches between them, Save and Copy take the
+ * one on screen, and a node that names a source location opens it on click.
+ */
+export function showDiagram(
+  state: ExtensionState,
+  folder: vscode.WorkspaceFolder,
+  format: string,
+  mermaid: string,
+  saveName?: string,
+  extra: { views?: GraphView[]; meta?: string } = {},
+): void {
+  const views: GraphView[] = extra.views?.length ? extra.views : [{ label: format, mermaid, nodes: {} }];
+  let current = 0;
   const panel = vscode.window.createWebviewPanel("clarifydoc.diagram", `${folder.name}: ${format}`, vscode.ViewColumn.Active, {
     enableScripts: true,
     localResourceRoots: [vscode.Uri.joinPath(state.context.extensionUri, "media")],
@@ -95,14 +111,15 @@ function showDiagram(state: ExtensionState, folder: vscode.WorkspaceFolder, form
   const uri = (...p: string[]) => panel.webview.asWebviewUri(vscode.Uri.joinPath(state.context.extensionUri, "media", ...p));
   const nonce = randomBytes(16).toString("base64");
   const csp = `default-src 'none'; img-src ${panel.webview.cspSource} data:; style-src ${panel.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';`;
-  const payload = JSON.stringify({ diagram: mermaid }).replace(/</g, "\\u003c");
+  const payload = JSON.stringify({ views: views.map((v) => ({ label: v.label, diagram: v.mermaid, nodes: Object.keys(v.nodes) })) }).replace(/</g, "\\u003c");
   panel.webview.html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="${uri("controlFlow.css")}"><title>${format}</title></head>
 <body>
   <header class="cf-header">
     <h1>${escapeHtml(folder.name)} — ${escapeHtml(format)}</h1>
-    <p class="cf-meta">From the ClarifyDoc analysis (static analysis of the source).</p>
+    <p class="cf-meta">${escapeHtml(extra.meta ?? "From the ClarifyDoc analysis (static analysis of the source).")}</p>
+    ${views.length > 1 ? `<p class="dg-views">${views.map((v, i) => `<button type="button" class="cf-link dg-view${i === 0 ? " dg-current" : ""}" data-view="${i}">${escapeHtml(v.label)}</button>`).join(" ")}</p>` : ""}
     <button type="button" id="dg-save-mermaid" class="cf-link">Save as Mermaid / Markdown</button>
     <button type="button" id="dg-save-svg" class="cf-link">Save as SVG</button>
     <button type="button" id="dg-copy" class="cf-link">Copy Mermaid</button>
@@ -112,7 +129,14 @@ function showDiagram(state: ExtensionState, folder: vscode.WorkspaceFolder, form
   <script nonce="${nonce}" src="${uri("vendor", "mermaid.min.js")}"></script>
   <script nonce="${nonce}" src="${uri("diagram.js")}"></script>
 </body></html>`;
-  panel.webview.onDidReceiveMessage(async (m: { type: string; format?: string; svg?: string }) => {
+  panel.webview.onDidReceiveMessage(async (m: { type: string; format?: string; svg?: string; view?: number; node?: string }) => {
+    if (typeof m.view === "number" && views[m.view]) current = m.view;
+    const mermaid = views[current]!.mermaid;
+    if (m.type === "open" && m.node) {
+      const at = views[current]!.nodes[m.node];
+      if (at) void openSourceAt(path.join(folder.uri.fsPath, at.file), at.line, vscode.ViewColumn.One);
+      return;
+    }
     if (m.type === "copy") {
       await vscode.env.clipboard.writeText(mermaid);
       vscode.window.setStatusBarMessage("ClarifyDoc: diagram copied as Mermaid", 2500);
@@ -121,7 +145,7 @@ function showDiagram(state: ExtensionState, folder: vscode.WorkspaceFolder, form
     if (m.type !== "save") return;
     const svg = m.format === "svg";
     if (svg && !m.svg) return;
-    const base = saveName ?? format.replace(/\.mmd$/, "");
+    const base = (saveName ?? format.replace(/\.mmd$/, "")) + (views.length > 1 ? `-${views[current]!.label.toLowerCase()}` : "");
     const target = await vscode.window.showSaveDialog({
       defaultUri: vscode.Uri.joinPath(folder.uri, svg ? `${base}.svg` : `${base}.md`),
       filters: svg ? { SVG: ["svg"] } : { Markdown: ["md"], Mermaid: ["mmd"] },
