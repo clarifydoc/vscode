@@ -27,7 +27,7 @@ import { onboard } from "./onboarding";
 import { registerSplitRoots } from "./splitRoots";
 import { reportIssue } from "./reportIssue";
 import { showFilesGraph } from "./filesGraphCommand";
-import { registerReportSerializer } from "./reportPanel";
+import { registerFollowEditor, registerReportSerializer } from "./reportPanel";
 import { installAgentGuidance, registerProposalProvider } from "./agentGuidance";
 import { askAgent } from "./askAgent";
 import { openReportForFile, showLinkedSymbols } from "./navCommands";
@@ -81,6 +81,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   registerReportSerializer(state);
+  registerFollowEditor(state);
   registerProposalProvider(state);
   tree = new SummaryTreeProvider(state);
   new ImpactView(state);

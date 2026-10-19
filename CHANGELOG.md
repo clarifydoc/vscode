@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **The report moves in place.** A jump into an open report (a CodeLens, *Jump to…*, a quick fix) is a message
+  to the viewer that is already up, rather than a new page that inflates the whole payload again. On the
+  largest stored scan that takes a jump from 0.36–0.48 s to 0.04–0.08 s. A new analysis reloads the open
+  report the same way and keeps your place. A report built by an older analyzer falls back to replacing
+  the page.
+- **The report follows the editor** (`clarifydoc.report.followEditor`, off by default). While the report shows
+  Call Traces, Screens or Blast Radius, switching editors moves it to the new file. A file the analysis never
+  read leaves it where it is.
+
 - **Show in a Graph.** Select files or folders in the Explorer (or use the editor's ClarifyDoc menu) and
   *Show in a Graph* draws them: each file as a group of its functions and the routes it declares, the calls
   between them, and the calls into and out of the selection, folded onto the files at the other end. HTTP

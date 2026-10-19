@@ -22,6 +22,8 @@ export interface ClarifyDocConfig {
   excludeGlobs: string[];
   openReportAfterAnalyze: boolean;
   reportLocation: "editor" | "browser";
+  /** Move an open report's file-focused tab to the active editor's file. */
+  reportFollowEditor: boolean;
   /** `auto` (default): on where the folder's last analysis was quick — see saveLoop.ts. */
   analyzeOnSave: SaveLoopSetting;
   mcpEnabled: boolean;
@@ -45,6 +47,7 @@ export function getConfig(scope?: vscode.Uri): ClarifyDocConfig {
     excludeGlobs: c.get<string[]>("excludeGlobs") ?? [],
     openReportAfterAnalyze: c.get<boolean>("openReportAfterAnalyze") ?? true,
     reportLocation: c.get<"editor" | "browser">("reportLocation") ?? "editor",
+    reportFollowEditor: c.get<boolean>("report.followEditor") ?? false,
     analyzeOnSave: saveLoopSetting(c.get<unknown>("analyzeOnSave")),
     mcpEnabled: c.get<boolean>("mcp.enabled") ?? true,
     mcpAllowAnalyze: c.get<boolean>("mcp.allowAnalyze") ?? false,

@@ -773,6 +773,12 @@
           "description": "Open the interactive report automatically after a successful analysis.",
           "scope": "resource"
         },
+        "clarifydoc.report.followEditor": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "While the report is open on a tab that focuses one file — **Call Traces**, **Screens**, **Blast Radius** — switching editors moves it to the new file. The report moves in place; nothing is re-analyzed or reloaded.",
+          "scope": "resource"
+        },
         "clarifydoc.reportLocation": {
           "type": "string",
           "enum": [
