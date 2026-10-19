@@ -17,6 +17,8 @@ export interface CallMiss {
   method?: string | null;
   url: string;
   reason: string;
+  /** The routes that do serve the path, refused for `reason` (the backend accepts PUT). */
+  existing?: Array<{ method: string | null; path: string; file: string; line: number }>;
 }
 
 /** A route's path from entry to effect (`ProjectAnalysis.dataFlows`). */

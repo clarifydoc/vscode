@@ -22,9 +22,9 @@ describe.skipIf(!available)("tableUses: sample-backend", () => {
       "DELETE /api/users/:id", "POST /api/auth/register", "POST /api/users", "PUT /api/users/:id",
     ]);
     expect(user!.entries.filter((e) => e.reads).map((e) => e.label).sort()).toEqual([
-      "GET /api/auth/me", "GET /api/users", "GET /api/users/:id", "POST /api/auth/login",
+      "GET /api/auth/me", "GET /api/reports/exports/users.csv", "GET /api/reports/summary", "GET /api/users", "GET /api/users/:id", "POST /api/auth/login",
     ]);
     expect(user!.entries.every((e) => typeof e.line === "number")).toBe(true);
-    expect(describeTable(user!)).toBe("written by 4 routes · read by 4 routes");
+    expect(describeTable(user!)).toBe("written by 4 routes · read by 6 routes");
   });
 });

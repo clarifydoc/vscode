@@ -48,7 +48,13 @@ export enum DiagnosticSeverity {
 export class Diagnostic {
   source?: string;
   code?: string | number | { value: string | number; target: Uri };
+  relatedInformation?: DiagnosticRelatedInformation[];
+  tags?: number[];
   constructor(readonly range: Range, readonly message: string, readonly severity = DiagnosticSeverity.Error) {}
+}
+
+export class DiagnosticRelatedInformation {
+  constructor(readonly location: Location, readonly message: string) {}
 }
 
 export class MarkdownString {

@@ -203,7 +203,8 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
 
     const missLeaves = misses.slice(0, GAP_LIMIT).map((m) => {
       const leaf = this.revealLeaf(folder, [m.method, m.url].filter(Boolean).join(" "), m.file, m.line, new vscode.ThemeIcon("debug-disconnect", new vscode.ThemeColor("charts.yellow")));
-      leaf.tooltip = `${missReason(m.reason)}\n${m.file}:${m.line}`;
+      const served = m.existing?.length ? `\nThe backend serves ${m.existing.map((r) => `${r.method ?? "*"} ${r.path} (${r.file}:${r.line})`).join(", ")}` : "";
+      leaf.tooltip = `${missReason(m.reason)}${served}\n${m.file}:${m.line}`;
       return leaf;
     });
     const uncalledLeaves = uncalled.slice(0, GAP_LIMIT).map((r) =>

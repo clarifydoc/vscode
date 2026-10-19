@@ -586,19 +586,22 @@
               "security",
               "complexity",
               "layers",
-              "deadCode"
+              "deadCode",
+              "routeGaps"
             ],
             "enumDescriptions": [
               "Security findings, with their CWE and the routes that reach them",
               "Functions at or above the complexity threshold",
               "Imports that cross the layer order or a team rule",
-              "Unused exports and unreachable files, as faded text (off by default: every finding is an accusation)"
+              "Unused exports and unreachable files, as faded text (off by default: every finding is an accusation)",
+              "API calls that reach no route, at the call — with the route that does serve the path, and a quick fix to open it"
             ]
           },
           "default": [
             "security",
             "complexity",
-            "layers"
+            "layers",
+            "routeGaps"
           ],
           "description": "Which finding categories to report as diagnostics.",
           "scope": "resource"

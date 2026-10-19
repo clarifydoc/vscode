@@ -2,18 +2,19 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { ExtensionState } from "./state";
 import { DeadCode, LayerViolation, loadAnalysis, ResolvedAnalysis, SecurityIssue } from "./analysisData";
+import type { CallMiss } from "./crossTier";
 
 const FULL_LINE_END = 1_000_000; // Range end col; VS Code clamps to the real line length.
 
 interface DiagSettings {
   enabled: boolean;
   complexityThreshold: number;
-  include: { security: boolean; complexity: boolean; layers: boolean; deadCode: boolean };
+  include: { security: boolean; complexity: boolean; layers: boolean; deadCode: boolean; routeGaps: boolean };
 }
 
 function diagSettings(scope: vscode.Uri): DiagSettings {
   const c = vscode.workspace.getConfiguration("clarifydoc.diagnostics", scope);
-  const include = c.get<string[]>("include") ?? ["security", "complexity", "layers"];
+  const include = c.get<string[]>("include") ?? ["security", "complexity", "layers", "routeGaps"];
   return {
     enabled: c.get<boolean>("enabled") ?? true,
     complexityThreshold: c.get<number>("complexityThreshold") ?? 15,
@@ -22,6 +23,7 @@ function diagSettings(scope: vscode.Uri): DiagSettings {
       complexity: include.includes("complexity"),
       layers: include.includes("layers"),
       deadCode: include.includes("deadCode"),
+      routeGaps: include.includes("routeGaps"),
     },
   };
 }
@@ -76,6 +78,38 @@ function securityDiag(issue: SecurityIssue, folder: vscode.WorkspaceFolder, a: R
         `reached from ${e.route} (${hops})`,
       );
     });
+  }
+  return d;
+}
+
+const MISS_TEXT: Record<string, string> = {
+  unmatched: "reaches no route in this analysis",
+  "method-mismatch": "asks for a method the route does not serve",
+  "origin-mismatch": "goes to a service that has no such route",
+  "ambiguous-suffix": "ends like several routes, so none was chosen",
+};
+
+/**
+ * A call that reached no route, at the call. A refused method or service is
+ * a warning — the client asks for what the server does not serve; a path no
+ * route has is information, since it may be another system's API. The
+ * routes that do serve the path are related locations, and the quick fix
+ * opens them.
+ */
+export function routeMissDiag(m: CallMiss, folder: vscode.WorkspaceFolder): vscode.Diagnostic {
+  const call = `${m.method ? m.method + " " : ""}${m.url}`;
+  const served = m.existing?.length ? `; the backend serves ${m.existing.map((r) => `${r.method ?? "*"} ${r.path}`).join(", ")}` : "";
+  const severity = m.reason === "method-mismatch" || m.reason === "origin-mismatch"
+    ? vscode.DiagnosticSeverity.Warning
+    : vscode.DiagnosticSeverity.Information;
+  const d = new vscode.Diagnostic(lineRange(m.line), `${call} ${MISS_TEXT[m.reason] ?? "reaches no route"}${served}`, severity);
+  d.source = "ClarifyDoc";
+  d.code = "route-miss";
+  if (m.existing?.length) {
+    d.relatedInformation = m.existing.map((r) => new vscode.DiagnosticRelatedInformation(
+      new vscode.Location(vscode.Uri.file(path.join(folder.uri.fsPath, r.file)), lineRange(r.line)),
+      `${r.method ?? "*"} ${r.path}`,
+    ));
   }
   return d;
 }
@@ -230,6 +264,11 @@ export class DiagnosticsManager {
     }
     if (s.include.deadCode && a.deadCode) {
       for (const d of deadCodeDiags(a.deadCode)) push(d.file, d.diag);
+    }
+    if (s.include.routeGaps) {
+      for (const misses of a.crossTier.missesByFile.values()) {
+        for (const m of misses) push(m.file, routeMissDiag(m, folder));
+      }
     }
   }
 }
