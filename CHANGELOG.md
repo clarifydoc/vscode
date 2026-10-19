@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Notes on the map, readable by agents.** The report's Notes, on a file in Architecture or an entity in Data
+  Model, now work in the editor. Previously only the ClarifyDoc server kept them. Notes are tied to the file or
+  entity, not a line, so they survive re-analysis. They live beside the analysis as `notes.json`, and as
+  `notes.md` with each subject's routes, the screens that reach them and the tables they write. *Tell AI Agents
+  When to Use ClarifyDoc* now points the AGENTS.md section at `notes.md` and lists the newest notes. That
+  section is still written only after you confirm the diff.
+- **Bookmarked views.** *Bookmark This View* (the report's title bar, or the palette) names the place the report
+  is at: a tab, a Health section, a file focused in a tab. The sidebar lists bookmarks under **Bookmarks**, and
+  one click opens the report there again.
+
 - **Risky files marked in the Explorer.** A file the analysis rates high (`!`) or critical (`!!`) risk to change
   gets a badge and a tint in the Explorer and on its editor tab. Hovering shows the verdict and its reasons,
   the same verdict as the risk CodeLens, before you open the file. `clarifydoc.decorations.risk` turns it

@@ -5,6 +5,8 @@ import { ExtensionState } from "./state";
 import { loadAnalyzer } from "./analysisData";
 import { CURSOR_RULE_HEADER, mergeGuidance } from "./guidanceMerge";
 import { pickWorkspaceFolder } from "./workspace";
+import { notesFiles, readNotes } from "./notesHost";
+import { notesGuidance } from "./notes";
 
 const SCHEME = "clarifydoc-proposed";
 const proposals = new Map<string, string>();
@@ -54,7 +56,11 @@ export async function installAgentGuidance(state: ExtensionState, target?: vscod
   }
   const { file, header } = await targetFile(folder);
   const before = await read(file);
-  const after = mergeGuidance(before, guidance, header);
+  // The notes people left in the report, pointed at and summarized — refreshed each time this runs.
+  const md = notesFiles(state.context, folder).md;
+  const inTree = !path.relative(folder.uri.fsPath, md).startsWith("..");
+  const notes = notesGuidance(await readNotes(state.context, folder), inTree ? path.relative(folder.uri.fsPath, md).split(path.sep).join("/") : md);
+  const after = mergeGuidance(before, guidance + notes, header);
   const rel = path.relative(folder.uri.fsPath, file).split(path.sep).join("/");
   if (before === after) {
     void vscode.window.showInformationMessage(`ClarifyDoc: ${rel} already has the current guidance.`);

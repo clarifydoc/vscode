@@ -229,6 +229,23 @@
         "icon": "$(clippy)"
       },
       {
+        "command": "clarifydoc.bookmarkView",
+        "title": "Bookmark This View",
+        "category": "ClarifyDoc",
+        "icon": "$(bookmark)"
+      },
+      {
+        "command": "clarifydoc.openBookmark",
+        "title": "Open Bookmark",
+        "category": "ClarifyDoc"
+      },
+      {
+        "command": "clarifydoc.deleteBookmark",
+        "title": "Delete Bookmark",
+        "category": "ClarifyDoc",
+        "icon": "$(trash)"
+      },
+      {
         "command": "clarifydoc.showFilesGraph",
         "title": "Show in a Graph",
         "category": "ClarifyDoc",
@@ -471,6 +488,14 @@
       ],
       "commandPalette": [
         {
+          "command": "clarifydoc.openBookmark",
+          "when": "false"
+        },
+        {
+          "command": "clarifydoc.deleteBookmark",
+          "when": "false"
+        },
+        {
           "command": "clarifydoc.refresh",
           "when": "false"
         },
@@ -511,6 +536,18 @@
           "command": "clarifydoc.treeItemBlast",
           "when": "view == clarifydoc.summary && viewItem == clarifydoc.located",
           "group": "2_report@2"
+        },
+        {
+          "command": "clarifydoc.deleteBookmark",
+          "when": "view == clarifydoc.summary && viewItem == clarifydoc.bookmark",
+          "group": "inline@1"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "clarifydoc.bookmarkView",
+          "when": "activeWebviewPanelId == 'clarifydoc.report'",
+          "group": "navigation@1"
         }
       ]
     },
@@ -801,7 +838,11 @@
         },
         "clarifydoc.analyzeOnSave": {
           "type": "string",
-          "enum": ["auto", "on", "off"],
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ],
           "enumDescriptions": [
             "On where it is cheap: when the folder's last analysis took 5 seconds or less.",
             "Always re-analyze after a change, however long it takes.",

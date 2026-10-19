@@ -3,6 +3,8 @@ import { ExtensionState } from "./state";
 import { loadAnalysis, ResolvedAnalysis } from "./analysisData";
 import { absFor } from "./reveal";
 import { describeTable, tableUses } from "./dataTables";
+import { bookmarksOf } from "./bookmarks";
+import type { Bookmark } from "./bookmarkModel";
 
 type NodeKind = "folder" | "group" | "leaf" | "action";
 
@@ -13,6 +15,8 @@ export class Node extends vscode.TreeItem {
   file?: string;
   /** What "Copy" puts on the clipboard (`GET /api/orders`, a table name). */
   copyText?: string;
+  /** For a bookmark leaf: the view it opens. */
+  bookmark?: Bookmark;
   constructor(
     public readonly kind: NodeKind,
     label: string,
@@ -87,6 +91,8 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
   private groups(folder: vscode.WorkspaceFolder, a: ResolvedAnalysis): Node[] {
     const out: Node[] = [];
 
+    const marks = this.bookmarksGroup(folder);
+    if (marks) out.push(marks);
     const health = this.healthGroup(folder, a);
     if (health) out.push(health);
 
@@ -133,6 +139,23 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
     g.iconPath = new vscode.ThemeIcon(icon);
     g.children = children;
     return g;
+  }
+
+  /** The report views bookmarked in this folder; each opens the report there. */
+  private bookmarksGroup(folder: vscode.WorkspaceFolder): Node | null {
+    const list = bookmarksOf(this.state, folder);
+    if (list.length === 0) return null;
+    const children = list.map((b) => {
+      const leaf = new Node("leaf", b.name);
+      leaf.iconPath = new vscode.ThemeIcon("bookmark");
+      leaf.description = `#${b.hash}`;
+      leaf.tooltip = `Open the report at #${b.hash}`;
+      leaf.command = { command: "clarifydoc.openBookmark", title: "Open Bookmark", arguments: [b] };
+      leaf.bookmark = b;
+      leaf.contextValue = "clarifydoc.bookmark";
+      return leaf;
+    });
+    return this.group("Bookmarks", list.length, "bookmark", children);
   }
 
   /**

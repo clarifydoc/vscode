@@ -8,6 +8,7 @@ import { relativeInside } from "./pathUtil";
 import { prepareReportHtml } from "./reportHtml";
 import { getConfig } from "./config";
 import { loadAnalysis } from "./analysisData";
+import { answerReportRequest } from "./notesHost";
 
 /** One reusable webview panel per workspace folder path. */
 const panels = new Map<string, vscode.WebviewPanel>();
@@ -66,7 +67,14 @@ function adopt(state: ExtensionState, folder: vscode.WorkspaceFolder, panel: vsc
   // resolved against this folder (the report's file paths are folder-relative).
   // The page is built from the analyzed repository's contents, so a path it
   // sends is opened only when it stays inside the folder.
-  const onMessage = panel.webview.onDidReceiveMessage((msg: { type?: string; file?: unknown; line?: unknown; hash?: unknown; filename?: unknown; base64?: unknown }) => {
+  const onMessage = panel.webview.onDidReceiveMessage((msg: { type?: string; file?: unknown; line?: unknown; hash?: unknown; filename?: unknown; base64?: unknown; req?: unknown; op?: unknown }) => {
+    if (msg?.type === "clarifydoc:request" && typeof msg.req === "number") {
+      const req = msg.req;
+      void answerReportRequest(state, folder, msg)
+        .catch((e: unknown) => ({ error: e instanceof Error ? e.message : String(e) }))
+        .then((answer) => panel.webview.postMessage({ type: "clarifydoc:reply", req, ...answer }));
+      return;
+    }
     if (msg?.type === "clarifydoc:save") {
       void saveFromReport(folder, msg.filename, msg.base64);
       return;
@@ -180,6 +188,13 @@ export function registerReportSerializer(state: ExtensionState): void {
       },
     }),
   );
+}
+
+/** The report in front — the active panel, else the only one — and where its viewer is. */
+export function currentReportView(): { folderPath: string; hash?: string } | undefined {
+  const open = [...panels];
+  const pick = open.find(([, p]) => p.active) ?? (open.length === 1 ? open[0] : undefined);
+  return pick ? { folderPath: pick[0], hash: lastHash.get(pick[0]) } : undefined;
 }
 
 /** Whether a report panel is open for the folder. */

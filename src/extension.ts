@@ -28,6 +28,7 @@ import { registerSplitRoots } from "./splitRoots";
 import { reportIssue } from "./reportIssue";
 import { showFilesGraph } from "./filesGraphCommand";
 import { RiskDecorations } from "./riskDecorations";
+import { registerBookmarks } from "./bookmarks";
 import { registerFollowEditor, registerReportSerializer } from "./reportPanel";
 import { installAgentGuidance, registerProposalProvider } from "./agentGuidance";
 import { askAgent } from "./askAgent";
@@ -89,6 +90,7 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBar = new StatusBar(state);
   new ThinMapStatus(state);
   new RiskDecorations(state);
+  registerBookmarks(state);
 
   // Editor-integration providers (data-driven, refresh on analysis change).
   const diagnostics = new DiagnosticsManager(state);
