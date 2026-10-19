@@ -50,7 +50,8 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     const uriArg = document.uri.toString();
 
     const idx = await loadFileIndex(this.state.context, folder, rel, facts);
-    this.definitionLenses(idx, document, uriArg, threshold, lenses, supportsControlFlow(document));
+    const tests = analysis!.isTest ? { isTest: analysis!.isTest, hasTests: analysis!.hasTests === true } : undefined;
+    this.definitionLenses(idx, document, uriArg, threshold, lenses, supportsControlFlow(document), tests);
     this.routeLenses(facts, document, lenses, analysis!, folder);
     return lenses;
   }
@@ -62,10 +63,11 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     threshold: number,
     out: vscode.CodeLens[],
     canDrawControlFlow: boolean,
+    tests?: { isTest: (file: string) => boolean; hasTests: boolean },
   ): void {
     for (const def of idx.defs) {
-      const links = linkCommands(idx, def, uriArg);
       const hot = def.complexity !== undefined && def.complexity >= threshold;
+      const links = linkCommands(idx, def, uriArg, tests && { ...tests, flagUntested: hot });
       if (links.length === 0 && !hot) continue; // keep trivial code clean
 
       const range = this.rangeAt(doc, def.line);

@@ -98,6 +98,22 @@
     });
   }
 
+  // Save: the host writes the file through its own save dialog.
+  const saveSvg = document.getElementById("cf-save-svg");
+  if (saveSvg) {
+    saveSvg.addEventListener("click", () => {
+      const svg = container.querySelector("svg");
+      if (!svg) return;
+      const copy = svg.cloneNode(true);
+      copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      vscode.postMessage({ type: "save", format: "svg", svg: copy.outerHTML });
+    });
+  }
+  const saveMermaid = document.getElementById("cf-save-mermaid");
+  if (saveMermaid) {
+    saveMermaid.addEventListener("click", () => vscode.postMessage({ type: "save", format: "mermaid" }));
+  }
+
   // Editor → diagram: highlight the innermost node covering the cursor line.
   window.addEventListener("message", (event) => {
     const message = event.data;

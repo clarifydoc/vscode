@@ -8,7 +8,7 @@ import { showControlFlow } from "./controlFlowPanel";
 import { primeControlFlowSupport, resetControlFlowSupport } from "./controlFlowSupport";
 import { detectFrameworks, impactOfChanges } from "./extraCommands";
 import { jumpToFileView } from "./jump";
-import { SummaryTreeProvider } from "./treeView";
+import { itemReportHash, Node as TreeNode, SummaryTreeProvider } from "./treeView";
 import { StatusBar } from "./statusBar";
 import { pickWorkspaceFolder } from "./workspace";
 import { DiagnosticsManager } from "./diagnostics";
@@ -148,6 +148,19 @@ export function activate(context: vscode.ExtensionContext): void {
   register("clarifydoc.showCallers", (uri: string, symbol: string) => showLinkedSymbols(state, uri, symbol, "callers"));
   register("clarifydoc.showCallees", (uri: string, symbol: string) => showLinkedSymbols(state, uri, symbol, "callees"));
   register("clarifydoc.revealSource", (absPath: string, line?: number) => openSourceAt(absPath, line));
+  // Sidebar item actions (right-click).
+  register("clarifydoc.copyTreeItem", async (node?: TreeNode) => {
+    const text = node?.copyText ?? (typeof node?.label === "string" ? node.label : undefined);
+    if (!text) return;
+    await vscode.env.clipboard.writeText(text);
+    vscode.window.setStatusBarMessage(`ClarifyDoc: copied ${text}`, 2500);
+  });
+  for (const tab of ["blast", "traces"] as const) {
+    register(tab === "blast" ? "clarifydoc.treeItemBlast" : "clarifydoc.treeItemTraces", async (node?: TreeNode) => {
+      const hash = node ? itemReportHash(node, tab) : undefined;
+      if (node?.folder && hash) await showReport(state, node.folder, { hash });
+    });
+  }
   register("clarifydoc.refresh", () => {
     resetCliResolution();
     resetControlFlowSupport();

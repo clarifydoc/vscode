@@ -215,6 +215,24 @@
         "title": "Open Settings",
         "category": "ClarifyDoc",
         "icon": "$(gear)"
+      },
+      {
+        "command": "clarifydoc.copyTreeItem",
+        "title": "Copy",
+        "category": "ClarifyDoc",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "clarifydoc.treeItemBlast",
+        "title": "Blast Radius",
+        "category": "ClarifyDoc",
+        "icon": "$(flame)"
+      },
+      {
+        "command": "clarifydoc.treeItemTraces",
+        "title": "Call Traces",
+        "category": "ClarifyDoc",
+        "icon": "$(call-outgoing)"
       }
     ],
     "viewsContainers": {
@@ -395,6 +413,40 @@
         {
           "command": "clarifydoc.ignoreFolder",
           "when": "false"
+        },
+        {
+          "command": "clarifydoc.copyTreeItem",
+          "when": "false"
+        },
+        {
+          "command": "clarifydoc.treeItemBlast",
+          "when": "false"
+        },
+        {
+          "command": "clarifydoc.treeItemTraces",
+          "when": "false"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "clarifydoc.copyTreeItem",
+          "when": "view == clarifydoc.summary && viewItem =~ /^clarifydoc\\.(located|table)$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "clarifydoc.copyTreeItem",
+          "when": "view == clarifydoc.summary && viewItem =~ /^clarifydoc\\.(located|table)$/",
+          "group": "1_copy@1"
+        },
+        {
+          "command": "clarifydoc.treeItemTraces",
+          "when": "view == clarifydoc.summary && viewItem == clarifydoc.located",
+          "group": "2_report@1"
+        },
+        {
+          "command": "clarifydoc.treeItemBlast",
+          "when": "view == clarifydoc.summary && viewItem == clarifydoc.located",
+          "group": "2_report@2"
         }
       ]
     },

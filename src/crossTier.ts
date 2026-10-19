@@ -42,6 +42,8 @@ export interface CrossTierData {
   missesByFile: Map<string, CallMiss[]>;
   /** `file:line` of routes nothing calls (only sub-projects some caller calls). */
   uncalled: Set<string>;
+  /** Exact number of uncalled routes — the listed ones are capped. */
+  uncalledCount?: number;
 }
 
 // ─── Calls → routes ───────────────────────────────────────────────────────────

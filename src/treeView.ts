@@ -2,11 +2,17 @@ import * as vscode from "vscode";
 import { ExtensionState } from "./state";
 import { loadAnalysis, ResolvedAnalysis } from "./analysisData";
 import { absFor } from "./reveal";
+import { describeTable, tableUses } from "./dataTables";
 
 type NodeKind = "folder" | "group" | "leaf" | "action";
 
-class Node extends vscode.TreeItem {
+export class Node extends vscode.TreeItem {
   children: Node[] = [];
+  /** For items that stand for a place in the source: its folder and project-relative file. */
+  folder?: vscode.WorkspaceFolder;
+  file?: string;
+  /** What "Copy" puts on the clipboard (`GET /api/orders`, a table name). */
+  copyText?: string;
   constructor(
     public readonly kind: NodeKind,
     label: string,
@@ -19,6 +25,10 @@ class Node extends vscode.TreeItem {
 /** Dead files and dead exports listed in the sidebar, each. */
 const DEAD_LIMIT = 50;
 const HOTSPOT_LIMIT = 20;
+/** Tables listed in the Data group. */
+const DATA_LIMIT = 200;
+/** Calls without a route, and routes without a call, listed each. */
+const GAP_LIMIT = 100;
 
 /**
  * The ClarifyDoc sidebar: per folder, a drill-down of the last analysis. Group
@@ -81,7 +91,11 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
     if (health) out.push(health);
 
     out.push(this.routesGroup(folder, a));
+    const gaps = this.apiGapsGroup(folder, a);
+    if (gaps) out.push(gaps);
     out.push(this.screensGroup(folder, a));
+    const data = this.dataGroup(folder, a);
+    if (data) out.push(data);
     out.push(this.securityGroup(folder, a));
     out.push(this.hotspotsGroup(folder, a));
     const dead = this.deadCodeGroup(folder, a);
@@ -102,6 +116,10 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
       title: "Open Source",
       arguments: [absFor(folder, file), line],
     };
+    leaf.folder = folder;
+    leaf.file = file;
+    leaf.copyText = label;
+    leaf.contextValue = "clarifydoc.located";
     return leaf;
   }
 
@@ -172,6 +190,65 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
     return this.group("Routes", a.routes.length, "milestone", children);
   }
 
+  /**
+   * Where the map breaks: API calls the analysis could not join to any route
+   * (with why), and routes no call in the repository reaches. A renamed
+   * endpoint shows up as the client call still asking for the old path.
+   */
+  private apiGapsGroup(folder: vscode.WorkspaceFolder, a: ResolvedAnalysis): Node | null {
+    const misses = [...a.crossTier.missesByFile.values()].flat()
+      .sort((x, y) => x.file.localeCompare(y.file) || x.line - y.line);
+    const uncalled = a.routes.filter((r) => a.crossTier.uncalled.has(`${r.filePath}:${r.line}`));
+    if (misses.length === 0 && uncalled.length === 0) return null;
+
+    const missLeaves = misses.slice(0, GAP_LIMIT).map((m) => {
+      const leaf = this.revealLeaf(folder, [m.method, m.url].filter(Boolean).join(" "), m.file, m.line, new vscode.ThemeIcon("debug-disconnect", new vscode.ThemeColor("charts.yellow")));
+      leaf.tooltip = `${missReason(m.reason)}\n${m.file}:${m.line}`;
+      return leaf;
+    });
+    const uncalledLeaves = uncalled.slice(0, GAP_LIMIT).map((r) =>
+      this.revealLeaf(folder, [r.httpMethod, r.path].filter(Boolean).join(" ") || r.path, r.filePath, r.line, new vscode.ThemeIcon("milestone")),
+    );
+    const uncalledTotal = Math.max(a.crossTier.uncalledCount ?? 0, uncalled.length);
+
+    const calls = this.group("Calls that reach no route", misses.length, "debug-disconnect", missLeaves);
+    calls.tooltip = "API calls in this workspace that no route serves — a renamed or removed endpoint, the wrong method, or another service's route.";
+    const routes = this.group("Routes no call reaches", uncalledTotal, "milestone", uncalledLeaves);
+    routes.tooltip = "Routes of services some in-repo client calls, that no call here reaches. External clients may still use them.";
+    const g = this.group("API gaps", misses.length + uncalledTotal, "debug-disconnect", [calls, routes].filter((n) => n.description !== "0"));
+    g.tooltip = "Where calls and routes do not meet.";
+    return g;
+  }
+
+  /**
+   * Each table the analysis saw accessed, with the routes and screens that
+   * write or read it — the "who touches `orders`?" question, answered without
+   * opening the report. A table opens its entity's declaration when known.
+   */
+  private dataGroup(folder: vscode.WorkspaceFolder, a: ResolvedAnalysis): Node | null {
+    const tables = tableUses(a);
+    if (tables.length === 0) return null;
+    const children = tables.slice(0, DATA_LIMIT).map((t) => {
+      const node = new Node("group", t.resource, vscode.TreeItemCollapsibleState.Collapsed);
+      node.description = describeTable(t);
+      node.tooltip = `${t.resource}\n${node.description}${t.entity ? `\nDeclared in ${t.entity.file}` : ""}`;
+      node.iconPath = new vscode.ThemeIcon("database");
+      node.contextValue = "clarifydoc.table";
+      node.copyText = t.resource;
+      if (t.entity) {
+        node.command = { command: "clarifydoc.revealSource", title: "Open Entity", arguments: [absFor(folder, t.entity.file), t.entity.line] };
+      }
+      node.children = t.entries.map((e) => {
+        const leaf = this.revealLeaf(folder, e.label, e.file, e.line, new vscode.ThemeIcon(e.kind === "route" ? "milestone" : "browser"));
+        leaf.description = [e.writes && "writes", e.reads && "reads"].filter(Boolean).join(", ");
+        leaf.tooltip = `${e.kind === "route" ? "Route" : "Screen"} ${e.label} ${leaf.description} ${t.resource}\n${e.file}${e.line ? `:${e.line}` : ""}`;
+        return leaf;
+      });
+      return node;
+    });
+    return this.group("Data", tables.length, "database", children);
+  }
+
   private screensGroup(folder: vscode.WorkspaceFolder, a: ResolvedAnalysis): Node {
     const children = a.screens.map((s) => {
       const label = [s.title, s.routePath].filter(Boolean).join(" · ") || s.filePath;
@@ -180,12 +257,25 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
     return this.group("Screens", a.screens.length, "browser", children);
   }
 
+  /** Findings by severity, worst first — a flat list buried a critical finding under a page of low ones. */
   private securityGroup(folder: vscode.WorkspaceFolder, a: ResolvedAnalysis): Node {
-    const children = a.security.map((s) => {
+    const bySeverity = new Map<string, Node[]>();
+    for (const s of a.security) {
       const leaf = this.revealLeaf(folder, s.message, s.filePath, s.line, new vscode.ThemeIcon("shield", severityColor(s.severity)));
       leaf.tooltip = `${s.severity} · ${s.category}\n${s.filePath}:${s.line}`;
-      return leaf;
-    });
+      leaf.copyText = `${s.message} (${s.filePath}:${s.line})`;
+      const key = s.severity.toLowerCase();
+      bySeverity.set(key, [...(bySeverity.get(key) ?? []), leaf]);
+    }
+    const levels = [...bySeverity.keys()].sort((x, y) => severityRank(x) - severityRank(y));
+    const children = levels.length === 1
+      ? bySeverity.get(levels[0]!)!
+      : levels.map((sev) => {
+          const g = this.group(sev[0]!.toUpperCase() + sev.slice(1), bySeverity.get(sev)!.length, "shield", bySeverity.get(sev)!);
+          g.iconPath = new vscode.ThemeIcon("shield", severityColor(sev));
+          if (severityRank(sev) <= 1) g.collapsibleState = vscode.TreeItemCollapsibleState.Expanded;
+          return g;
+        });
     return this.group("Security", a.security.length, "shield", children);
   }
 
@@ -243,6 +333,17 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
   }
 }
 
+/** Why the route linker joined a call to nothing, in words. */
+export function missReason(reason: string): string {
+  switch (reason) {
+    case "unmatched": return "No route serves this path.";
+    case "method-mismatch": return "A route serves this path, but for another method.";
+    case "origin-mismatch": return "The service this call goes to serves no such route.";
+    case "ambiguous-suffix": return "Several routes end this way; none is the one.";
+    default: return reason;
+  }
+}
+
 function gradeIcon(grade: string): string {
   const g = grade.toUpperCase()[0];
   if (g === "A" || g === "B") return "pass-filled";
@@ -254,6 +355,11 @@ function gradeColor(grade: string): vscode.ThemeColor {
   if (g === "A" || g === "B") return new vscode.ThemeColor("charts.green");
   if (g === "C") return new vscode.ThemeColor("charts.yellow");
   return new vscode.ThemeColor("charts.red");
+}
+/** critical → 0 … info → 4; anything else last. */
+function severityRank(sev: string): number {
+  const i = ["critical", "high", "medium", "low", "info"].indexOf(sev.toLowerCase());
+  return i < 0 ? 5 : i;
 }
 function severityColor(sev: string): vscode.ThemeColor {
   const s = sev.toLowerCase();
@@ -271,4 +377,12 @@ function sectionIcon(section: string): string {
     case "layers": return "layers";
     default: return "pulse";
   }
+}
+
+/** Report tabs a sidebar item can open on its file. */
+export type ItemReportTab = "blast" | "traces";
+
+/** The report location for a sidebar item: its tab, focused on its file. */
+export function itemReportHash(node: Node, tab: ItemReportTab): string | undefined {
+  return node.file ? `${tab}~${encodeURIComponent(node.file)}` : undefined;
 }

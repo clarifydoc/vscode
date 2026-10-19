@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- **API gaps in the sidebar.** A new *API gaps* group lists the API calls that reach no route — with why:
+  no route serves the path, a route serves it for another method, the service it goes to has no such
+  route — and the routes no call in the repository reaches. A renamed endpoint shows up as the client
+  call still asking for the old path.
+- **Data in the sidebar.** A new *Data* group lists every table the analysis saw accessed, with the routes
+  and screens that write and read it (`orders — written by 2 routes · read by 3 routes, 1 screen`).
+  Clicking a table opens its entity; clicking a route or screen opens it.
+- **Right-click a sidebar item** to copy it (`GET /api/orders`, a table name) or open its file's Call
+  Traces or Blast Radius in the report. Security findings are grouped by severity, worst first.
+- **Callers that are tests.** The caller CodeLens counts the tests among them (`3 callers · 1 test`), by
+  the analyzer's own per-language test rules. A function over the complexity threshold that no test
+  calls says `no test caller` — where the project has tests at all.
+- **"Complete" says what it missed.** When a server framework the project depends on left no route on the
+  map, or a frontend framework no screen, the message after an analysis names it (`express is a
+  dependency, yet no API route was found`) instead of a plain "complete", with *Report a Gap*, which
+  opens a prefilled issue in the browser — nothing is sent from the editor.
+- **Save a control-flow diagram** as SVG or as Mermaid (`.mmd`, or a fenced block in `.md`) through the
+  editor's save dialog.
+- **Report:** one search box across the report (`/`), an architecture edge lists the file pairs behind
+  it, a churn × complexity chart, a *Knowledge risk* section (files only one person has changed, ranked by
+  the routes and entities they carry), and large graphs open legible instead of fitted to specks.
+- The MCP setup picker no longer offers the project's `.mcp.json` as "shared with your team": the entry
+  holds this machine's install path, so it is marked as this machine's only.
+
 - **The status bar says when the analysis is out of date.** It counts the files changed or removed
   since the last analysis (`ClarifyDoc: B · 3 changed`), or says the analyzer was updated, and clicking
   it re-analyzes. The check reruns when the window regains focus. With analyze-on-save on, a folder

@@ -7,6 +7,8 @@ import { lineSink } from "./lineSink";
 import { ensureReport, showReport } from "./report";
 import { hasOpenReport } from "./reportPanel";
 import { pickWorkspaceFolder } from "./workspace";
+import { loadAnalysis } from "./analysisData";
+import { gapIssueUrl, thinMapNotes } from "./thinMap";
 
 const OUTPUT_FLUSH_MS = 250;
 
@@ -157,6 +159,28 @@ export async function analyzeWorkspace(
         state.lines.reset(folder.uri);
         state.refresh();
         state.fireAnalysisChanged();
+
+        // "Complete" is not "complete" when a framework the project depends on
+        // left nothing on the map: say which, so an empty Routes list is not
+        // read as "this project has no API".
+        if (!opts.quiet) {
+          const a = await loadAnalysis(state.context, folder);
+          const notes = a ? thinMapNotes({ files: a.files.size, routes: a.routes.length, screens: a.screens.length, packages: a.packages }) : [];
+          if (notes.length > 0) {
+            state.output.warn(`analysis of ${folder.name}: ${notes.join("; ")}`);
+            const frameworks = a?.frameworks.map((f) => f.name) ?? [];
+            void vscode.window
+              .showWarningMessage(`ClarifyDoc: analysis of ${folder.name} complete — but ${notes.join("; ")}.`, "Open Report", "Report a Gap")
+              .then((choice) => {
+                if (choice === "Open Report") void showReport(state, folder, { cli });
+                if (choice === "Report a Gap") {
+                  const version = String(state.context.extension.packageJSON.version ?? "?");
+                  void vscode.env.openExternal(vscode.Uri.parse(gapIssueUrl(notes, frameworks, version, process.platform)));
+                }
+              });
+            if (!cfg.openReportAfterAnalyze) return;
+          }
+        }
 
         if (opts.quiet) {
           // Keep an open report current; never open one unasked.

@@ -93,7 +93,9 @@ async function targetsFor(folder: vscode.WorkspaceFolder): Promise<Target[]> {
   targets.push({
     kind: "json",
     label: "Claude Code (this project)",
-    detail: `${projectMcp} — shared with your team if you commit it`,
+    // The entry names this machine's extension install, so the file works
+    // here only — committed, it would hand teammates a path they do not have.
+    detail: `${projectMcp} — this machine only; the entry holds your local path, so don't commit it`,
     file: projectMcp,
     key: "mcpServers",
   });

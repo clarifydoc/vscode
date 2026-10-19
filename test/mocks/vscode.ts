@@ -74,3 +74,26 @@ export class EventEmitter<T> {
     this.listeners = [];
   }
 }
+
+export enum TreeItemCollapsibleState {
+  None = 0,
+  Collapsed = 1,
+  Expanded = 2,
+}
+
+export class ThemeColor {
+  constructor(readonly id: string) {}
+}
+
+export class ThemeIcon {
+  constructor(readonly id: string, readonly color?: ThemeColor) {}
+}
+
+export class TreeItem {
+  description?: string | boolean;
+  tooltip?: string | MarkdownString;
+  iconPath?: ThemeIcon;
+  resourceUri?: Uri;
+  command?: { command: string; title: string; arguments?: unknown[] };
+  constructor(readonly label: string, public collapsibleState = TreeItemCollapsibleState.None) {}
+}

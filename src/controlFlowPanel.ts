@@ -52,6 +52,9 @@ interface Shown {
   /** Absolute path of the file the diagram was built from. */
   sourcePath: string;
   nodes: CfgNode[];
+  /** The diagram as Mermaid source, and the function it draws (save names). */
+  mermaid: string;
+  functionName: string;
 }
 
 function nonce(): string {
@@ -72,7 +75,10 @@ class ControlFlowPanel {
     private readonly key: string,
   ) {
     panel.webview.onDidReceiveMessage(
-      (message: { type: string; line?: number }) => {
+      (message: { type: string; line?: number; format?: string; svg?: string }) => {
+        if (message.type === "save" && this.shown) {
+          void this.save(message.format === "svg" ? "svg" : "mermaid", message.svg);
+        }
         if (message.type === "reveal" && this.shown && typeof message.line === "number") {
           void openSourceAt(this.shown.sourcePath, message.line, vscode.ViewColumn.One);
         }
@@ -118,6 +124,29 @@ class ControlFlowPanel {
   }
 
   /**
+   * Save the diagram through the editor's own save dialog — a webview's blob
+   * download is not something every host honours. SVG is what the panel drew;
+   * Mermaid is the source, for a doc or a PR description.
+   */
+  private async save(format: "svg" | "mermaid", svg: string | undefined): Promise<void> {
+    const shown = this.shown;
+    if (!shown) return;
+    const content = format === "svg" ? svg : shown.mermaid;
+    if (!content) return;
+    const base = shown.functionName.replace(/[^\w.-]+/g, "_") || "control-flow";
+    const ext = format === "svg" ? "svg" : "mmd";
+    const target = await vscode.window.showSaveDialog({
+      defaultUri: vscode.Uri.file(path.join(path.dirname(shown.sourcePath), `${base}.control-flow.${ext}`)),
+      filters: format === "svg" ? { "SVG image": ["svg"] } : { Mermaid: ["mmd", "md"] },
+      title: format === "svg" ? "Save control flow as SVG" : "Save control flow as Mermaid",
+    });
+    if (!target) return;
+    const text = format === "mermaid" && target.path.endsWith(".md") ? "```mermaid\n" + content + "\n```\n" : content;
+    await vscode.workspace.fs.writeFile(target, Buffer.from(text, "utf8"));
+    vscode.window.setStatusBarMessage(`ClarifyDoc: saved ${path.basename(target.fsPath)}`, 3000);
+  }
+
+  /**
    * A token for the `cfg` run that will fill this panel. Asking again cancels
    * the previous run — only the newest request is ever drawn — and closing
    * the panel cancels whatever is still running.
@@ -131,7 +160,7 @@ class ControlFlowPanel {
 
   /** Render a graph, replacing whatever the panel was showing. */
   render(sourcePath: string, entry: CfgResponse["diagrams"][number], language: string): void {
-    this.shown = { sourcePath, nodes: entry.cfg.nodes };
+    this.shown = { sourcePath, nodes: entry.cfg.nodes, mermaid: entry.mermaid, functionName: entry.cfg.functionName };
     this.panel.title = `Control flow — ${entry.cfg.functionName}`;
     this.panel.webview.html = this.html(entry, language);
     this.reveal();
@@ -230,6 +259,8 @@ class ControlFlowPanel {
     ${note ? `<p class="cf-note">${escapeHtml(note)}.</p>` : ""}
     <p class="cf-hint">Click a node to jump to it. Move the cursor in the editor to highlight the node it is in.</p>
     <button type="button" id="cf-report" class="cf-link">Open the Complexity report for this file</button>
+    <button type="button" id="cf-save-svg" class="cf-link">Save as SVG</button>
+    <button type="button" id="cf-save-mermaid" class="cf-link">Save as Mermaid</button>
   </header>
   <div id="cf-graph" class="cf-graph"></div>
   <script nonce="${n}" type="application/json" id="cf-payload">${escapeJson(payload)}</script>

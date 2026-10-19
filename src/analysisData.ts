@@ -166,6 +166,20 @@ export interface ResolvedAnalysis {
   store: StoreIndex;
   /** All analyzed file paths (project-relative). */
   files: Set<string>;
+  /** Declared dependencies with their category (`framework`, `frontend`, `orm`, …). */
+  packages: DeclaredDependency[];
+  /** Whether a project file is a test, by the analyzer's per-language rules (absent with an older analyzer). */
+  isTest?: (file: string) => boolean;
+  /** Whether the project has any test file at all — "no test caller" means nothing without one. */
+  hasTests?: boolean;
+}
+
+/** A dependency a manifest declares (`ProjectAnalysis.externalPackages`). */
+export interface DeclaredDependency {
+  name: string;
+  category?: string;
+  scope?: string;
+  used?: boolean;
 }
 
 // ─── Logging (wired by extension.ts; silent until then) ──────────────────────
@@ -197,6 +211,9 @@ export interface AnalysisReader {
   buildIndex(project: any): StoreIndex;
   /** Absent in an analyzer older than the SARIF export. */
   buildSarif?(issues: readonly SecurityIssue[], toolVersion: string): { runs: Record<string, unknown>[] };
+  /** Absent in an analyzer older than these exports. */
+  isTestFile?(filePath: string, language?: string): boolean;
+  getLanguageForFile?(filePath: string): string | null;
   TOOL_VERSION?: string;
   /** When to use the MCP tools, as a markdown section for AGENTS.md / CLAUDE.md. */
   AGENT_GUIDANCE?: string;
@@ -314,7 +331,11 @@ function fileFacts(f: any): FileFacts {
 }
 
 /** Index a loaded (denormalized) project summary for the views and providers. */
-export function indexProject(p: any, buildIndex: AnalysisReader["buildIndex"]): ResolvedAnalysis {
+export function indexProject(
+  p: any,
+  buildIndex: AnalysisReader["buildIndex"],
+  testRules?: Pick<AnalysisReader, "isTestFile" | "getLanguageForFile">,
+): ResolvedAnalysis {
   const store = buildIndex(p);
   const byFile = new Map<string, FileFacts>();
   for (const [file, f] of store.byFile) byFile.set(file, fileFacts(f));
@@ -380,6 +401,7 @@ export function indexProject(p: any, buildIndex: AnalysisReader["buildIndex"]): 
     flowsByEntryFile: groupBy(arr<DataFlow>(p.dataFlows), (f) => (typeof f?.entryFile === "string" ? f.entryFile : undefined)),
     missesByFile: groupBy(arr<CallMiss>(stats.misses), (m) => (typeof m?.file === "string" ? m.file : undefined)),
     uncalled: new Set(arr<{ file: string; line: number }>(stats.uncalled).map((u) => `${u.file}:${u.line}`)),
+    uncalledCount: num(stats.uncalledCount),
   };
 
   return {
@@ -399,7 +421,28 @@ export function indexProject(p: any, buildIndex: AnalysisReader["buildIndex"]): 
     deadCode: p.deadCode && Array.isArray(p.deadCode.files) && Array.isArray(p.deadCode.exports) ? p.deadCode : undefined,
     store,
     files,
+    packages: arr<DeclaredDependency>(Array.isArray(p.externalPackages) ? p.externalPackages : p.externalPackages?.packages)
+      .filter((d) => typeof d?.name === "string"),
+    ...testPredicate(files, testRules),
   };
+}
+
+/** A memoized test-file check over the analysis's files, when the analyzer offers its rules. */
+function testPredicate(
+  files: Set<string>,
+  rules?: Pick<AnalysisReader, "isTestFile" | "getLanguageForFile">,
+): Pick<ResolvedAnalysis, "isTest" | "hasTests"> {
+  const isTestFile = rules?.isTestFile;
+  if (!isTestFile) return {};
+  const memo = new Map<string, boolean>();
+  const isTest = (file: string): boolean => {
+    let v = memo.get(file);
+    if (v === undefined) memo.set(file, (v = isTestFile(file, rules.getLanguageForFile?.(file) ?? undefined)));
+    return v;
+  };
+  let hasTests = false;
+  for (const f of files) if (isTest(f)) { hasTests = true; break; }
+  return { isTest, hasTests };
 }
 
 interface LoadedSummary {
@@ -423,7 +466,7 @@ async function parseSummary(context: vscode.ExtensionContext, sp: string): Promi
   let analysis: ResolvedAnalysis | undefined;
   if (reader) {
     try {
-      analysis = indexProject(project, reader.buildIndex);
+      analysis = indexProject(project, reader.buildIndex, reader);
     } catch (err) {
       log("error", `[analysis] could not index ${sp}: ${errorText(err)}`);
     }
@@ -623,8 +666,14 @@ function count(n: number, word: string): string {
  * A definition's caller/callee commands — references, for a class — worded
  * once for both the CodeLens and the hover card.
  */
-export function linkCommands(idx: FileIndex, def: Definition, uriArg: string): vscode.Command[] {
-  const callers = idx.callers.get(def.symbol)?.length ?? 0;
+export function linkCommands(
+  idx: FileIndex,
+  def: Definition,
+  uriArg: string,
+  tests?: { isTest: (file: string) => boolean; hasTests: boolean; flagUntested: boolean },
+): vscode.Command[] {
+  const callerEnds = idx.callers.get(def.symbol) ?? [];
+  const callers = callerEnds.length;
   const out: vscode.Command[] = [];
   if (def.kind === "class") {
     // Who uses the class: `new X`, `extends X`, type positions.
@@ -632,7 +681,13 @@ export function linkCommands(idx: FileIndex, def: Definition, uriArg: string): v
     return out;
   }
   const callees = idx.callees.get(def.symbol)?.length ?? 0;
-  if (callers > 0) out.push({ title: `$(arrow-left) ${count(callers, "caller")}`, command: "clarifydoc.showCallers", arguments: [uriArg, def.symbol] });
+  if (callers > 0) {
+    // "3 callers · 1 test": which of them are tests, by the analyzer's rules.
+    // A complex function nothing tests says so — that is the one to worry about.
+    const testCallers = tests ? new Set(callerEnds.filter((c) => tests.isTest(c.file)).map((c) => `${c.file}\0${c.symbol ?? ""}`)).size : 0;
+    const suffix = !tests ? "" : testCallers > 0 ? ` · ${count(testCallers, "test")}` : tests.hasTests && tests.flagUntested ? " · no test caller" : "";
+    out.push({ title: `$(arrow-left) ${count(callers, "caller")}${suffix}`, command: "clarifydoc.showCallers", arguments: [uriArg, def.symbol] });
+  }
   if (callees > 0) out.push({ title: `$(arrow-right) ${count(callees, "callee")}`, command: "clarifydoc.showCallees", arguments: [uriArg, def.symbol] });
   return out;
 }
