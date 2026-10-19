@@ -64,13 +64,16 @@ function cweUri(cwe: string): vscode.Uri | undefined {
   return n ? vscode.Uri.parse(`https://cwe.mitre.org/data/definitions/${n}.html`) : undefined;
 }
 
-function securityDiag(issue: SecurityIssue, folder: vscode.WorkspaceFolder, a: ResolvedAnalysis): vscode.Diagnostic {
+export function securityDiag(issue: SecurityIssue, folder: vscode.WorkspaceFolder, a: Pick<ResolvedAnalysis, "routes">): vscode.Diagnostic {
   const target = issue.cwe ? cweUri(issue.cwe) : undefined;
-  // With a CWE as the code, the category moves into the message.
-  const message = target ? `${issue.category}: ${issue.message}` : issue.message;
+  // With a CWE as the code, the category moves into the message; an imported
+  // finding names its tool's rule there too, so the tool's docs can be found.
+  const rule = issue.tool && issue.ruleId ? ` [${issue.ruleId}]` : "";
+  const message = target || rule ? `${issue.category}${rule}: ${issue.message}` : issue.message;
   const d = new vscode.Diagnostic(lineRange(issue.line), message, severityFor(issue.severity));
-  d.source = "ClarifyDoc";
-  d.code = target ? { value: issue.cwe!, target } : issue.category;
+  // Imported from another tool's SARIF: say whose finding it is.
+  d.source = issue.tool ? `ClarifyDoc · ${issue.tool}` : "ClarifyDoc";
+  d.code = target ? { value: issue.cwe!, target } : issue.tool && issue.ruleId ? issue.ruleId : issue.category;
   // The routes whose handlers reach this line: what an attacker would call.
   if (issue.entries?.length) {
     d.relatedInformation = issue.entries.map((e) => {

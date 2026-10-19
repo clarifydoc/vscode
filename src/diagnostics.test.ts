@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as vscode from "vscode";
-import { contractDiag, routeMissDiag } from "./diagnostics";
+import { contractDiag, routeMissDiag, securityDiag } from "./diagnostics";
 
 const folder = { uri: vscode.Uri.file("/repo"), name: "repo", index: 0 } as unknown as vscode.WorkspaceFolder;
 
@@ -29,5 +29,18 @@ describe("contractDiag", () => {
     expect(d.message).toBe('POST /users does not send "age", which /users requires');
     expect(d.severity).toBe(vscode.DiagnosticSeverity.Warning);
     expect(d.relatedInformation![0]!.location.uri.fsPath).toBe("/repo/api/users.ts");
+  });
+});
+
+describe("securityDiag", () => {
+  it("names the tool and its rule on a finding imported from another tool's SARIF", () => {
+    const d = securityDiag({ category: "sql-injection", severity: "high", message: "Tainted SQL string", filePath: "api/q.py", line: 12, cwe: "CWE-89", tool: "Semgrep", ruleId: "python.lang.security.sqli" }, folder, { routes: [] });
+    expect(d.source).toBe("ClarifyDoc · Semgrep");
+    expect(d.message).toBe("sql-injection [python.lang.security.sqli]: Tainted SQL string");
+    expect((d.code as { value: string }).value).toBe("CWE-89");
+    const own = securityDiag({ category: "hardcoded-secret", severity: "high", message: "Hardcoded secret", filePath: "a.ts", line: 1 }, folder, { routes: [] });
+    expect([own.source, own.code, own.message]).toEqual(["ClarifyDoc", "hardcoded-secret", "Hardcoded secret"]);
+    const noCwe = securityDiag({ category: "external", severity: "medium", message: "x", filePath: "a.ts", line: 2, tool: "gosec", ruleId: "G104" }, folder, { routes: [] });
+    expect([noCwe.code, noCwe.message]).toEqual(["G104", "external [G104]: x"]);
   });
 });

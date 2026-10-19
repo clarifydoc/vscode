@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Other tools' findings in Problems.** A finding the analysis imported from another tool's SARIF
+  (`clarifydoc analyze --import-sarif`) says whose it is — *ClarifyDoc · Semgrep*, the tool's rule id in the
+  message — beside the CWE link and the routes that reach it.
+
 - **The map is thin here.** A file the analysis read only in part — syntax the parser could not follow — or
   whose relative imports resolve to no file gets an Information note in Problems, and while it is open the
   status bar says *thin map*: a missing caller, route or link there may be a blind spot, not a fact. A new

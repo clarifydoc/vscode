@@ -27,6 +27,10 @@ export interface SecurityIssue {
   cwe?: string;
   /** API routes whose handlers reach this finding (capped by the analyzer). */
   entries?: { route: string; file: string; distance: number; confidence: string }[];
+  /** The tool that reported it, for a finding imported from another tool's SARIF (`semgrep`, `CodeQL`). */
+  tool?: string;
+  /** That tool's rule id. */
+  ruleId?: string;
 }
 export interface RouteInfo {
   httpMethod?: string;
