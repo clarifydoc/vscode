@@ -165,6 +165,11 @@ export interface RunOptions {
   captureStdout?: boolean;
   /** Written to the child's stdin, which is then closed. */
   stdin?: string;
+  /**
+   * Machine progress lines (`analyze --progress json` writes them to stderr): each is handed here,
+   * whole, and kept out of `onOutput` and the stderr tail.
+   */
+  onEvent?: (line: string) => void;
 }
 
 /** stderr is kept for error messages; only its tail matters, and a runaway
@@ -227,10 +232,23 @@ export function runClarifyDoc(
       if (captureStdout) stdout += s;
       opts.onOutput?.(s);
     });
-    child.stderr?.on("data", (s: string) => {
+    let partial = "";
+    const onStderr = (s: string) => {
       stderr += s;
       if (stderr.length > STDERR_TAIL * 2) stderr = stderr.slice(-STDERR_TAIL);
       opts.onOutput?.(s);
+    };
+    child.stderr?.on("data", (s: string) => {
+      if (!opts.onEvent) return onStderr(s);
+      // Split into lines so an event is never cut in two; the rest is output as before.
+      const lines = (partial + s).split("\n");
+      partial = lines.pop() ?? "";
+      let rest = "";
+      for (const line of lines) {
+        if (line.startsWith('{"event":')) opts.onEvent(line);
+        else rest += line + "\n";
+      }
+      if (rest) onStderr(rest);
     });
 
     child.on("error", (err) => {
@@ -240,6 +258,11 @@ export function runClarifyDoc(
     });
 
     child.on("close", (code) => {
+      if (partial) {
+        if (opts.onEvent && partial.startsWith('{"event":')) opts.onEvent(partial);
+        else onStderr(partial);
+        partial = "";
+      }
       children.delete(child);
       cancelSub?.dispose();
       if (stderr.length > STDERR_TAIL) stderr = stderr.slice(-STDERR_TAIL);

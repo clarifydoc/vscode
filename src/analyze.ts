@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { AnalyzeProgress } from "./analyzeProgress";
 import { getConfig } from "./config";
 import { resolveCli, runClarifyDoc, reportSpawnError } from "./cli";
 import { outputBaseDir, ensureOutputDir } from "./paths";
@@ -42,6 +43,8 @@ function buildAnalyzeArgs(
   if (cfg.includeGlobs.length) args.push("--include", ...cfg.includeGlobs);
   if (cfg.excludeGlobs.length) args.push("--exclude", ...cfg.excludeGlobs);
   args.push("--verbose");
+  // Where the run is, as events on stderr: real counts in the progress notification.
+  args.push("--progress", "json");
 
   return args;
 }
@@ -114,11 +117,14 @@ export async function analyzeWorkspace(
         const started = Date.now();
         let tail = "";
         let upToDate = false;
+        // The analyzer's progress events drive the notification; output lines only until the first one.
+        const events = new AnalyzeProgress();
+        let sawEvent = false;
         const flush = () => {
           timer = undefined;
           if (!pending) return;
           lines.push(pending);
-          const line = lastMeaningfulLine(pending.slice(-4096));
+          const line = sawEvent ? undefined : lastMeaningfulLine(pending.slice(-4096));
           if (line) progress.report({ message: line });
           pending = "";
         };
@@ -126,6 +132,11 @@ export async function analyzeWorkspace(
           cwd: folderPath,
           token,
           captureStdout: false, // streamed to the output channel, never parsed
+          onEvent: (line) => {
+            sawEvent = true;
+            const update = events.update(line);
+            if (update) progress.report(update);
+          },
           onOutput: (chunk) => {
             // The analyzer only warns when a language server cannot start and
             // then continues without it; when the user asked for LSP, that is
