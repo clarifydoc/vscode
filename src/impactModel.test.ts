@@ -74,6 +74,32 @@ describe("impactNodes", () => {
     expect(changed.children![0]).toMatchObject({ label: "GetOwnersQuery.Handle()", icon: "function", line: 12 });
   });
 
+  it("says where each caller stands, and names a rename or a new return type", () => {
+    const nodes = impactNodes({
+      ...base,
+      symbolImpact: {
+        changed: [{ file: "svc.ts", symbol: "place", line: 1, endLine: 9 }],
+        direct: [
+          { file: "jobs.ts", symbol: "nightly", line: 3, depth: 1, confidence: "EXTRACTED", standing: "unverified" },
+          { file: "routes.ts", symbol: "create", line: 7, depth: 1, confidence: "EXTRACTED", standing: "covered", coveredBy: { file: "routes.test.ts", symbol: "test_create" } },
+        ],
+        transitive: [],
+        reviewOnly: [],
+        signatureChanges: [
+          { file: "svc.ts", symbol: "place", line: 1, kind: "removed", renamedTo: "placeOrder", callers: 2, breaking: true },
+          { file: "svc.ts", symbol: "find", line: 12, kind: "return-type", before: "Order | null", after: "Order", callers: 1, breaking: true },
+        ],
+      },
+    });
+    const sig = nodes.find((n) => n.label === "Signature changes")!.children!.map((c) => c.description);
+    expect(sig).toEqual(["removed — possibly renamed to placeOrder · 2 callers · breaks them", "returns Order, was Order | null · 1 caller · breaks them"]);
+    const callers = nodes.find((n) => n.label === "Will break — direct callers")!.children!;
+    expect(callers.map((c) => [c.description, c.icon])).toEqual([
+      ["jobs.ts:3 · unverified", "unverified"],
+      ["routes.ts:7 · covered by test_create", "caller"],
+    ]);
+  });
+
   it("says so when nothing changed", () => {
     expect(impactNodes({ ...base, changedFiles: [] }).map((n) => n.label)).toEqual(["No changes against the last commit"]);
   });

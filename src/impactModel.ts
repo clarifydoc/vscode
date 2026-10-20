@@ -35,7 +35,7 @@ export interface ImpactResult {
     /** Callers that are route handlers, by their route. */
     routes?: { route: string; file: string; line: number; depth: number; confidence: string }[];
     reviewOnly: string[];
-    signatureChanges?: { file: string; symbol: string; line: number; kind: "removed" | "arity"; before?: number; after?: number; callers: number; breaking: boolean }[];
+    signatureChanges?: { file: string; symbol: string; line: number; kind: "removed" | "arity" | "return-type"; before?: number | string; after?: number | string; renamedTo?: string; callers: number; breaking: boolean }[];
   };
 }
 
@@ -45,9 +45,12 @@ export interface SymbolCaller {
   line: number;
   depth: number;
   confidence: string;
+  /** Updated in this change, covered by a test, a test itself, or unverified (engine ≥ the consumer-standing release). */
+  standing?: "updated" | "covered" | "test" | "unverified";
+  coveredBy?: { file: string; symbol: string };
 }
 
-export type ImpactIcon = "risk" | "route" | "screen" | "data" | "queue" | "test" | "file" | "unknown" | "chain" | "info" | "cochange" | "person" | "break" | "caller" | "function";
+export type ImpactIcon = "risk" | "route" | "screen" | "data" | "queue" | "test" | "file" | "unknown" | "chain" | "info" | "cochange" | "person" | "break" | "caller" | "unverified" | "function";
 
 export interface ImpactNode {
   label: string;
@@ -93,13 +96,16 @@ export function impactNodes(r: ImpactResult): ImpactNode[] {
       "break",
       sig.map((c) => ({
         label: `${c.symbol}()`,
-        description: `${c.kind === "removed" ? "removed" : `${c.before} → ${c.after} required parameters`}${c.callers ? ` · ${c.callers} caller${c.callers === 1 ? "" : "s"}` : ""}${c.breaking ? " · breaks them" : ""}`,
+        description: `${c.kind === "removed" ? (c.renamedTo ? `removed — possibly renamed to ${c.renamedTo}` : "removed") : c.kind === "return-type" ? `returns ${c.after}, was ${c.before}` : `${c.before} → ${c.after} required parameters`}${c.callers ? ` · ${c.callers} caller${c.callers === 1 ? "" : "s"}` : ""}${c.breaking ? " · breaks them" : ""}`,
         icon: c.breaking ? "break" : "function",
         file: c.file,
         line: c.line,
       })),
     );
-    const caller = (c: SymbolCaller): ImpactNode => ({ label: `${c.symbol}()`, description: `${c.file}:${c.line}${c.depth > 1 ? ` · ${c.depth} hops` : ""}${c.confidence !== "EXTRACTED" ? ` · ${c.confidence.toLowerCase()}` : ""}`, icon: "caller", file: c.file, line: c.line });
+    // Where the caller stands: an unverified one is what a reviewer has to read.
+    const stand = (c: SymbolCaller) =>
+      c.standing === "updated" ? " · updated here" : c.standing === "covered" ? ` · covered${c.coveredBy ? ` by ${c.coveredBy.symbol}` : ""}` : c.standing === "unverified" ? " · unverified" : "";
+    const caller = (c: SymbolCaller): ImpactNode => ({ label: `${c.symbol}()`, description: `${c.file}:${c.line}${c.depth > 1 ? ` · ${c.depth} hops` : ""}${c.confidence !== "EXTRACTED" ? ` · ${c.confidence.toLowerCase()}` : ""}${stand(c)}`, icon: c.standing === "unverified" ? "unverified" : "caller", file: c.file, line: c.line });
     // A caller that is a route handler is named by its route.
     const route = (x: NonNullable<typeof si.routes>[number]): ImpactNode => ({ label: x.route, description: `${x.file}:${x.line}${x.depth > 1 ? ` · ${x.depth} hops` : ""}${x.confidence !== "EXTRACTED" ? ` · ${x.confidence.toLowerCase()}` : ""}`, icon: "route", file: x.file, line: x.line });
     const direct = [...(si.routes ?? []).filter((x) => x.depth === 1).map(route), ...si.direct.map(caller)];

@@ -26,6 +26,7 @@ const ICONS: Record<ImpactIcon, string> = {
   person: "person",
   break: "error",
   caller: "call-incoming",
+  unverified: "warning",
   function: "symbol-method",
 };
 
