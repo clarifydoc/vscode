@@ -44,6 +44,7 @@ import { outputBaseDir, resetStorageResolution, storageFor } from "./paths";
 import { setAnalysisLog } from "./analysisData";
 import { LineTracker } from "./lineTracker";
 import { resolveWithEditor } from "./editorLsp";
+import { NeighbourhoodView } from "./neighbourhoodView";
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("ClarifyDoc", { log: true });
@@ -93,6 +94,8 @@ export function activate(context: vscode.ExtensionContext): void {
   new RiskDecorations(state);
   registerBookmarks(state);
   new CoverageOverlay(state);
+  // The docked graph of the active file (VSCODE 2.2).
+  new NeighbourhoodView(state);
 
   // Editor-integration providers (data-driven, refresh on analysis change).
   const diagnostics = new DiagnosticsManager(state);

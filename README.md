@@ -72,6 +72,10 @@ first.
   route, and entities by name.
 - **Show Control Flow**: click the complexity lens to see the function drawn as a
   flowchart. Click a node to jump to its line.
+- **Neighbourhood** in the ClarifyDoc sidebar: the open file's functions, the
+  calls between them, what calls in and what they call out to, and the routes it
+  serves or calls, redrawn as you switch files, with the function under the
+  cursor outlined. Click a node to open it.
 - **Problems panel**: security findings (with their CWE and the routes that reach
   them), overly complex functions and layer violations, at their exact lines,
   with quick fixes. They follow their line while you edit. Dead code can be

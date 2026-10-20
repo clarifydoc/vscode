@@ -241,3 +241,22 @@ export function filesGraph(input: readonly GraphFile[], opts: GraphOptions = {})
     summary,
   };
 }
+
+/**
+ * The node of `view` that stands for the code at `line` of `file`: the
+ * function whose definition is the nearest one at or above the line, else the
+ * file's own node. For the docked graph, which follows the cursor.
+ */
+export function nodeAtLine(view: GraphView, file: string, line: number): string | null {
+  let best: { id: string; line: number } | null = null;
+  let fileNode: string | null = null;
+  for (const [id, at] of Object.entries(view.nodes)) {
+    if (at.file !== file) continue;
+    if (at.line === undefined) {
+      fileNode ??= id;
+      continue;
+    }
+    if (at.line <= line && (!best || at.line > best.line)) best = { id, line: at.line };
+  }
+  return best?.id ?? fileNode;
+}

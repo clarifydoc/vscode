@@ -314,6 +314,13 @@
           "name": "Analysis",
           "icon": "media/sidebar.svg",
           "contextualTitle": "ClarifyDoc"
+        },
+        {
+          "type": "webview",
+          "id": "clarifydoc.neighbourhood",
+          "name": "Neighbourhood",
+          "icon": "media/sidebar.svg",
+          "contextualTitle": "ClarifyDoc"
         }
       ],
       "scm": [

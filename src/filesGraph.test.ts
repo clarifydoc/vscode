@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filesGraph, type GraphFile } from "./filesGraph";
+import { filesGraph, nodeAtLine, type GraphFile } from "./filesGraph";
 
 const link = (sourceFile: string, sourceSymbol: string, targetFile: string, targetSymbol: string) => ({
   sourceFile, sourceSymbol, sourceLine: 1, targetFile, targetSymbol, targetLine: 1,
@@ -86,5 +86,15 @@ describe("filesGraph", () => {
   it("keeps labels from breaking out of their quotes", () => {
     const odd = filesGraph([{ ...api, file: 'a"b<c>.ts', outbound: [], inbound: [], callsRoutes: [] }]);
     expect(odd.functions.mermaid).toContain('["a#quot;b#lt;c#gt;.ts"]');
+  });
+});
+
+describe("nodeAtLine", () => {
+  it("picks the nearest function at or above the line in that file, else the file's node", () => {
+    const view = { label: "Functions", mermaid: "", nodes: { f0: { file: "a.ts" }, f0_1: { file: "a.ts", line: 3 }, f0_2: { file: "a.ts", line: 20 }, o1: { file: "b.ts", line: 10 } } };
+    expect(nodeAtLine(view, "a.ts", 12)).toBe("f0_1");
+    expect(nodeAtLine(view, "a.ts", 25)).toBe("f0_2");
+    expect(nodeAtLine(view, "a.ts", 1)).toBe("f0");
+    expect(nodeAtLine(view, "c.ts", 1)).toBeNull();
   });
 });
