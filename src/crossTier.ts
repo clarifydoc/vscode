@@ -28,7 +28,7 @@ export interface ContractFinding {
   method?: string | null;
   url: string;
   route: { file: string; line: number; path: string };
-  kind: "missing-field" | "unknown-field" | "type-mismatch";
+  kind: "missing-field" | "unknown-field" | "type-mismatch" | "unknown-response-field";
   field: string;
   expected?: string;
   actual?: string;

@@ -124,7 +124,8 @@ export function routeMissDiag(m: CallMiss, folder: vscode.WorkspaceFolder): vsco
 /**
  * A request body that disagrees with its route, at the call: a required field
  * not sent or one sent with the wrong type is a warning (the request fails),
- * an undeclared field is information. The route is the related location.
+ * an undeclared field is information, and so is a response field the call
+ * reads that the route does not send. The route is the related location.
  */
 export function contractDiag(c: ContractFinding, folder: vscode.WorkspaceFolder): vscode.Diagnostic {
   const call = `${c.method ? c.method + " " : ""}${c.url}`;
@@ -132,8 +133,11 @@ export function contractDiag(c: ContractFinding, folder: vscode.WorkspaceFolder)
     ? `does not send "${c.field}", which ${c.route.path} requires`
     : c.kind === "unknown-field"
       ? `sends "${c.field}", which ${c.route.path} does not declare`
-      : `sends "${c.field}" as ${c.actual}; ${c.route.path} declares ${c.expected}`;
-  const d = new vscode.Diagnostic(lineRange(c.line), `${call} ${what}`, c.kind === "unknown-field" ? vscode.DiagnosticSeverity.Information : vscode.DiagnosticSeverity.Warning);
+      : c.kind === "unknown-response-field"
+        ? `reads "${c.field}" from the response, which ${c.route.path} does not send`
+        : `sends "${c.field}" as ${c.actual}; ${c.route.path} declares ${c.expected}`;
+  const info = c.kind === "unknown-field" || c.kind === "unknown-response-field";
+  const d = new vscode.Diagnostic(lineRange(c.line), `${call} ${what}`, info ? vscode.DiagnosticSeverity.Information : vscode.DiagnosticSeverity.Warning);
   d.source = "ClarifyDoc";
   d.code = "contract";
   d.relatedInformation = [new vscode.DiagnosticRelatedInformation(
