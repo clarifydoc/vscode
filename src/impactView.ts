@@ -35,10 +35,10 @@ const RISK_COLOR: Record<ImpactResult["risk"]["level"], string | undefined> = {
   low: undefined,
 };
 
-/** `git -C folder …`, resolving to stdout. */
+/** `git -C folder …`, resolving to stdout; never runs a `core.fsmonitor` command the repository configures. */
 function git(folder: vscode.WorkspaceFolder, args: string[]): Promise<string> {
   return new Promise((resolve, reject) =>
-    execFile("git", ["-C", folder.uri.fsPath, ...args], { maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) =>
+    execFile("git", ["-c", "core.fsmonitor=false", "-C", folder.uri.fsPath, ...args], { maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) =>
       err ? reject(new Error((stderr || err.message).trim())) : resolve(stdout),
     ),
   );

@@ -51,7 +51,7 @@ export async function hasBaseAnalysis(context: vscode.ExtensionContext, folder: 
 
 function git(cwd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) =>
-    execFile("git", ["-C", cwd, ...args], { maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) =>
+    execFile("git", ["-c", "core.fsmonitor=false", "-C", cwd, ...args], { maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) =>
       err ? reject(new Error((stderr || err.message).trim())) : resolve(stdout),
     ),
   );
