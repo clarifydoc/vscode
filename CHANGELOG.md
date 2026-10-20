@@ -1,6 +1,17 @@
 # Change Log
 
-## Unreleased
+## 0.1.13
+
+- **Neighbourhood.** A graph of the open file, docked in the ClarifyDoc sidebar: its functions, the calls
+  between them, the calls in and out, the routes it serves and the HTTP calls it makes. It redraws when
+  another file comes forward or the analysis changes, and outlines the function under the cursor as it moves.
+  *Functions* and *Files* switch the level, and a node opens its source.
+- **Taint paths in Problems.** A security finding that carries its taint path lists each step as a related
+  location, request input first, before the routes that reach it. Findings imported from another tool's SARIF
+  show their flows the same way, across files.
+- **Response fields no route sends.** A call that reads a field from the response that its route does not
+  send is an Information note at the call, with the route as the related location, beside the request
+  contract findings.
 
 - **Doc drift in Problems.** Paths, routes and class members your Markdown names that the code no longer has
   show on the doc's line. A path git saw renamed or deleted is a warning, and a rename has a quick fix that
