@@ -75,17 +75,27 @@ export function securityDiag(issue: SecurityIssue, folder: vscode.WorkspaceFolde
   // Imported from another tool's SARIF: say whose finding it is.
   d.source = issue.tool ? `ClarifyDoc · ${issue.tool}` : "ClarifyDoc";
   d.code = target ? { value: issue.cwe!, target } : issue.tool && issue.ruleId ? issue.ruleId : issue.category;
+  const related: vscode.DiagnosticRelatedInformation[] = [];
+  // How the input got here: each step of the taint path, request input first.
+  for (const [i, step] of (issue.flow ?? []).entries()) {
+    if (i === (issue.flow?.length ?? 0) - 1 && !step.file && step.line === issue.line) continue; // the sink is the diagnostic itself
+    related.push(new vscode.DiagnosticRelatedInformation(
+      new vscode.Location(vscode.Uri.file(path.join(folder.uri.fsPath, step.file ?? issue.filePath)), lineRange(step.line)),
+      `${i + 1}. ${step.note || "step"}`,
+    ));
+  }
   // The routes whose handlers reach this line: what an attacker would call.
   if (issue.entries?.length) {
-    d.relatedInformation = issue.entries.map((e) => {
+    related.push(...issue.entries.map((e) => {
       const route = a.routes.find((r) => r.filePath === e.file && [r.httpMethod, r.path].filter(Boolean).join(" ") === e.route);
       const hops = `${e.distance} call${e.distance === 1 ? "" : "s"} away, ${e.confidence.toLowerCase()}`;
       return new vscode.DiagnosticRelatedInformation(
         new vscode.Location(vscode.Uri.file(path.join(folder.uri.fsPath, e.file)), lineRange(route?.line ?? 1)),
         `reached from ${e.route} (${hops})`,
       );
-    });
+    }));
   }
+  if (related.length > 0) d.relatedInformation = related;
   return d;
 }
 

@@ -43,4 +43,21 @@ describe("securityDiag", () => {
     const noCwe = securityDiag({ category: "external", severity: "medium", message: "x", filePath: "a.ts", line: 2, tool: "gosec", ruleId: "G104" }, folder, { routes: [] });
     expect([noCwe.code, noCwe.message]).toEqual(["G104", "external [G104]: x"]);
   });
+
+  it("lists a taint finding's steps as related locations, the sink itself left out", () => {
+    const d = securityDiag({
+      category: "sql-injection", severity: "high", message: "Request input reaches the SQL text", filePath: "api/users.java", line: 6,
+      flow: [
+        { line: 3, note: "request parameter name" },
+        { line: 5, note: "sql carries it" },
+        { line: 2, note: "called from here", file: "api/Other.java" },
+        { line: 6, note: "reaches the SQL text of jdbcTemplate.query()" },
+      ],
+    }, folder, { routes: [] });
+    expect(d.relatedInformation!.map((r) => [r.location.uri.fsPath, r.location.range.start.line + 1, r.message])).toEqual([
+      ["/repo/api/users.java", 3, "1. request parameter name"],
+      ["/repo/api/users.java", 5, "2. sql carries it"],
+      ["/repo/api/Other.java", 2, "3. called from here"],
+    ]);
+  });
 });

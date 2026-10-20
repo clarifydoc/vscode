@@ -27,6 +27,8 @@ export interface SecurityIssue {
   cwe?: string;
   /** API routes whose handlers reach this finding (capped by the analyzer). */
   entries?: { route: string; file: string; distance: number; confidence: string }[];
+  /** A taint finding's steps, request input first, sink last (`file` when another file than the finding's). */
+  flow?: { line: number; note: string; file?: string }[];
   /** The tool that reported it, for a finding imported from another tool's SARIF (`semgrep`, `CodeQL`). */
   tool?: string;
   /** That tool's rule id. */
