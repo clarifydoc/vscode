@@ -80,8 +80,8 @@ describe.skipIf(!available)("cross-tier joins: sample-fullstack-cqrs", () => {
 });
 
 // test-fixtures/sample-angular: server/api.ts declares five Express routes;
-// services/tag.service.ts calls four of them; services/user.service.ts fetches
-// /api/users, which nothing serves; POST /:slug/duplicate has no caller.
+// services/tag.service.ts calls four of them; services/player.service.ts fetches
+// /api/players, which nothing serves; POST /:slug/duplicate has no caller.
 describe.skipIf(!available)("cross-tier joins: sample-angular", () => {
   it("joins calls whose URL is built by a helper", async () => {
     const a = await load("sample-angular");
@@ -95,9 +95,9 @@ describe.skipIf(!available)("cross-tier joins: sample-angular", () => {
 
   it("says why a call reached no route", async () => {
     const a = await load("sample-angular");
-    const facts = a.byFile.get("src/app/services/user.service.ts")!;
+    const facts = a.byFile.get("src/app/services/player.service.ts")!;
     expect(linksAtLine(facts, 7)).toEqual([]);
-    expect(missesAtLine(a.crossTier, "src/app/services/user.service.ts", 7).map((m) => m.url)).toEqual(["/api/users"]);
+    expect(missesAtLine(a.crossTier, "src/app/services/player.service.ts", 7).map((m) => m.url)).toEqual(["/api/players"]);
   });
 
   it("marks the route nothing calls, and only that one", async () => {
@@ -113,10 +113,10 @@ describe.skipIf(!available)("cross-tier joins: sample-angular", () => {
   });
 });
 
-// test-fixtures/sample-react/frontend: components/ProductList.tsx fetches
-// products in an effect (fetchProducts) and deletes in handleDelete
-// (deleteProduct); pages/ProductsPage.tsx creates in handleSubmit
-// (createProduct); api/client.ts makes the calls; backend/src/routes/products.ts
+// test-fixtures/sample-react/frontend: components/PartList.tsx fetches
+// parts in an effect (fetchParts) and deletes in handleDelete
+// (deletePart); pages/PartsPage.tsx creates in handleSubmit
+// (createPart); api/client.ts makes the calls; backend/src/routes/parts.ts
 // serves them.
 describe.skipIf(!available)("cross-tier joins: screens in sample-react", () => {
   // Read without lsp-enhancement.json: the fixture's copy predates the
@@ -128,7 +128,7 @@ describe.skipIf(!available)("cross-tier joins: screens in sample-react", () => {
     return indexProject(analyzer.denormalizeProject(raw), analyzer.buildIndex);
   }
 
-  const routes = "backend/src/routes/products.ts";
+  const routes = "backend/src/routes/parts.ts";
   const screensOf = (a: ResolvedAnalysis, line: number) =>
     screensReaching(a.crossTier, callersOf(a.byFile.get(routes)!, route(a, routes, line)))
       .map((s) => s.title)
@@ -136,9 +136,9 @@ describe.skipIf(!available)("cross-tier joins: screens in sample-react", () => {
 
   it("names the nearest screen above each call", async () => {
     const a = await loadUnmerged("sample-react");
-    expect(screensOf(a, 11)).toEqual(["ProductList"]); // GET /api/products
-    expect(screensOf(a, 22)).toEqual(["ProductsPage"]); // POST /api/products
-    expect(screensOf(a, 31)).toEqual(["ProductList"]); // DELETE /api/products/:id
+    expect(screensOf(a, 11)).toEqual(["PartList"]); // GET /api/parts
+    expect(screensOf(a, 22)).toEqual(["PartsPage"]); // POST /api/parts
+    expect(screensOf(a, 31)).toEqual(["PartList"]); // DELETE /api/parts/:id
   });
 
   it("does not credit the app shell above the nearest screen", async () => {

@@ -3,7 +3,7 @@ import { bookmarkLabel, withBookmark, withoutBookmark } from "./bookmarkModel";
 
 describe("bookmarks", () => {
   it("names a view after its tab and what it focuses", () => {
-    expect(bookmarkLabel("traces~api%2Froutes%2Forders.js")).toBe("Call Traces — orders.js");
+    expect(bookmarkLabel("traces~api%2Froutes%2Fcars.js")).toBe("Call Traces — cars.js");
     expect(bookmarkLabel("health/security")).toBe("Health — security");
     expect(bookmarkLabel("routes")).toBe("Routes");
     expect(bookmarkLabel("links/data-access~src%2Fdb.ts")).toBe("Architecture — db.ts");

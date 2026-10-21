@@ -86,13 +86,13 @@ describe("impactNodes", () => {
         transitive: [],
         reviewOnly: [],
         signatureChanges: [
-          { file: "svc.ts", symbol: "place", line: 1, kind: "removed", renamedTo: "placeOrder", callers: 2, breaking: true },
-          { file: "svc.ts", symbol: "find", line: 12, kind: "return-type", before: "Order | null", after: "Order", callers: 1, breaking: true },
+          { file: "svc.ts", symbol: "place", line: 1, kind: "removed", renamedTo: "placeCar", callers: 2, breaking: true },
+          { file: "svc.ts", symbol: "find", line: 12, kind: "return-type", before: "Car | null", after: "Car", callers: 1, breaking: true },
         ],
       },
     });
     const sig = nodes.find((n) => n.label === "Signature changes")!.children!.map((c) => c.description);
-    expect(sig).toEqual(["removed — possibly renamed to placeOrder · 2 callers · breaks them", "returns Order, was Order | null · 1 caller · breaks them"]);
+    expect(sig).toEqual(["removed — possibly renamed to placeCar · 2 callers · breaks them", "returns Car, was Car | null · 1 caller · breaks them"]);
     const callers = nodes.find((n) => n.label === "Will break — direct callers")!.children!;
     expect(callers.map((c) => [c.description, c.icon])).toEqual([
       ["jobs.ts:3 · unverified", "unverified"],

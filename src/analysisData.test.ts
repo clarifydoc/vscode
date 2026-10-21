@@ -51,11 +51,11 @@ describe.skipIf(!available)("indexProject — who knows a file", () => {
   it("reads churn and matches CODEOWNERS through the analyzer", async () => {
     const analyzer = await import(pathToFileURL(reader).href);
     const p = await analyzer.loadReportSummary(path.join(fixtures, "sample-backend"));
-    p.fileChurn = [{ file: "routes/users.ts", commits: 7, additions: 1, deletions: 1, lastTouched: "2026-10-01", authors: ["Ada"], authorCount: 1, authorShares: [{ name: "Ada", commits: 7 }], busFactor: 1 }];
+    p.fileChurn = [{ file: "routes/players.ts", commits: 7, additions: 1, deletions: 1, lastTouched: "2026-10-01", authors: ["Ada"], authorCount: 1, authorShares: [{ name: "Ada", commits: 7 }], busFactor: 1 }];
     p.codeOwners = { file: ".github/CODEOWNERS", rules: [{ pattern: "*", owners: ["@acme/all"] }, { pattern: "routes/", owners: ["@acme/api"] }] };
     const a = indexProject(p, analyzer.buildIndex, analyzer);
-    expect(a.history?.churn.get("routes/users.ts")).toMatchObject({ commits: 7, busFactor: 1 });
-    expect(a.history?.ownersOf?.("routes/users.ts")).toEqual(["@acme/api"]);
+    expect(a.history?.churn.get("routes/players.ts")).toMatchObject({ commits: 7, busFactor: 1 });
+    expect(a.history?.ownersOf?.("routes/players.ts")).toEqual(["@acme/api"]);
     expect(a.history?.ownersOf?.("server.ts")).toEqual(["@acme/all"]);
   });
 });

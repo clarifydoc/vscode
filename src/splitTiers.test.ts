@@ -16,8 +16,8 @@ const web: TierFolder = {
   name: "web",
   root: "/src/shop/web",
   misses: [
-    { file: "src/api.ts", line: 4, method: "GET", url: "/api/orders/{}", reason: "unmatched" },
-    { file: "src/api.ts", line: 9, method: "POST", url: "/api/orders", reason: "unmatched" },
+    { file: "src/api.ts", line: 4, method: "GET", url: "/api/cars/{}", reason: "unmatched" },
+    { file: "src/api.ts", line: 9, method: "POST", url: "/api/cars", reason: "unmatched" },
     { file: "src/api.ts", line: 14, method: null, url: "/api/nowhere", reason: "unmatched" },
     // A refused method is a fact about this folder's own routes, not a sign of a split.
     { file: "src/api.ts", line: 20, method: "PUT", url: "/api/local", reason: "method-mismatch" },
@@ -29,8 +29,8 @@ const api: TierFolder = {
   root: "/src/shop/api",
   misses: [],
   routes: [
-    { httpMethod: "GET", path: "/api/orders/:id", filePath: "routes/orders.js", line: 3, kind: "api" },
-    { httpMethod: "POST", path: "/api/orders", filePath: "routes/orders.js", line: 8, kind: "api" },
+    { httpMethod: "GET", path: "/api/cars/:id", filePath: "routes/cars.js", line: 3, kind: "api" },
+    { httpMethod: "POST", path: "/api/cars", filePath: "routes/cars.js", line: 8, kind: "api" },
     { httpMethod: "PUT", path: "/api/local", filePath: "routes/local.js", line: 2, kind: "api" },
   ],
 };
@@ -40,11 +40,11 @@ describe.skipIf(!available)("findSplitTiers", () => {
     const found = findSplitTiers([web, api], await linker());
     expect(found).toHaveLength(1);
     expect(found[0]).toMatchObject({ caller: "web", server: "api", calls: 2 });
-    expect(found[0]!.examples.join("\n")).toContain("/api/orders/:id");
+    expect(found[0]!.examples.join("\n")).toContain("/api/cars/:id");
   });
 
   it("joins by method: a GET call does not reach a POST-only route", async () => {
-    const getOnly: TierFolder = { ...web, misses: [{ file: "a.ts", line: 1, method: "GET", url: "/api/orders", reason: "unmatched" }] };
+    const getOnly: TierFolder = { ...web, misses: [{ file: "a.ts", line: 1, method: "GET", url: "/api/cars", reason: "unmatched" }] };
     const postOnly: TierFolder = { ...api, routes: [api.routes[1]!] };
     expect(findSplitTiers([getOnly, postOnly], await linker())).toEqual([]);
   });

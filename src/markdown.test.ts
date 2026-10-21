@@ -20,6 +20,6 @@ describe("escapeMd", () => {
   });
 
   it("leaves plain words alone", () => {
-    expect(escapeMd("OrdersController GetById")).toBe("OrdersController GetById");
+    expect(escapeMd("CarsController GetById")).toBe("CarsController GetById");
   });
 });

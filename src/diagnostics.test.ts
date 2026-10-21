@@ -7,13 +7,13 @@ const folder = { uri: vscode.Uri.file("/repo"), name: "repo", index: 0 } as unkn
 describe("routeMissDiag", () => {
   it("warns on a refused method and points at the route that exists", () => {
     const d = routeMissDiag(
-      { file: "web/a.ts", line: 3, method: "DELETE", url: "/api/orders", reason: "method-mismatch", existing: [{ method: "GET", path: "/api/orders", file: "api/o.py", line: 9 }] },
+      { file: "web/a.ts", line: 3, method: "DELETE", url: "/api/cars", reason: "method-mismatch", existing: [{ method: "GET", path: "/api/cars", file: "api/o.py", line: 9 }] },
       folder,
     );
     expect(d.severity).toBe(vscode.DiagnosticSeverity.Warning);
     expect(d.code).toBe("route-miss");
-    expect(d.message).toBe("DELETE /api/orders asks for a method the route does not serve; the backend serves GET /api/orders");
-    expect(d.relatedInformation!.map((r) => [r.location.uri.fsPath, r.message])).toEqual([["/repo/api/o.py", "GET /api/orders"]]);
+    expect(d.message).toBe("DELETE /api/cars asks for a method the route does not serve; the backend serves GET /api/cars");
+    expect(d.relatedInformation!.map((r) => [r.location.uri.fsPath, r.message])).toEqual([["/repo/api/o.py", "GET /api/cars"]]);
   });
 
   it("only informs about a path no route has", () => {
@@ -25,10 +25,10 @@ describe("routeMissDiag", () => {
 
 describe("contractDiag", () => {
   it("names the field and points at the route", async () => {
-    const d = contractDiag({ file: "web/api.ts", line: 4, method: "POST", url: "/users", route: { file: "api/users.ts", line: 6, path: "/users" }, kind: "missing-field", field: "age" }, folder);
-    expect(d.message).toBe('POST /users does not send "age", which /users requires');
+    const d = contractDiag({ file: "web/api.ts", line: 4, method: "POST", url: "/players", route: { file: "api/players.ts", line: 6, path: "/players" }, kind: "missing-field", field: "age" }, folder);
+    expect(d.message).toBe('POST /players does not send "age", which /players requires');
     expect(d.severity).toBe(vscode.DiagnosticSeverity.Warning);
-    expect(d.relatedInformation![0]!.location.uri.fsPath).toBe("/repo/api/users.ts");
+    expect(d.relatedInformation![0]!.location.uri.fsPath).toBe("/repo/api/players.ts");
   });
 });
 
@@ -46,7 +46,7 @@ describe("securityDiag", () => {
 
   it("lists a taint finding's steps as related locations, the sink itself left out", () => {
     const d = securityDiag({
-      category: "sql-injection", severity: "high", message: "Request input reaches the SQL text", filePath: "api/users.java", line: 6,
+      category: "sql-injection", severity: "high", message: "Request input reaches the SQL text", filePath: "api/players.java", line: 6,
       flow: [
         { line: 3, note: "request parameter name" },
         { line: 5, note: "sql carries it" },
@@ -55,8 +55,8 @@ describe("securityDiag", () => {
       ],
     }, folder, { routes: [] });
     expect(d.relatedInformation!.map((r) => [r.location.uri.fsPath, r.location.range.start.line + 1, r.message])).toEqual([
-      ["/repo/api/users.java", 3, "1. request parameter name"],
-      ["/repo/api/users.java", 5, "2. sql carries it"],
+      ["/repo/api/players.java", 3, "1. request parameter name"],
+      ["/repo/api/players.java", 5, "2. sql carries it"],
       ["/repo/api/Other.java", 2, "3. called from here"],
     ]);
   });

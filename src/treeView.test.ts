@@ -7,8 +7,8 @@ const folder = { uri: { fsPath: "/ws" }, name: "ws", index: 0 } as never;
 function analysis(): ResolvedAnalysis {
   return {
     routes: [
-      { httpMethod: "GET", path: "/invoices/download", filePath: "api/invoices.ts", line: 12 },
-      { httpMethod: "GET", path: "/invoices", filePath: "api/invoices.ts", line: 4 },
+      { httpMethod: "GET", path: "/bills/download", filePath: "api/bills.ts", line: 12 },
+      { httpMethod: "GET", path: "/bills", filePath: "api/bills.ts", line: 4 },
     ],
     crossTier: {
       byFile: new Map(),
@@ -16,11 +16,11 @@ function analysis(): ResolvedAnalysis {
       flowsByEntryFile: new Map(),
       missesByFile: new Map([
         ["web/api.ts", [
-          { file: "web/api.ts", line: 30, method: "GET", url: "/invoices/export", reason: "unmatched" },
-          { file: "web/api.ts", line: 9, method: "PUT", url: "/invoices", reason: "method-mismatch" },
+          { file: "web/api.ts", line: 30, method: "GET", url: "/bills/export", reason: "unmatched" },
+          { file: "web/api.ts", line: 9, method: "PUT", url: "/bills", reason: "method-mismatch" },
         ]],
       ]),
-      uncalled: new Set(["api/invoices.ts:12"]),
+      uncalled: new Set(["api/bills.ts:12"]),
       uncalledCount: 3,
     },
   } as unknown as ResolvedAnalysis;
@@ -33,11 +33,11 @@ describe("API gaps in the sidebar", () => {
     const [calls, routes] = g.children;
     expect([calls.label, calls.description]).toEqual(["Calls that reach no route", "2"]);
     expect(calls.children.map((c: any) => [c.label, c.description, c.tooltip.split("\n")[0]])).toEqual([
-      ["PUT /invoices", "web/api.ts:9", "A route serves this path, but for another method."],
-      ["GET /invoices/export", "web/api.ts:30", "No route serves this path."],
+      ["PUT /bills", "web/api.ts:9", "A route serves this path, but for another method."],
+      ["GET /bills/export", "web/api.ts:30", "No route serves this path."],
     ]);
     // The listed routes are capped; the count is the analysis's exact one.
-    expect([routes.label, routes.description, routes.children.map((c: any) => c.label)]).toEqual(["Routes no call reaches", "3", ["GET /invoices/download"]]);
+    expect([routes.label, routes.description, routes.children.map((c: any) => c.label)]).toEqual(["Routes no call reaches", "3", ["GET /bills/download"]]);
   });
 
   it("is absent when every call meets a route", () => {

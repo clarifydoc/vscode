@@ -4,7 +4,7 @@ import * as path from "path";
 import { runClarifyDoc } from "./cli";
 
 const bundled = path.resolve(__dirname, "../clarifydoc/dist/cli.js");
-const fixture = path.resolve(__dirname, "../../test-fixtures/sample-backend/services/userService.ts");
+const fixture = path.resolve(__dirname, "../../test-fixtures/sample-backend/services/playerService.ts");
 
 describe.skipIf(!fs.existsSync(bundled) || !fs.existsSync(fixture))("runClarifyDoc", () => {
   const cli = { command: process.execPath, baseArgs: [bundled], electronAsNode: false, display: "test" };

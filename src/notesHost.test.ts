@@ -18,8 +18,8 @@ const folder = { name: "shop", uri: { fsPath: "/ws/shop" } } as never;
 
 describe("answerReportRequest", () => {
   it("adds, lists and deletes notes, keeping them in notes.json and notes.md", async () => {
-    const added = await answerReportRequest(state, folder, { op: "notes.add", subject: "file:api/orders.js", text: "Owned by payments." });
-    expect(added.result).toMatchObject({ subject: "file:api/orders.js", text: "Owned by payments." });
+    const added = await answerReportRequest(state, folder, { op: "notes.add", subject: "file:api/cars.js", text: "Owned by payments." });
+    expect(added.result).toMatchObject({ subject: "file:api/cars.js", text: "Owned by payments." });
     const listed = await answerReportRequest(state, folder, { op: "notes.list" });
     expect(listed.result).toHaveLength(1);
     expect(fs.readFileSync(path.join(dir, "notes.md"), "utf8")).toContain("> Owned by payments.");
@@ -33,7 +33,7 @@ describe("answerReportRequest", () => {
   });
 
   it("loses no note when two arrive at once", async () => {
-    await Promise.all(Array.from({ length: 10 }, (_, i) => answerReportRequest(state, folder, { op: "notes.add", subject: "entity:Order", text: `n${i}` })));
+    await Promise.all(Array.from({ length: 10 }, (_, i) => answerReportRequest(state, folder, { op: "notes.add", subject: "entity:Car", text: `n${i}` })));
     expect((await answerReportRequest(state, folder, { op: "notes.list" })).result).toHaveLength(10);
   });
 });
