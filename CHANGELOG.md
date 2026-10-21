@@ -10,6 +10,15 @@
   and every view then read the whole analysis again and the open report was regenerated.
 - **Analysis runs below normal priority**, so the editor stays responsive while it runs. It still gets all
   the CPU nothing else needs.
+- **Impact marks the callers your change broke.** A caller in the Source Control Impact view that the editor
+  reports an error at, on the line of the call, gets an error icon and "error at the call"; one whose file has
+  errors elsewhere says how many. The group counts them ("4 · 2 with errors"), and the marks follow the
+  editor's Problems as you fix them, without rerunning the analyzer. ClarifyDoc's own findings do not count.
+- **Copilot gets its own instructions file.** In a project that instructs Copilot
+  (`.github/copilot-instructions.md` or `.github/instructions/`) and has no `AGENTS.md` or `CLAUDE.md`,
+  *Tell AI Agents When to Use ClarifyDoc* writes `.github/instructions/clarifydoc.instructions.md` with
+  `applyTo: "**"`, and leaves the shared `copilot-instructions.md` alone. A section an earlier version put
+  there is still updated in place.
 
 ## 0.1.14
 

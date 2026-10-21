@@ -100,6 +100,38 @@ describe("impactNodes", () => {
     ]);
   });
 
+  it("marks the callers the editor reports errors at", () => {
+    const errors: Record<string, number[]> = { "jobs.ts": [3], "routes.ts": [40, 41] };
+    const nodes = impactNodes(
+      {
+        ...base,
+        symbolImpact: {
+          changed: [{ file: "garage.ts", symbol: "parkCar", line: 1, endLine: 9 }],
+          direct: [
+            { file: "jobs.ts", symbol: "nightly", line: 3, depth: 1, confidence: "EXTRACTED", standing: "unverified" },
+            { file: "routes.ts", symbol: "create", line: 7, depth: 1, confidence: "EXTRACTED" },
+          ],
+          transitive: [{ file: "fleet.ts", symbol: "refuel", line: 5, depth: 2, confidence: "EXTRACTED" }],
+          routes: [{ route: "POST /cars", file: "jobs.ts", line: 3, depth: 2, confidence: "EXTRACTED" }],
+          reviewOnly: [],
+        },
+      },
+      (file) => errors[file],
+    );
+    const direct = nodes.find((n) => n.label === "Will break — direct callers")!;
+    expect(direct.description).toBe("2 · 1 with errors");
+    expect(direct.children!.map((c) => [c.description, c.icon])).toEqual([
+      ["jobs.ts:3 · unverified · error at the call", "error"],
+      ["routes.ts:7 · 2 errors in file", "caller"],
+    ]);
+    const further = nodes.find((n) => n.label === "Likely affected")!;
+    expect(further.description).toBe("2 · 1 with errors");
+    expect(further.children!.map((c) => [c.label, c.icon])).toEqual([
+      ["POST /cars", "error"],
+      ["refuel()", "caller"],
+    ]);
+  });
+
   it("says so when nothing changed", () => {
     expect(impactNodes({ ...base, changedFiles: [] }).map((n) => n.label)).toEqual(["No changes against the last commit"]);
   });

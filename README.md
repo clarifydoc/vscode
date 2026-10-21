@@ -49,7 +49,8 @@ Laravel, FastAPI `Depends` and more), not just to the interface.
 coupled first. The **ClarifyDoc Impact** view in Source Control turns your
 uncommitted diff into the screens, routes, entities and tests it affects, with a
 risk level, and keeps it current as you work, so you can check before you open
-the PR. Compare with a branch and **Compare API Surface** lists what the branch
+the PR. A caller the editor already reports an error at is marked, so the ones
+your change has broken stand out from the ones still to check. Compare with a branch and **Compare API Surface** lists what the branch
 changes in the API itself — a route removed or moved, a guard lost, a request body
 that now requires a field, a call that no longer reaches its route — breaking
 first.
@@ -106,7 +107,8 @@ setup. For Claude Code, Cursor or Windsurf, one command writes the config. Your
 agent can then ask which routes exist, who calls a function, what a change
 breaks and which table an endpoint writes, and gets answers with `path:line`
 references instead of guessing from a few open files. One more command adds a
-short section to `AGENTS.md` telling the agent when to use these tools instead of
+short section to `AGENTS.md` (or a Copilot instructions file or Cursor rule, when
+the project has those instead) telling the agent when to use these tools instead of
 searching text, and **Ask an AI Agent…** starts a ready-made workflow (before
 changing an endpoint, explain a screen's data, review your branch) from where
 your cursor is. [Details below.](#ai-agents-mcp)

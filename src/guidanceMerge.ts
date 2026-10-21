@@ -1,6 +1,6 @@
 /**
  * The ClarifyDoc section of an agent instructions file (AGENTS.md, CLAUDE.md,
- * a Cursor rule), between markers so it can be updated or removed later
+ * a Copilot instructions file, a Cursor rule), between markers so it can be updated or removed later
  * without touching anything else in the file. Pure, no `vscode`.
  */
 export const START = "<!-- clarifydoc:start -->";
@@ -24,6 +24,14 @@ export function mergeGuidance(existing: string | undefined, guidance: string, he
 export const CURSOR_RULE_HEADER = `---
 description: When to use the ClarifyDoc MCP tools
 alwaysApply: true
+---
+
+`;
+
+/** A Copilot instructions file around the guidance (applied to every file). */
+export const COPILOT_INSTRUCTIONS_HEADER = `---
+description: When to use the ClarifyDoc MCP tools
+applyTo: "**"
 ---
 
 `;

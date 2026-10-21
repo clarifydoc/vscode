@@ -28,6 +28,7 @@ const ICONS: Record<ImpactIcon, string> = {
   caller: "call-incoming",
   unverified: "warning",
   function: "symbol-method",
+  error: "error",
 };
 
 const RISK_COLOR: Record<ImpactResult["risk"]["level"], string | undefined> = {
@@ -52,6 +53,9 @@ const DEBOUNCE_MS = 1500;
 
 type Row = { node: ImpactNode; folder: vscode.WorkspaceFolder } | { folder: vscode.WorkspaceFolder; header: true };
 
+/** One folder's impact: the analyzer's answer, kept so the editor's errors can be laid over it again without a rerun. */
+type FolderImpact = { result: ImpactResult; surface?: ImpactNode; nodes: ImpactNode[]; callerFiles: Set<string> } | { message: string };
+
 /** The slice of the built-in Git extension's API used here. */
 interface GitApi {
   repositories: { state: { onDidChange: vscode.Event<void> } }[];
@@ -70,7 +74,8 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
   private readonly changed = new vscode.EventEmitter<Row | undefined>();
   readonly onDidChangeTreeData = this.changed.event;
   private readonly view: vscode.TreeView<Row>;
-  private results = new Map<string, { nodes: ImpactNode[]; routes: number } | { message: string }>();
+  private results = new Map<string, FolderImpact>();
+  private diagnosticsTimer: NodeJS.Timeout | undefined;
   private timer: NodeJS.Timeout | undefined;
   private running = false;
   private again = false;
@@ -87,6 +92,8 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       }),
       state.onAnalysisChanged(() => this.schedule(0)),
       vscode.workspace.onDidSaveTextDocument(() => this.schedule()),
+      vscode.languages.onDidChangeDiagnostics((e) => this.diagnosticsChanged(e.uris)),
+      { dispose: () => clearTimeout(this.diagnosticsTimer) },
       vscode.commands.registerCommand("clarifydoc.refreshImpact", () => this.schedule(0)),
       vscode.commands.registerCommand("clarifydoc.impactCompareWith", (target, ref?: string) => this.pickBase(target, ref)),
       vscode.commands.registerCommand("clarifydoc.impactCopyForAgent", (target) => this.copyForAgent(target)),
@@ -129,12 +136,12 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
     }
     this.running = true;
     try {
-      const results = new Map<string, { nodes: ImpactNode[]; routes: number } | { message: string }>();
+      const results = new Map<string, FolderImpact>();
       for (const folder of vscode.workspace.workspaceFolders ?? []) {
         results.set(folder.uri.fsPath, await this.impactOf(folder));
       }
       this.results = results;
-      const routes = [...results.values()].reduce((n, r) => n + ("routes" in r ? r.routes : 0), 0);
+      const routes = [...results.values()].reduce((n, r) => n + ("result" in r ? r.result.routeCount : 0), 0);
       this.view.badge = routes > 0 ? { value: routes, tooltip: `${routes} API route(s) affected by your changes` } : undefined;
       this.changed.fire(undefined);
     } finally {
@@ -144,6 +151,43 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
         this.schedule(0);
       }
     }
+  }
+
+  /** The tree for an impact, with the callers the editor reports errors at marked. */
+  private render(folder: vscode.WorkspaceFolder, result: ImpactResult, surface: ImpactNode | undefined): FolderImpact {
+    const memo = new Map<string, number[]>();
+    // Compiler and linter errors only: our own findings are not what breaks a caller.
+    const errorsIn = (file: string) => {
+      let lines = memo.get(file);
+      if (!lines) {
+        lines = vscode.languages
+          .getDiagnostics(vscode.Uri.file(absFor(folder, file)))
+          .filter((d) => d.severity === vscode.DiagnosticSeverity.Error && !d.source?.startsWith("ClarifyDoc"))
+          .map((d) => d.range.start.line + 1);
+        memo.set(file, lines);
+      }
+      return lines;
+    };
+    const nodes = impactNodes(result, errorsIn);
+    if (surface) nodes.unshift(surface);
+    const si = result.symbolImpact;
+    const callerFiles = new Set([...(si?.direct ?? []), ...(si?.transitive ?? []), ...(si?.routes ?? [])].map((c) => vscode.Uri.file(absFor(folder, c.file)).toString()));
+    return { result, surface, nodes, callerFiles };
+  }
+
+  /** Errors came or went in a caller's file: lay them over the same impact again, without rerunning the analyzer. */
+  private diagnosticsChanged(uris: readonly vscode.Uri[]): void {
+    if (!this.view.visible) return;
+    const touched = (r: FolderImpact) => "callerFiles" in r && uris.some((u) => r.callerFiles.has(u.toString()));
+    if (![...this.results.values()].some(touched)) return;
+    clearTimeout(this.diagnosticsTimer);
+    this.diagnosticsTimer = setTimeout(() => {
+      for (const folder of vscode.workspace.workspaceFolders ?? []) {
+        const r = this.results.get(folder.uri.fsPath);
+        if (r && "result" in r) this.results.set(folder.uri.fsPath, this.render(folder, r.result, r.surface));
+      }
+      this.changed.fire(undefined);
+    }, 300);
   }
 
   private baseOf(folder: vscode.WorkspaceFolder): CompareBase | undefined {
@@ -299,7 +343,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
     }
   }
 
-  private async impactOf(folder: vscode.WorkspaceFolder): Promise<{ nodes: ImpactNode[]; routes: number } | { message: string }> {
+  private async impactOf(folder: vscode.WorkspaceFolder): Promise<FolderImpact> {
     if (!fs.existsSync(summaryPath(this.state.context, folder))) return { message: "Analyze the workspace to see what your changes reach" };
     if (!vscode.workspace.isTrusted) return { message: "Needs a trusted workspace" };
     const cli = await resolveCli(this.state.context.extensionPath);
@@ -314,9 +358,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
         return { message: result.stderr.includes("git") ? "Needs a git repository" : "Could not compute the impact (see the output)" };
       }
       const parsed = JSON.parse(result.stdout) as ImpactResult;
-      const nodes = impactNodes(parsed);
-      if (base) nodes.unshift(await this.surfaceOf(folder, base));
-      return { nodes, routes: parsed.routeCount };
+      return this.render(folder, parsed, base ? await this.surfaceOf(folder, base) : undefined);
     } catch (err) {
       this.state.output.warn(`[impact] ${folder.name}: ${err instanceof Error ? err.message : String(err)}`);
       return { message: "Could not compute the impact (see the output)" };

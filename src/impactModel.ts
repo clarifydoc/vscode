@@ -50,7 +50,10 @@ export interface SymbolCaller {
   coveredBy?: { file: string; symbol: string };
 }
 
-export type ImpactIcon = "risk" | "route" | "screen" | "data" | "queue" | "test" | "file" | "unknown" | "chain" | "info" | "cochange" | "person" | "break" | "caller" | "unverified" | "function";
+export type ImpactIcon = "risk" | "route" | "screen" | "data" | "queue" | "test" | "file" | "unknown" | "chain" | "info" | "cochange" | "person" | "break" | "caller" | "unverified" | "function" | "error";
+
+/** The 1-based lines of a file (project-relative) that the editor reports errors on now, if any. */
+export type ErrorLines = (file: string) => readonly number[] | undefined;
 
 export interface ImpactNode {
   label: string;
@@ -71,8 +74,8 @@ function count(n: number, truncated: boolean): string {
   return `${n}${truncated ? "+" : ""}`;
 }
 
-/** The tree for one impact result. Empty sections are left out. */
-export function impactNodes(r: ImpactResult): ImpactNode[] {
+/** The tree for one impact result. Empty sections are left out. `errorsIn` marks the callers the editor reports errors at. */
+export function impactNodes(r: ImpactResult, errorsIn?: ErrorLines): ImpactNode[] {
   if (r.changedFiles.length === 0 && r.unknownFiles.length === 0) {
     return [{ label: "No changes against the last commit", icon: "info" }];
   }
@@ -105,13 +108,27 @@ export function impactNodes(r: ImpactResult): ImpactNode[] {
     // Where the caller stands: an unverified one is what a reviewer has to read.
     const stand = (c: SymbolCaller) =>
       c.standing === "updated" ? " · updated here" : c.standing === "covered" ? ` · covered${c.coveredBy ? ` by ${c.coveredBy.symbol}` : ""}` : c.standing === "unverified" ? " · unverified" : "";
-    const caller = (c: SymbolCaller): ImpactNode => ({ label: `${c.symbol}()`, description: `${c.file}:${c.line}${c.depth > 1 ? ` · ${c.depth} hops` : ""}${c.confidence !== "EXTRACTED" ? ` · ${c.confidence.toLowerCase()}` : ""}${stand(c)}`, icon: c.standing === "unverified" ? "unverified" : "caller", file: c.file, line: c.line });
+    // The editor's errors now: one on the call's line is most likely this change breaking it.
+    const errors = (x: { file: string; line: number }) => {
+      const lines = errorsIn?.(x.file) ?? [];
+      return lines.includes(x.line) ? " · error at the call" : lines.length ? ` · ${lines.length} error${lines.length === 1 ? "" : "s"} in file` : "";
+    };
+    const caller = (c: SymbolCaller): ImpactNode => {
+      const err = errors(c);
+      return { label: `${c.symbol}()`, description: `${c.file}:${c.line}${c.depth > 1 ? ` · ${c.depth} hops` : ""}${c.confidence !== "EXTRACTED" ? ` · ${c.confidence.toLowerCase()}` : ""}${stand(c)}${err}`, icon: err.endsWith("the call") ? "error" : c.standing === "unverified" ? "unverified" : "caller", file: c.file, line: c.line };
+    };
     // A caller that is a route handler is named by its route.
-    const route = (x: NonNullable<typeof si.routes>[number]): ImpactNode => ({ label: x.route, description: `${x.file}:${x.line}${x.depth > 1 ? ` · ${x.depth} hops` : ""}${x.confidence !== "EXTRACTED" ? ` · ${x.confidence.toLowerCase()}` : ""}`, icon: "route", file: x.file, line: x.line });
-    const direct = [...(si.routes ?? []).filter((x) => x.depth === 1).map(route), ...si.direct.map(caller)];
-    const further = [...(si.routes ?? []).filter((x) => x.depth > 1).map(route), ...si.transitive.map(caller)];
-    section("Will break — direct callers", direct.length, "caller", direct);
-    section("Likely affected", further.length, "caller", further);
+    const route = (x: NonNullable<typeof si.routes>[number]): ImpactNode => {
+      const err = errors(x);
+      return { label: x.route, description: `${x.file}:${x.line}${x.depth > 1 ? ` · ${x.depth} hops` : ""}${x.confidence !== "EXTRACTED" ? ` · ${x.confidence.toLowerCase()}` : ""}${err}`, icon: err.endsWith("the call") ? "error" : "route", file: x.file, line: x.line };
+    };
+    const callers = (label: string, nodes: ImpactNode[]) => {
+      section(label, nodes.length, "caller", nodes);
+      const broken = nodes.filter((n) => n.icon === "error").length;
+      if (broken && out.length) out[out.length - 1].description += ` · ${broken} with errors`;
+    };
+    callers("Will break — direct callers", [...(si.routes ?? []).filter((x) => x.depth === 1).map(route), ...si.direct.map(caller)]);
+    callers("Likely affected", [...(si.routes ?? []).filter((x) => x.depth > 1).map(route), ...si.transitive.map(caller)]);
     section("Review — imports it, calls nothing changed", si.reviewOnly.length, "file", si.reviewOnly.map((f) => ({ label: f, icon: "file", file: f })));
   }
   section(

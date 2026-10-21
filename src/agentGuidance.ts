@@ -3,7 +3,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { ExtensionState } from "./state";
 import { loadAnalyzer } from "./analysisData";
-import { CURSOR_RULE_HEADER, mergeGuidance } from "./guidanceMerge";
+import { COPILOT_INSTRUCTIONS_HEADER, CURSOR_RULE_HEADER, START, mergeGuidance } from "./guidanceMerge";
 import { pickWorkspaceFolder } from "./workspace";
 import { notesFiles, readNotes } from "./notesHost";
 import { notesGuidance } from "./notes";
@@ -24,26 +24,36 @@ async function read(file: string): Promise<string | undefined> {
   return fs.readFile(file, "utf8").catch(() => undefined);
 }
 
+const isDir = (p: string) => fs.stat(p).then((s) => s.isDirectory(), () => false);
+
 /**
  * Where an agent looks for project instructions: an existing AGENTS.md, then
- * CLAUDE.md, then Copilot's .github/copilot-instructions.md; else a Cursor rule when the project uses Cursor; else a new
- * AGENTS.md (read by Codex, Copilot, Cursor and others).
+ * CLAUDE.md; else, when the project instructs Copilot, a file of our own in
+ * .github/instructions/ (its shared copilot-instructions.md is left alone,
+ * unless an earlier run already put our section there); else a Cursor rule
+ * when the project uses Cursor; else a new AGENTS.md (read by Codex, Copilot,
+ * Cursor and others).
  */
 async function targetFile(folder: vscode.WorkspaceFolder): Promise<{ file: string; header: string }> {
   const root = folder.uri.fsPath;
-  for (const name of ["AGENTS.md", "CLAUDE.md", path.join(".github", "copilot-instructions.md")]) {
+  for (const name of ["AGENTS.md", "CLAUDE.md"]) {
     const file = path.join(root, name);
     if ((await read(file)) !== undefined) return { file, header: "" };
   }
+  const github = path.join(root, ".github");
+  const copilotShared = await read(path.join(github, "copilot-instructions.md"));
+  if (copilotShared?.includes(START)) return { file: path.join(github, "copilot-instructions.md"), header: "" };
+  if (copilotShared !== undefined || (await isDir(path.join(github, "instructions")))) {
+    return { file: path.join(github, "instructions", "clarifydoc.instructions.md"), header: COPILOT_INSTRUCTIONS_HEADER };
+  }
   const cursor = path.join(root, ".cursor");
-  const usesCursor = await fs.stat(cursor).then((s) => s.isDirectory(), () => false);
-  if (usesCursor) return { file: path.join(cursor, "rules", "clarifydoc.mdc"), header: CURSOR_RULE_HEADER };
+  if (await isDir(cursor)) return { file: path.join(cursor, "rules", "clarifydoc.mdc"), header: CURSOR_RULE_HEADER };
   return { file: path.join(root, "AGENTS.md"), header: "" };
 }
 
 /**
  * Tell the project's agents when to use ClarifyDoc: add (or update) a marked
- * section in AGENTS.md / CLAUDE.md / a Cursor rule, after showing the change
+ * section in AGENTS.md / CLAUDE.md / a Copilot instructions file / a Cursor rule, after showing the change
  * as a diff and asking. Nothing is written without that confirmation.
  */
 export async function installAgentGuidance(state: ExtensionState, target?: vscode.WorkspaceFolder | vscode.Uri): Promise<void> {
