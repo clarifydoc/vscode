@@ -3,7 +3,7 @@ import { getConfig } from "./config";
 import { ExtensionState } from "./state";
 import { rememberedAnswer, resolveCli, ResolvedCli, runClarifyDoc } from "./cli";
 import { sourceGlobFrom } from "./sourceGlob";
-import { freshnessOf } from "./analysisData";
+import { freshnessOf, loadSummary } from "./analysisData";
 import { decideSaveLoop, type SaveLoop } from "./saveLoop";
 
 // Used only when the analyzer cannot say what it reads (an older CLI set
@@ -60,13 +60,13 @@ async function sourceGlobs(state: ExtensionState): Promise<string[]> {
 }
 
 /**
- * How long a catch-up run waits after the window opens: the first paint of
- * the existing analysis comes first. Files changed while the window was closed
- * are worth catching up on soon; an analyzer update re-reads every file and
- * can wait until the window has settled. An edit in the meantime starts the
- * run at the usual debounce instead.
+ * An analyzer update re-reads every file, so its catch-up run waits until no
+ * document has been typed in for this long; each edit starts the wait again.
+ * Files changed while the window was closed are caught up on as soon as the
+ * existing analysis has loaded. A save in the meantime starts the save loop's
+ * usual run instead, which catches up as well.
  */
-const CATCH_UP_MS = { changed: 5_000, "extractor-changed": 30_000 } as const;
+const IDLE_MS = 30_000;
 
 /**
  * Auto-re-analysis driven by a `FileSystemWatcher` (a superset of save events —
@@ -91,6 +91,21 @@ export function registerAutoAnalyze(
   const timers = new Map<string, NodeJS.Timeout>();
   /** Folders changed while their analysis was running. */
   const pending = new Set<string>();
+  /** Folders whose catch-up waits for the window to be idle. */
+  const idle = new Map<string, { folder: vscode.WorkspaceFolder; timer?: NodeJS.Timeout }>();
+  const startIdleWait = (key: string) => {
+    const wait = idle.get(key);
+    if (!wait) return;
+    clearTimeout(wait.timer);
+    wait.timer = setTimeout(() => {
+      idle.delete(key);
+      schedule(wait.folder, 0);
+    }, IDLE_MS);
+  };
+  const cancelIdleWait = (key: string) => {
+    clearTimeout(idle.get(key)?.timer);
+    idle.delete(key);
+  };
   let generation = 0;
 
   let enabledKey = "";
@@ -98,6 +113,7 @@ export function registerAutoAnalyze(
 
   const schedule = (folder: vscode.WorkspaceFolder, delayMs?: number) => {
     const key = folder.uri.fsPath;
+    cancelIdleWait(key); // this run catches up as well
     if (state.isRunning(key)) {
       pending.add(key);
       return;
@@ -116,6 +132,7 @@ export function registerAutoAnalyze(
 
   const rebuild = async () => {
     const mine = ++generation;
+    [...idle.keys()].forEach(cancelIdleWait);
     watchers.forEach((w) => w.dispose());
     watchers.length = 0;
     const all = loops();
@@ -140,12 +157,18 @@ export function registerAutoAnalyze(
       // while VS Code was closed (a pull, a branch switch), or on an analyzer
       // update, once — never for a folder that has no analysis yet: that one
       // gets the first-open offer instead.
-      void freshnessOf(state.context, folder).then((report) => {
+      void freshnessOf(state.context, folder).then(async (report) => {
         if (mine !== generation) return;
-        if (report?.state === "changed" || report?.state === "extractor-changed") {
-          const delay = CATCH_UP_MS[report.state];
-          state.output.info(`[watch] ${folder.name}: the analysis is out of date (${report.state}) — re-analyzing in ${delay / 1000} s`);
-          schedule(folder, delay);
+        if (report?.state === "extractor-changed") {
+          state.output.info(`[watch] ${folder.name}: the analyzer was updated — re-analyzing once nothing has been typed for ${IDLE_MS / 1000} s`);
+          idle.set(folder.uri.fsPath, { folder });
+          startIdleWait(folder.uri.fsPath);
+        } else if (report?.state === "changed") {
+          // The existing analysis is shown first; the catch-up follows it.
+          await loadSummary(state.context, folder);
+          if (mine !== generation) return;
+          state.output.info(`[watch] ${folder.name}: files changed while the window was closed — re-analyzing`);
+          schedule(folder);
         }
       });
     }
@@ -168,10 +191,15 @@ export function registerAutoAnalyze(
       }
     }),
     vscode.workspace.onDidChangeWorkspaceFolders(() => void rebuild()),
+    // Typing anywhere means the window is in use: the post-update run waits again.
+    vscode.workspace.onDidChangeTextDocument((e) => {
+      if (idle.size && e.contentChanges.length) [...idle.keys()].forEach(startIdleWait);
+    }),
     {
       dispose: () => {
         watchers.forEach((w) => w.dispose());
         timers.forEach((t) => clearTimeout(t));
+        [...idle.keys()].forEach(cancelIdleWait);
       },
     },
   );

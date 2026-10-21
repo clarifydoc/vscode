@@ -19,6 +19,11 @@
   *Tell AI Agents When to Use ClarifyDoc* writes `.github/instructions/clarifydoc.instructions.md` with
   `applyTo: "**"`, and leaves the shared `copilot-instructions.md` alone. A section an earlier version put
   there is still updated in place.
+- **After an update, re-analysis waits until you pause.** A new analyzer makes every analysis out of date. The
+  status bar now says "analyzer updated", and the re-analysis starts once nothing has been typed for 30
+  seconds, instead of a fixed 30 seconds after the window opens. A save, or a click on the status bar, starts
+  it sooner. Files changed while the window was closed are caught up on as soon as the existing analysis is
+  shown, instead of after 5 seconds.
 
 ## 0.1.14
 

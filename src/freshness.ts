@@ -45,8 +45,9 @@ export function describeFreshness(report: FreshnessReport | undefined): Freshnes
     }
     case "extractor-changed":
       return {
-        suffix: " · update",
-        detail: "**Out of date:** the analyzer was updated since this analysis ran. Click to re-analyze with the new version.",
+        suffix: " · analyzer updated",
+        detail:
+          "**Out of date:** the analyzer was updated since this analysis ran. Where analyze on save is on, it re-analyzes once you pause typing; click to re-analyze with the new version now.",
         stale: true,
       };
     default:

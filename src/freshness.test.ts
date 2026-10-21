@@ -32,7 +32,7 @@ describe("describeFreshness", () => {
 
   it("asks for a re-analysis after the analyzer itself was updated", () => {
     const note = describeFreshness(report({ state: "extractor-changed" }));
-    expect(note.suffix).toBe(" · update");
+    expect(note.suffix).toBe(" · analyzer updated");
     expect(note.stale).toBe(true);
   });
 });
