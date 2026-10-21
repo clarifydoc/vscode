@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
 import { getConfig } from "./config";
 import { bundleAvailable, resolveCli, type ResolvedCli } from "./cli";
-import { resultsDir } from "./paths";
+import * as fs from "fs";
+import { resultsDir, summaryPath } from "./paths";
 import { configJson, installMcpServer, serverEntry } from "./mcpInstall";
 import { writeMcpShim } from "./shim";
 import { ExtensionState } from "./state";
@@ -144,11 +145,23 @@ export function registerMcpProvider(state: ExtensionState): void {
   context.subscriptions.push(vscode.lm.registerMcpServerDefinitionProvider(MCP_PROVIDER_ID, provider));
 
   // Re-publish when the launch inputs change: folders come and go, settings
-  // flip the server on/off or into read-write, and a finished analysis is worth
-  // announcing so a client that failed on an empty directory retries.
+  // flip the server on/off or into read-write, and a folder's first analysis is
+  // worth announcing so a client that failed on an empty directory retries. A
+  // re-analysis changes none of them — the server reads the new files itself.
+  const analyzedFolders = () =>
+    (vscode.workspace.workspaceFolders ?? [])
+      .filter((f) => fs.existsSync(summaryPath(context, f)))
+      .map((f) => f.uri.fsPath)
+      .join("|");
+  let analyzed = analyzedFolders();
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(() => changed.fire()),
-    state.onAnalysisChanged(() => changed.fire()),
+    state.onAnalysisChanged(() => {
+      const now = analyzedFolders();
+      if (now === analyzed) return;
+      analyzed = now;
+      changed.fire();
+    }),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (
         e.affectsConfiguration("clarifydoc.mcp") ||

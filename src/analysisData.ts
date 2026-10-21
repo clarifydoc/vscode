@@ -347,8 +347,10 @@ let readerPromise: Promise<AnalysisReader | undefined> | undefined;
 function loadReader(context: vscode.ExtensionContext): Promise<AnalysisReader | undefined> {
   if (readerPromise) return readerPromise;
   const indexPath = path.join(context.extensionPath, "clarifydoc", "dist", "index.js");
+  const started = performance.now();
   const pending: Promise<AnalysisReader | undefined> = import(pathToFileURL(indexPath).href).then(
     (m) => {
+      log("info", `[startup] loaded the analyzer in ${ms(started)}`);
       if (typeof m.loadReportSummary === "function" && typeof m.buildIndex === "function") return m as AnalysisReader;
       log("error", `[analysis] ${indexPath} lacks loadReportSummary/buildIndex — the bundled analyzer is too old`);
       return undefined;
@@ -580,8 +582,21 @@ interface LoadedSummary {
   analysis?: ResolvedAnalysis;
 }
 
+/** Whole-summary reads since activation: one per folder per analysis is the budget. */
+let summaryReads = 0;
+
+export function summaryReadCount(): number {
+  return summaryReads;
+}
+
+function ms(since: number): string {
+  return `${Math.round(performance.now() - since)} ms`;
+}
+
 async function parseSummary(context: vscode.ExtensionContext, sp: string): Promise<LoadedSummary | undefined> {
   const reader = await loadReader(context);
+  summaryReads++;
+  const started = performance.now();
   let project: any;
   try {
     // Without the bundled reader the headline counts still show: every count
@@ -592,6 +607,8 @@ async function parseSummary(context: vscode.ExtensionContext, sp: string): Promi
     log("warn", `[analysis] could not read ${sp}: ${errorText(err)}`);
     return undefined;
   }
+  const read = ms(started);
+  const indexed = performance.now();
   let analysis: ResolvedAnalysis | undefined;
   if (reader) {
     try {
@@ -600,6 +617,8 @@ async function parseSummary(context: vscode.ExtensionContext, sp: string): Promi
       log("error", `[analysis] could not index ${sp}: ${errorText(err)}`);
     }
   }
+  const size = await fs.stat(sp).then((st) => `${(st.size / 1e6).toFixed(1)} MB`, () => "?");
+  log("info", `[analysis] read ${sp} (${size}) in ${read}, indexed in ${ms(indexed)}`);
   return { summary: summarize(project), analysis };
 }
 

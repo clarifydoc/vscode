@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { getConfig } from "./config";
 import { ExtensionState } from "./state";
-import { resolveCli, ResolvedCli, runClarifyDoc } from "./cli";
+import { rememberedAnswer, resolveCli, ResolvedCli, runClarifyDoc } from "./cli";
 import { sourceGlobFrom } from "./sourceGlob";
 import { freshnessOf } from "./analysisData";
 import { decideSaveLoop, type SaveLoop } from "./saveLoop";
@@ -34,28 +34,39 @@ function isAnalysisArtifact(uri: vscode.Uri): boolean {
 
 let globMemo: { cli: ResolvedCli; glob: Promise<string[]> } | undefined;
 
-/** Every file the analyzer reads, asked of the analyzer once per CLI resolution. */
+/** Every file the analyzer reads, asked of each analyzer build once and remembered. */
 async function sourceGlobs(state: ExtensionState): Promise<string[]> {
   const cli = await resolveCli(state.context.extensionPath);
   if (globMemo?.cli === cli) return globMemo.glob;
-  const glob = runClarifyDoc(cli, ["detect", "--json"], { cwd: state.context.extensionPath }).then(
-    (result) => {
-      try {
-        if (result.code === 0) {
-          const glob = sourceGlobFrom(JSON.parse(result.stdout));
-          if (glob) return glob;
+  const ask = () =>
+    runClarifyDoc(cli, ["detect", "--json"], { cwd: state.context.extensionPath }).then(
+      (result) => {
+        try {
+          if (result.code === 0) {
+            const glob = sourceGlobFrom(JSON.parse(result.stdout));
+            if (glob) return glob;
+          }
+        } catch {
+          /* not JSON: an analyzer from before `detect --json` */
         }
-      } catch {
-        /* not JSON: an analyzer from before `detect --json` */
-      }
-      state.output.warn("[watch] the analyzer did not list its file types; watching the common languages only");
-      return [FALLBACK_GLOB];
-    },
-    () => [FALLBACK_GLOB],
-  );
+        state.output.warn("[watch] the analyzer did not list its file types; watching the common languages only");
+        return undefined;
+      },
+      () => undefined,
+    );
+  const glob = rememberedAnswer(state.context, cli, "sourceGlobs", ask).then((g) => g ?? [FALLBACK_GLOB]);
   globMemo = { cli, glob };
   return glob;
 }
+
+/**
+ * How long a catch-up run waits after the window opens: the first paint of
+ * the existing analysis comes first. Files changed while the window was closed
+ * are worth catching up on soon; an analyzer update re-reads every file and
+ * can wait until the window has settled. An edit in the meantime starts the
+ * run at the usual debounce instead.
+ */
+const CATCH_UP_MS = { changed: 5_000, "extractor-changed": 30_000 } as const;
 
 /**
  * Auto-re-analysis driven by a `FileSystemWatcher` (a superset of save events —
@@ -85,7 +96,7 @@ export function registerAutoAnalyze(
   let enabledKey = "";
   const loops = () => (vscode.workspace.workspaceFolders ?? []).map((f) => ({ folder: f, loop: saveLoopFor(state.context, f) }));
 
-  const schedule = (folder: vscode.WorkspaceFolder) => {
+  const schedule = (folder: vscode.WorkspaceFolder, delayMs?: number) => {
     const key = folder.uri.fsPath;
     if (state.isRunning(key)) {
       pending.add(key);
@@ -99,7 +110,7 @@ export function registerAutoAnalyze(
         void run(folder).finally(() => {
           if (pending.delete(key)) schedule(folder);
         });
-      }, saveLoopFor(state.context, folder).debounceMs),
+      }, delayMs ?? saveLoopFor(state.context, folder).debounceMs),
     );
   };
 
@@ -132,8 +143,9 @@ export function registerAutoAnalyze(
       void freshnessOf(state.context, folder).then((report) => {
         if (mine !== generation) return;
         if (report?.state === "changed" || report?.state === "extractor-changed") {
-          state.output.info(`[watch] ${folder.name}: the analysis is out of date (${report.state}) — re-analyzing`);
-          schedule(folder);
+          const delay = CATCH_UP_MS[report.state];
+          state.output.info(`[watch] ${folder.name}: the analysis is out of date (${report.state}) — re-analyzing in ${delay / 1000} s`);
+          schedule(folder, delay);
         }
       });
     }

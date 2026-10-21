@@ -235,18 +235,20 @@ export class DiagnosticsManager {
 
   /** Show a file's findings where its lines are now. */
   private publish(key: string): void {
+    this.collection.set(...this.placed(key));
+  }
+
+  /** A file's findings, moved to where its lines are now. */
+  private placed(key: string): [vscode.Uri, vscode.Diagnostic[]] {
     const uri = vscode.Uri.parse(key);
     const diags = this.base.get(key) ?? [];
-    if (!this.state.lines.isEdited(uri)) {
-      this.collection.set(uri, diags);
-      return;
-    }
+    if (!this.state.lines.isEdited(uri)) return [uri, diags];
     const moved: vscode.Diagnostic[] = [];
     for (const d of diags) {
       const line = this.state.lines.map(uri, d.range.start.line);
       if (line !== undefined) moved.push(line === d.range.start.line ? d : movedTo(d, line));
     }
-    this.collection.set(uri, moved);
+    return [uri, moved];
   }
 
   /**
@@ -269,7 +271,8 @@ export class DiagnosticsManager {
     }
     this.base = byUri;
     this.collection.clear();
-    for (const key of byUri.keys()) this.publish(key);
+    // One message to the editor for the whole set, not one per file.
+    this.collection.set([...byUri.keys()].map((key) => this.placed(key)));
   }
 
   private populateFolder(

@@ -81,7 +81,9 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       this.view,
       this.changed,
       this.view.onDidChangeVisibility((e) => {
-        if (e.visible) this.schedule(0);
+        if (!e.visible) return;
+        this.watchGit();
+        this.schedule(0);
       }),
       state.onAnalysisChanged(() => this.schedule(0)),
       vscode.workspace.onDidSaveTextDocument(() => this.schedule()),
@@ -91,10 +93,19 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       vscode.commands.registerCommand("clarifydoc.impactCompareSurface", (target) => this.compareSurface(target)),
     );
     this.describe();
-    void this.watchGit();
+    if (this.view.visible) this.watchGit();
   }
 
-  private async watchGit(): Promise<void> {
+  private gitWatched = false;
+
+  /** Follow git state from when the view is first shown: a hidden view recomputes nothing. */
+  private watchGit(): void {
+    if (this.gitWatched) return;
+    this.gitWatched = true;
+    void this.followGit();
+  }
+
+  private async followGit(): Promise<void> {
     const ext = vscode.extensions.getExtension<{ getAPI(v: 1): GitApi }>("vscode.git");
     if (!ext) return;
     const git = (ext.isActive ? ext.exports : await ext.activate()).getAPI(1);

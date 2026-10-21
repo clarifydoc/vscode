@@ -108,6 +108,38 @@ async function resolveCliUncached(extensionPath: string): Promise<ResolvedCli> {
   };
 }
 
+/** What identifies the analyzer's build: the file run, its size and its modification time. */
+async function cliFingerprint(cli: ResolvedCli): Promise<string | undefined> {
+  const file = cli.baseArgs[0] ?? cli.command;
+  try {
+    const s = await fs.promises.stat(file);
+    return `${file}:${s.size}:${s.mtimeMs}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * An answer the analyzer gives the same way until it is replaced — its file
+ * types, which languages it can draw — remembered across windows, so a window
+ * starts no analyzer process just to ask it again. Only an answer is
+ * remembered; `ask` returning undefined (a failure) is asked again next time.
+ */
+export async function rememberedAnswer<T>(
+  context: vscode.ExtensionContext,
+  cli: ResolvedCli,
+  key: string,
+  ask: () => Promise<T | undefined>,
+): Promise<T | undefined> {
+  const id = await cliFingerprint(cli);
+  const slot = `clarifydoc.cliAnswer.${key}`;
+  const saved = id ? context.globalState.get<{ id: string; value: T }>(slot) : undefined;
+  if (saved && saved.id === id) return saved.value;
+  const value = await ask();
+  if (id && value !== undefined) await context.globalState.update(slot, { id, value });
+  return value;
+}
+
 /** The bundled analyzer's version (from `clarifydoc/package.json`), if bundled. */
 export function bundledAnalyzerVersion(extensionPath: string): string | undefined {
   try {

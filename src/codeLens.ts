@@ -5,7 +5,7 @@ import { loadAnalysis, loadFileIndex, linkCommands, relPathOf, FileFacts, FileIn
 import { callersOf, describeRoute, isUncalled, routeData, screensReaching } from "./crossTier";
 import { callerLocations } from "./apiCallProvider";
 import { crossTierEnabled } from "./docFacts";
-import { supportsControlFlow } from "./controlFlowSupport";
+import { onDidChangeControlFlowSupport, supportsControlFlow } from "./controlFlowSupport";
 
 function enabled(scope: vscode.Uri): boolean {
   return vscode.workspace.getConfiguration("clarifydoc.codeLens", scope).get<boolean>("enabled") ?? true;
@@ -28,6 +28,7 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     state.context.subscriptions.push(
       this.emitter,
       state.onAnalysisChanged(() => this.emitter.fire()),
+      onDidChangeControlFlowSupport(() => this.emitter.fire()),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration("clarifydoc.codeLens") || e.affectsConfiguration("clarifydoc.diagnostics")) {
           this.emitter.fire();

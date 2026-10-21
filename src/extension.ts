@@ -41,12 +41,13 @@ import { ignoreFolders } from "./ignore";
 import { registerMcpProvider } from "./mcp";
 import { maybeOfferMcpInstall } from "./mcpInstall";
 import { outputBaseDir, resetStorageResolution, storageFor } from "./paths";
-import { setAnalysisLog } from "./analysisData";
+import { setAnalysisLog, summaryReadCount } from "./analysisData";
 import { LineTracker } from "./lineTracker";
 import { resolveWithEditor } from "./editorLsp";
 import { NeighbourhoodView } from "./neighbourhoodView";
 
 export function activate(context: vscode.ExtensionContext): void {
+  const activating = performance.now();
   const output = vscode.window.createOutputChannel("ClarifyDoc", { log: true });
   context.subscriptions.push(output);
   setAnalysisLog((level, message) => output[level](message));
@@ -61,6 +62,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const running = new Set<string>();
   const analysisChanged = new vscode.EventEmitter<void>();
+  let analysisEvents = 0;
   context.subscriptions.push(analysisChanged);
 
   // Forward-declared so the state's refresh() can reach the views created below.
@@ -81,7 +83,10 @@ export function activate(context: vscode.ExtensionContext): void {
       else running.delete(p);
     },
     onAnalysisChanged: analysisChanged.event,
-    fireAnalysisChanged: () => analysisChanged.fire(),
+    fireAnalysisChanged: () => {
+      analysisEvents++;
+      analysisChanged.fire();
+    },
   };
 
   registerReportSerializer(state);
@@ -186,17 +191,20 @@ export function activate(context: vscode.ExtensionContext): void {
   register("clarifydoc.refresh", () => {
     resetCliResolution();
     resetControlFlowSupport();
-    primeControlFlowSupport(context, output, () => state.fireAnalysisChanged());
+    primeControlFlowSupport(context, output);
     state.refresh();
   });
   register("clarifydoc.showOutput", () => output.show(true));
   register("clarifydoc.openSettings", () =>
     vscode.commands.executeCommand("workbench.action.openSettings", "clarifydoc"),
   );
+  // For tests: what start cost — a window that changed nothing reads each
+  // summary once and announces no analysis change.
+  register("clarifydoc.internal.startupStats", () => ({ activateMs, analysisEvents, summaryReads: summaryReadCount() }));
 
   // Which files can have their control flow drawn, asked once, in the
   // background: the CodeLens needs the answer before anyone clicks it.
-  primeControlFlowSupport(context, output, () => state.fireAnalysisChanged());
+  primeControlFlowSupport(context, output);
 
   // ── Reactivity ────────────────────────────────────────────────────────
   context.subscriptions.push(
@@ -206,7 +214,7 @@ export function activate(context: vscode.ExtensionContext): void {
         // Which languages can be drawn is the analyzer's answer, so a
         // different analyzer may give a different one.
         resetControlFlowSupport();
-        primeControlFlowSupport(context, output, () => state.fireAnalysisChanged());
+        primeControlFlowSupport(context, output);
       }
       if (e.affectsConfiguration("clarifydoc.storage")) {
         resetStorageResolution();
@@ -260,6 +268,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   onboard(state);
   registerSplitRoots(state);
+
+  const activateMs = Math.round(performance.now() - activating);
+  output.info(`[startup] activated in ${activateMs} ms`);
 
   function logStorage(): void {
     for (const folder of vscode.workspace.workspaceFolders ?? []) {

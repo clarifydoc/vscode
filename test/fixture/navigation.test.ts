@@ -51,6 +51,19 @@ suite(`Cross-tier navigation: ${fixture}`, () => {
     await vscode.extensions.getExtension(EXT_ID)!.activate();
   });
 
+  // First, before any test does something that may re-read the analysis.
+  test("opening the window reads the analysis once and announces no change", async () => {
+    type Stats = { activateMs: number; analysisEvents: number; summaryReads: number };
+    const stats = () => vscode.commands.executeCommand<Stats>("clarifydoc.internal.startupStats");
+    for (let i = 0; i < 100 && (await stats()).summaryReads === 0; i++) await new Promise((r) => setTimeout(r, 100));
+    // Time for the background answers (control-flow support, source globs) to land.
+    await new Promise((r) => setTimeout(r, 3000));
+    const s = await stats();
+    console.log(`[startup] ${fixture}: activated in ${s.activateMs} ms`);
+    assert.strictEqual(s.summaryReads, 1, "the summary was read more than once");
+    assert.strictEqual(s.analysisEvents, 0, "an analysis change was announced with nothing changed");
+  });
+
   test("Go to Definition on a call's URL opens the route that serves it", async () => {
     for (const call of labels.calls) {
       const doc = await open(call.file);

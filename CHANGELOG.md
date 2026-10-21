@@ -1,5 +1,15 @@
 # Change Log
 
+## Unreleased
+
+- **Faster start.** A window that opens on an existing analysis reads it once and rebuilds the sidebar,
+  Problems and decorations once. Before, they were all rebuilt a second time soon after start. Questions that
+  only change with the analyzer (which file types it reads, which languages have a control-flow graph) are
+  remembered per analyzer build, so a window starts no analyzer process until an analysis runs. After an
+  update, the catch-up re-analysis waits 30 s instead of starting with the window. Problems are published in
+  one batch, and the Impact view follows git only once it is shown. The output channel logs `[startup]`
+  timings.
+
 ## 0.1.13
 
 - **Neighbourhood.** A graph of the open file, docked in the ClarifyDoc sidebar: its functions, the calls
