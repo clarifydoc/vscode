@@ -1,6 +1,6 @@
 # Change Log
 
-## Unreleased
+## 0.1.14
 
 - **Help page.** *Help: What ClarifyDoc Does*, first in the Analysis view's **…** menu and last in the editor's
   ClarifyDoc submenu, says what each part of the extension gives you and why it helps, lists every right-click menu
@@ -14,6 +14,13 @@
   update, the catch-up re-analysis waits 30 s instead of starting with the window. Problems are published in
   one batch, and the Impact view follows git only once it is shown. The output channel logs `[startup]`
   timings.
+- **Real progress while analyzing.** The notification names the stage the analysis is in and how many files are
+  done, and its bar fills as the run goes: files up to 80%, then each later stage.
+- **Impact: where each caller stands.** Each caller of a changed function is marked as updated in this change,
+  covered by the test that calls it, or unverified — the unverified ones carry a warning icon, as the callers to
+  read. A removed function that was probably renamed names its new name, and a changed return type reads
+  "returns X, was Y".
+- **Fixed:** git commands the extension runs no longer start a `core.fsmonitor` program the repository configures.
 
 ## 0.1.13
 
