@@ -5,6 +5,7 @@ import { absFor } from "./reveal";
 import { describeTable, tableUses } from "./dataTables";
 import { bookmarksOf } from "./bookmarks";
 import type { Bookmark } from "./bookmarkModel";
+import { milestone } from "./startupClock";
 
 type NodeKind = "folder" | "group" | "leaf" | "action";
 
@@ -56,6 +57,12 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
 
   async getChildren(node?: Node): Promise<Node[]> {
     if (node) return node.children;
+    const top = await this.topLevel();
+    milestone("first tree children", `${top.length} row(s)`);
+    return top;
+  }
+
+  private async topLevel(): Promise<Node[]> {
     const folders = vscode.workspace.workspaceFolders ?? [];
     if (folders.length === 0) return [];
     if (folders.length === 1) return this.folderChildren(folders[0]);

@@ -4,6 +4,7 @@ import { describeFreshness } from "./freshness";
 import { ExtensionState } from "./state";
 import { escapeMd } from "./markdown";
 import { bundledAnalyzerVersion } from "./cli";
+import { milestone } from "./startupClock";
 
 /**
  * A single left-aligned status bar item summarising the last analysis of the
@@ -93,5 +94,6 @@ export class StatusBar {
       ? { title: "Re-analyze", command: "clarifydoc.analyze", arguments: [folder] }
       : { title: "Open Report", command: "clarifydoc.openReport", arguments: [folder] };
     this.item.show();
+    milestone("first status bar headline");
   }
 }

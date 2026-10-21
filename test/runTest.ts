@@ -11,6 +11,10 @@ import { runTests } from "@vscode/test-electron";
 //               fixture's source and its analysis, the way an analyzed project
 //               looks. Needs the monorepo (test-fixtures/, test-output/);
 //               skipped in a bare checkout of the extension.
+//   startup/    — only with CLARIFYDOC_STARTUP_PROJECT=<an analyzed project>:
+//               the startup gate on that real project, opened in place, and
+//               nothing else. A throwaway profile turns analyze on save off,
+//               so the window reads the project and writes nothing into it.
 const FIXTURES = ["sample-fullstack-cqrs", "sample-v-app", "sample-csharp-api", "sample-dead-code"];
 
 /** A temp workspace: the fixture's source, with its analysis under `.clarifydoc/<name>/`. */
@@ -31,12 +35,29 @@ function fixtureWorkspace(monorepo: string, name: string): string | undefined {
   return workspace;
 }
 
+/** A fresh profile whose settings never start an analysis. */
+function quietProfile(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clarifydoc-profile-"));
+  fs.mkdirSync(path.join(dir, "User"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "User", "settings.json"), JSON.stringify({ "clarifydoc.analyzeOnSave": "off" }, null, 2));
+  return dir;
+}
+
 async function main() {
   // A terminal inside VS Code exports ELECTRON_RUN_AS_NODE=1; the downloaded
   // Code binary inherits it and starts as plain Node ("bad option: --no-sandbox").
   delete process.env.ELECTRON_RUN_AS_NODE;
   try {
     const extensionDevelopmentPath = path.resolve(__dirname, "..", "..");
+    const project = process.env.CLARIFYDOC_STARTUP_PROJECT;
+    if (project) {
+      await runTests({
+        extensionDevelopmentPath,
+        extensionTestsPath: path.resolve(__dirname, "startup", "index"),
+        launchArgs: [path.resolve(project), "--disable-workspace-trust", "--disable-extensions", `--user-data-dir=${quietProfile()}`],
+      });
+      return;
+    }
     await runTests({ extensionDevelopmentPath, extensionTestsPath: path.resolve(__dirname, "suite", "index") });
 
     const monorepo = path.resolve(extensionDevelopmentPath, "..");

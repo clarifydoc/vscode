@@ -24,6 +24,9 @@
   seconds, instead of a fixed 30 seconds after the window opens. A save, or a click on the status bar, starts
   it sooner. Files changed while the window was closed are caught up on as soon as the existing analysis is
   shown, instead of after 5 seconds.
+- **Startup timings in the output.** The ClarifyDoc output channel logs when Problems, the sidebar and the
+  status bar first show the analysis, the extension host's longest pause in the first 10 seconds, and how
+  many analysis changes were announced. Include these lines when you report a slow start.
 
 ## 0.1.14
 

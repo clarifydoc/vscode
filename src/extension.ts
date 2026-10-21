@@ -46,12 +46,21 @@ import { setAnalysisLog, summaryReadCounts } from "./analysisData";
 import { LineTracker } from "./lineTracker";
 import { resolveWithEditor } from "./editorLsp";
 import { NeighbourhoodView } from "./neighbourhoodView";
+import { milestones, startClock, watchPauses } from "./startupClock";
 
 export function activate(context: vscode.ExtensionContext): void {
   const activating = performance.now();
   const output = vscode.window.createOutputChannel("ClarifyDoc", { log: true });
   context.subscriptions.push(output);
   setAnalysisLog((level, message) => output[level](message));
+  startClock(activating, (message) => output.info(message));
+  let longestPauseMs: number | undefined;
+  context.subscriptions.push(
+    watchPauses(10_000, (ms) => {
+      longestPauseMs = ms;
+      output.info(`[startup] longest extension-host pause in the first 10 s: ${ms} ms`);
+    }),
+  );
   // Both versions, first: a bug report then names the analyzer it ran.
   output.info(
     `ClarifyDoc extension ${String(context.extension?.packageJSON?.version ?? "?")}, ` +
@@ -206,7 +215,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // summary once and announces no analysis change.
   register("clarifydoc.internal.startupStats", () => {
     const reads = summaryReadCounts();
-    return { activateMs, analysisEvents, summaryReads: reads.all, offThreadReads: reads.offThread };
+    return { activateMs, analysisEvents, summaryReads: reads.all, offThreadReads: reads.offThread, milestones: milestones(), longestPauseMs };
   });
 
   // Which files can have their control flow drawn, asked once, in the
@@ -278,6 +287,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const activateMs = Math.round(performance.now() - activating);
   output.info(`[startup] activated in ${activateMs} ms`);
+  // A window that changed nothing announces no analysis change; more than none is work done twice.
+  const settled = setTimeout(() => output.info(`[startup] ${analysisEvents} analysis change(s) announced in the first 10 s`), 10_000);
+  context.subscriptions.push({ dispose: () => clearTimeout(settled) });
 
   function logStorage(): void {
     for (const folder of vscode.workspace.workspaceFolders ?? []) {

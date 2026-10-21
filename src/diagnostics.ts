@@ -4,6 +4,7 @@ import * as path from "path";
 import { ExtensionState } from "./state";
 import { DeadCode, LayerViolation, loadAnalysis, ResolvedAnalysis, SecurityIssue } from "./analysisData";
 import type { CallMiss, ContractFinding } from "./crossTier";
+import { milestone } from "./startupClock";
 
 const FULL_LINE_END = 1_000_000; // Range end col; VS Code clamps to the real line length.
 
@@ -273,6 +274,7 @@ export class DiagnosticsManager {
     this.collection.clear();
     // One message to the editor for the whole set, not one per file.
     this.collection.set([...byUri.keys()].map((key) => this.placed(key)));
+    milestone("first diagnostics published", `${byUri.size} file(s)`);
   }
 
   private populateFolder(
