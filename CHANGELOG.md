@@ -1,5 +1,16 @@
 # Change Log
 
+## Unreleased
+
+- **The analysis loads on a worker thread.** Reading a large project's analysis no longer holds up other
+  extensions. On a 115 MB summary, the longest pause in the extension host drops from about 220 ms to about
+  65 ms, and the extension host keeps about 90 MB of it in memory instead of about 660 MB. If the worker
+  cannot run, the analysis is read in the extension host as before.
+- **An editor language-server pass that answers nothing merges nothing.** It used to write an empty result,
+  and every view then read the whole analysis again and the open report was regenerated.
+- **Analysis runs below normal priority**, so the editor stays responsive while it runs. It still gets all
+  the CPU nothing else needs.
+
 ## 0.1.14
 
 - **Help page.** *Help: What ClarifyDoc Does*, first in the Analysis view's **…** menu and last in the editor's

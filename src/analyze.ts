@@ -132,6 +132,7 @@ export async function analyzeWorkspace(
           cwd: folderPath,
           token,
           captureStdout: false, // streamed to the output channel, never parsed
+          lowPriority: true,
           onEvent: (line) => {
             sawEvent = true;
             const update = events.update(line);

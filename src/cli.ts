@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { ChildProcess, execFile, spawn } from "child_process";
 import { getConfig } from "./config";
@@ -202,6 +203,12 @@ export interface RunOptions {
    * whole, and kept out of `onOutput` and the stderr tail.
    */
   onEvent?: (line: string) => void;
+  /**
+   * Run below normal priority. An analysis keeps every core busy for as long
+   * as it runs; at normal priority it competes with the editor — this window's
+   * and every other's — for the CPU. It still gets all the CPU nothing else wants.
+   */
+  lowPriority?: boolean;
 }
 
 /** stderr is kept for error messages; only its tail matters, and a runaway
@@ -239,6 +246,13 @@ export function runClarifyDoc(
       windowsHide: true,
     });
     children.add(child);
+    if (opts.lowPriority && child.pid !== undefined) {
+      try {
+        os.setPriority(child.pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
+      } catch {
+        /* not permitted here: it runs at normal priority, as before */
+      }
+    }
     const captureStdout = opts.captureStdout ?? true;
     if (opts.stdin !== undefined) {
       child.stdin?.on("error", () => {}); // a child that exits early closes the pipe; its exit code says why

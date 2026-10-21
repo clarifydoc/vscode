@@ -24,11 +24,43 @@ export interface TypeGraph {
   subtypes(id: string): TypeEdge[];
 }
 
+/** The part of the class graph `typeGraph` reads, in the class graph's own shape. */
+export interface ProjectTypes {
+  nodes: { id: string; name?: unknown; filePath: string; isInterface?: boolean }[];
+  edges: { source: string; target: string; byKind: { extends?: unknown; implements?: unknown } }[];
+}
+
+function isProjectType(n: any): boolean {
+  return typeof n?.id === "string" && typeof n?.filePath === "string" && !!n.filePath && !n.isExternal && !n.isFile;
+}
+
+function relationOf(e: any): TypeEdge["relation"] | undefined {
+  return e?.byKind?.extends ? "extends" : e?.byKind?.implements ? "implements" : undefined;
+}
+
+/**
+ * The project's own types and the extends/implements edges between them — a
+ * small fraction of the class graph, cheap to post from a worker thread.
+ */
+export function projectTypes(classGraph: unknown): ProjectTypes {
+  const g = (classGraph ?? {}) as { nodes?: any[]; edges?: any[] };
+  const nodes: ProjectTypes["nodes"] = (g.nodes ?? [])
+    .filter(isProjectType)
+    .map((n) => ({ id: n.id, name: n.name, filePath: n.filePath, isInterface: !!n.isInterface }));
+  const ids = new Set(nodes.map((n) => n.id));
+  const edges: ProjectTypes["edges"] = [];
+  for (const e of g.edges ?? []) {
+    const relation = relationOf(e);
+    if (relation && ids.has(e.source) && ids.has(e.target)) edges.push({ source: e.source, target: e.target, byKind: { [relation]: true } });
+  }
+  return { nodes, edges };
+}
+
 export function typeGraph(classGraph: unknown): TypeGraph {
   const g = (classGraph ?? {}) as { nodes?: any[]; edges?: any[] };
   const byId = new Map<string, TypeNode>();
   for (const n of g.nodes ?? []) {
-    if (typeof n?.id !== "string" || typeof n?.filePath !== "string" || !n.filePath || n.isExternal || n.isFile) continue;
+    if (!isProjectType(n)) continue;
     byId.set(n.id, { id: n.id, name: String(n.name ?? n.id.split("::").pop()), file: n.filePath, isInterface: !!n.isInterface });
   }
   const up = new Map<string, TypeEdge[]>();
@@ -39,7 +71,7 @@ export function typeGraph(classGraph: unknown): TypeGraph {
     else map.set(key, [edge]);
   };
   for (const e of g.edges ?? []) {
-    const relation = e?.byKind?.extends ? "extends" : e?.byKind?.implements ? "implements" : undefined;
+    const relation = relationOf(e);
     if (!relation) continue;
     const sub = byId.get(e.source);
     const sup = byId.get(e.target);

@@ -26,9 +26,10 @@ const statusPlugin = {
 
 /** @type {import('esbuild').BuildOptions} */
 const options = {
-  entryPoints: ["src/extension.ts"],
+  // The summary worker is its own file: a worker thread is started from a path (summaryThread.ts).
+  entryPoints: { extension: "src/extension.ts", summaryWorker: "src/summaryWorker.ts" },
   bundle: true,
-  outfile: "out/extension.js",
+  outdir: "out",
   platform: "node",
   format: "cjs",
   target: "node18",

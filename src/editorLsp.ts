@@ -117,6 +117,15 @@ export async function resolveWithEditor(
             ),
           );
           if (pass.stopped === "cancelled") return;
+          if (pass.answered === 0) {
+            // Nothing to merge. An empty delta would still be a new file, and
+            // every view would read the whole analysis again for it.
+            state.output.info(
+              `editor language servers (${((Date.now() - started) / 1000).toFixed(1)}s): ` +
+                `${pass.asked} of ${queries.length} unresolved calls asked, none answered inside the project — nothing to merge`,
+            );
+            return;
+          }
           const servers = pass.languages.map((l) => `${l} (editor)`);
           await fs.writeFile(answersFile, JSON.stringify({ source: "editor", servers, answers: pass.answers }));
           progress.report({ message: "merging…" });

@@ -42,7 +42,7 @@ import { ignoreFolders } from "./ignore";
 import { registerMcpProvider } from "./mcp";
 import { maybeOfferMcpInstall } from "./mcpInstall";
 import { outputBaseDir, resetStorageResolution, storageFor } from "./paths";
-import { setAnalysisLog, summaryReadCount } from "./analysisData";
+import { setAnalysisLog, summaryReadCounts } from "./analysisData";
 import { LineTracker } from "./lineTracker";
 import { resolveWithEditor } from "./editorLsp";
 import { NeighbourhoodView } from "./neighbourhoodView";
@@ -204,7 +204,10 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   // For tests: what start cost — a window that changed nothing reads each
   // summary once and announces no analysis change.
-  register("clarifydoc.internal.startupStats", () => ({ activateMs, analysisEvents, summaryReads: summaryReadCount() }));
+  register("clarifydoc.internal.startupStats", () => {
+    const reads = summaryReadCounts();
+    return { activateMs, analysisEvents, summaryReads: reads.all, offThreadReads: reads.offThread };
+  });
 
   // Which files can have their control flow drawn, asked once, in the
   // background: the CodeLens needs the answer before anyone clicks it.
