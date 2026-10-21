@@ -26,6 +26,7 @@ import { exportSarif } from "./sarifExport";
 import { onboard } from "./onboarding";
 import { registerSplitRoots } from "./splitRoots";
 import { reportIssue } from "./reportIssue";
+import { showHelp } from "./help";
 import { showFilesGraph } from "./filesGraphCommand";
 import { RiskDecorations } from "./riskDecorations";
 import { registerBookmarks } from "./bookmarks";
@@ -156,6 +157,9 @@ export function activate(context: vscode.ExtensionContext): void {
   register("clarifydoc.impact", (target) => impactOfChanges(state, target));
   register("clarifydoc.showFilesGraph", (uri?: vscode.Uri, uris?: vscode.Uri[]) => showFilesGraph(state, uri, uris));
   register("clarifydoc.reportIssue", (preset?: Parameters<typeof reportIssue>[1]) => reportIssue(state, preset));
+  // Menus pass their own context (a uri, a tree node) — the help opens at the top then.
+  register("clarifydoc.showHelp", () => showHelp(state));
+  register("clarifydoc.showReportHelp", () => showHelp(state, "report"));
 
   // Right-click-in-code jumps into the report focused on the current file.
   register("clarifydoc.jumpScreens", () => jumpToFileView(state, "ui"));

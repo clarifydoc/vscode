@@ -5,7 +5,7 @@ import { summaryPath } from "./paths";
 
 const WALKTHROUGH_SHOWN = "clarifydoc.walkthroughShown.v1";
 const OFFERED = "clarifydoc.analyzeOffered.v1";
-const WALKTHROUGH = "ClarifyDoc.clarifydoc-vscode#clarifydoc.gettingStarted";
+export const WALKTHROUGH = "ClarifyDoc.clarifydoc-vscode#clarifydoc.gettingStarted";
 
 /**
  * First contact: the walkthrough opens once after install; and a workspace

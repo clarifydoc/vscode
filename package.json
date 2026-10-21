@@ -263,6 +263,18 @@
         "icon": "$(report)"
       },
       {
+        "command": "clarifydoc.showHelp",
+        "title": "Help: What ClarifyDoc Does",
+        "category": "ClarifyDoc",
+        "icon": "$(question)"
+      },
+      {
+        "command": "clarifydoc.showReportHelp",
+        "title": "What Do These Buttons Do?",
+        "category": "ClarifyDoc",
+        "icon": "$(question)"
+      },
+      {
         "command": "clarifydoc.installAgentGuidance",
         "title": "Tell AI Agents When to Use ClarifyDoc (AGENTS.md)",
         "category": "ClarifyDoc"
@@ -388,6 +400,10 @@
         {
           "command": "clarifydoc.askAgent",
           "group": "0_agent@1"
+        },
+        {
+          "command": "clarifydoc.showHelp",
+          "group": "9_help@1"
         }
       ],
       "view/title": [
@@ -405,6 +421,11 @@
           "command": "clarifydoc.refresh",
           "when": "view == clarifydoc.summary",
           "group": "navigation@3"
+        },
+        {
+          "command": "clarifydoc.showHelp",
+          "when": "view == clarifydoc.summary",
+          "group": "0_help@0"
         },
         {
           "command": "clarifydoc.goto",
@@ -512,6 +533,10 @@
           "when": "false"
         },
         {
+          "command": "clarifydoc.showReportHelp",
+          "when": "false"
+        },
+        {
           "command": "clarifydoc.ignoreFolder",
           "when": "false"
         },
@@ -560,6 +585,11 @@
           "command": "clarifydoc.bookmarkView",
           "when": "activeWebviewPanelId == 'clarifydoc.report'",
           "group": "navigation@1"
+        },
+        {
+          "command": "clarifydoc.showReportHelp",
+          "when": "activeWebviewPanelId == 'clarifydoc.report'",
+          "group": "navigation@2"
         }
       ]
     },

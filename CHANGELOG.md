@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Help page.** *Help: What ClarifyDoc Does*, first in the Analysis view's **…** menu and last in the editor's
+  ClarifyDoc submenu, says what each part of the extension gives you and why it helps, lists every right-click menu
+  entry (in the editor, the Explorer and the sidebar) with a **Try it** button that runs it on the file you had
+  open, and explains the report's buttons: each section icon, the "Open in …" icon rows beside files, Fit, the
+  graph export, the theme switch. **?** on the report's title bar opens it at that part.
 - **Faster start.** A window that opens on an existing analysis reads it once and rebuilds the sidebar,
   Problems and decorations once. Before, they were all rebuilt a second time soon after start. Questions that
   only change with the analyzer (which file types it reads, which languages have a control-flow graph) are

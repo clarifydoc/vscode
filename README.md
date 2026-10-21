@@ -286,6 +286,7 @@ All under the **ClarifyDoc** category in the Command Palette:
 | Set Up MCP for an AI Agent… | Write the MCP config for Claude Code / Cursor / Windsurf |
 | Copy MCP Server Config | Put the MCP config on the clipboard for any other agent |
 | Show Output Log | Reveal the ClarifyDoc output channel |
+| Help: What ClarifyDoc Does | What you get, every right-click menu (with a button that runs each entry) and what each button in the report does. Also in the Analysis view's **…** menu, and **?** on the report's title bar |
 
 ## Settings
 
