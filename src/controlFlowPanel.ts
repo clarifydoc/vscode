@@ -294,7 +294,10 @@ class ControlFlowPanel {
 
   private html(entry: CfgResponse["diagrams"][number], language: string, cursor?: number): string {
     const n = nonce();
-    const { cfg, mermaid, note } = entry;
+    const { cfg, mermaid } = entry;
+    // The note opens with the approximate caveat when there is one; the banner
+    // below already says it, so the note keeps only what follows.
+    const note = cfg.approximate ? entry.note.split("; ").slice(1).join("; ") : entry.note;
     const inline = cfg.nodes.reduce((sum, node) => sum + node.inlineBranches, 0);
     const decisions = cfg.nodes.filter((node) => node.kind === "DECISION").length;
     const loops = cfg.nodes.filter((node) => node.kind === "LOOP").length;
@@ -334,7 +337,7 @@ class ControlFlowPanel {
     <h1>${escapeHtml(cfg.functionName)}</h1>
     <p class="cf-meta">${escapeHtml(cfg.filePath)}:${cfg.line}–${cfg.endLine} · ${escapeHtml(language)}</p>
     <p class="cf-shape">${escapeHtml(shape)}</p>
-    ${cfg.approximate ? `<p class="cf-approx">Approximate — ${escapeHtml(language)} has no parser here, so this was read off the source text.</p>` : ""}
+    ${cfg.approximate ? `<p class="cf-approx">Approximate — ${escapeHtml(language)} has no parser here, so this was read off the source text and may misjudge nesting.</p>` : ""}
     ${note ? `<p class="cf-note">${escapeHtml(note)}.</p>` : ""}
     <p class="cf-hint">Click a node to jump to it. Move the cursor in the editor to highlight the node it is in.</p>
     <label class="cf-follow"><input type="checkbox" id="cf-follow"${this.following() ? " checked" : ""}> Follow the cursor and redraw on edit</label>
