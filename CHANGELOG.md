@@ -1,6 +1,6 @@
 # Change Log
 
-## Unreleased
+## 0.1.15
 
 - **The analysis loads on a worker thread.** Reading a large project's analysis no longer holds up other
   extensions. On a 115 MB summary, the longest pause in the extension host drops from about 220 ms to about
