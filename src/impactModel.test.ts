@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ImpactResult, impactNodes } from "./impactModel";
+import { ImpactResult, describeSignatureChange, impactNodes } from "./impactModel";
 
 const base: ImpactResult = {
   baseLabel: "HEAD",
@@ -98,6 +98,38 @@ describe("impactNodes", () => {
       ["jobs.ts:3 · unverified", "unverified"],
       ["routes.ts:7 · covered by test_create", "caller"],
     ]);
+  });
+
+  it("words every signature-change kind the engine reports", () => {
+    const nodes = impactNodes({
+      ...base,
+      symbolImpact: {
+        changed: [],
+        direct: [],
+        transitive: [],
+        reviewOnly: [],
+        signatureChanges: [
+          { file: "garage.ts", symbol: "parkCar", line: 4, kind: "moved", movedTo: "src/parking.ts", callers: 3, breaking: true },
+          { file: "garage.ts", symbol: "findCar", line: 9, kind: "param-type", before: "id: string", after: "id: CarId", callers: 1, breaking: true },
+          { file: "garage.ts", symbol: "washCar", line: 14, kind: "visibility", before: "exported", after: "private", callers: 2, breaking: false },
+          { file: "garage.ts", symbol: "tuneCar", line: 20, kind: "arity", before: 1, after: 2, callers: 0, breaking: false },
+        ],
+      },
+    });
+    const sig = nodes.find((n) => n.label === "Signature changes")!.children!.map((c) => [c.description, c.icon]);
+    expect(sig).toEqual([
+      ["moved to src/parking.ts · 3 callers · breaks them", "break"],
+      ["takes id: CarId, was id: string · 1 caller · breaks them", "break"],
+      ["no longer exported or public · 2 callers", "function"],
+      ["1 → 2 required parameters", "function"],
+    ]);
+    expect(sig.some(([d]) => String(d).includes("undefined"))).toBe(false);
+  });
+
+  it("names a signature-change kind it does not know instead of guessing", () => {
+    expect(describeSignatureChange({ kind: "generic-arity", before: 1, after: 2 })).toBe("generic-arity: 1 → 2");
+    expect(describeSignatureChange({ kind: "sealed" })).toBe("sealed");
+    expect(describeSignatureChange({ kind: "moved" })).toBe("moved");
   });
 
   it("marks the callers the editor reports errors at", () => {

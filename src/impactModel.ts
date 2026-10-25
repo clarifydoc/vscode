@@ -35,8 +35,46 @@ export interface ImpactResult {
     /** Callers that are route handlers, by their route. */
     routes?: { route: string; file: string; line: number; depth: number; confidence: string }[];
     reviewOnly: string[];
-    signatureChanges?: { file: string; symbol: string; line: number; kind: "removed" | "arity" | "return-type"; before?: number | string; after?: number | string; renamedTo?: string; callers: number; breaking: boolean }[];
+    signatureChanges?: SignatureChange[];
   };
+}
+
+/** A function whose callers a change can break, as the analyzer reports it. */
+export interface SignatureChange {
+  file: string;
+  symbol: string;
+  line: number;
+  /** An engine newer than this extension may report a kind not listed here. */
+  kind: "removed" | "moved" | "arity" | "param-type" | "visibility" | "return-type" | (string & {});
+  before?: number | string;
+  after?: number | string;
+  /** `removed`: a function added beside it with the same parameters. */
+  renamedTo?: string;
+  /** `moved`: the file the function now lives in. */
+  movedTo?: string;
+  callers: number;
+  breaking: boolean;
+}
+
+/** What changed about the function, in words: "moved to src/cars.ts", "takes id: Uuid, was id: string". */
+export function describeSignatureChange(c: Pick<SignatureChange, "kind" | "before" | "after" | "renamedTo" | "movedTo">): string {
+  switch (c.kind) {
+    case "removed":
+      return c.renamedTo ? `removed — possibly renamed to ${c.renamedTo}` : "removed";
+    case "moved":
+      return c.movedTo ? `moved to ${c.movedTo}` : "moved";
+    case "param-type":
+      return `takes ${c.after}, was ${c.before}`;
+    case "visibility":
+      return "no longer exported or public";
+    case "return-type":
+      return `returns ${c.after}, was ${c.before}`;
+    case "arity":
+      return `${c.before} → ${c.after} required parameters`;
+    default:
+      // A kind this extension does not know: say what it is rather than guess its wording.
+      return c.before !== undefined && c.after !== undefined ? `${c.kind}: ${c.before} → ${c.after}` : c.kind;
+  }
 }
 
 export interface SymbolCaller {
@@ -99,7 +137,7 @@ export function impactNodes(r: ImpactResult, errorsIn?: ErrorLines): ImpactNode[
       "break",
       sig.map((c) => ({
         label: `${c.symbol}()`,
-        description: `${c.kind === "removed" ? (c.renamedTo ? `removed — possibly renamed to ${c.renamedTo}` : "removed") : c.kind === "return-type" ? `returns ${c.after}, was ${c.before}` : `${c.before} → ${c.after} required parameters`}${c.callers ? ` · ${c.callers} caller${c.callers === 1 ? "" : "s"}` : ""}${c.breaking ? " · breaks them" : ""}`,
+        description: `${describeSignatureChange(c)}${c.callers ? ` · ${c.callers} caller${c.callers === 1 ? "" : "s"}` : ""}${c.breaking ? " · breaks them" : ""}`,
         icon: c.breaking ? "break" : "function",
         file: c.file,
         line: c.line,
