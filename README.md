@@ -23,7 +23,9 @@ Entity   Orders · INSERT (+ OrderLines)           OrderService.cs
 
 ## Get started in a minute
 
-1. Install the extension.
+1. Install the extension — from the Marketplace, or from
+   [Open VSX](https://open-vsx.org/extension/ClarifyDoc/clarifydoc-vscode) for Cursor,
+   Windsurf and VSCodium.
 2. Run **ClarifyDoc: Analyze Workspace** from the Command Palette or the
    ClarifyDoc sidebar.
 3. The interactive report opens beside your code, and CodeLens, hovers and the
@@ -93,6 +95,11 @@ Complexity, Insights and Dependencies. Click a file or symbol in the report and
 the source opens beside it. The report is one self-contained `report.html`, so
 you can open it in a browser or send it to someone who doesn't have VS Code.
 
+**Create Architecture Diagram** draws the system from the analysis in one
+command — no model, no prompt, so the same code draws the same diagram — and
+saves it as Mermaid, Markdown or SVG to commit beside the code. A route's
+CodeLens draws what it does as a sequence diagram.
+
 ### Find what's dead, risky or tangled
 
 **Health** grades the project and lists security issues, complexity hotspots,
@@ -103,7 +110,8 @@ file that might still be used is left off the list.
 ### Give your AI agent the real map
 
 Copilot's agent mode picks up the analysis automatically over MCP, with no
-setup. For Claude Code, Cursor or Windsurf, one command writes the config. Your
+setup. For Claude Code, Cursor, Windsurf, Gemini CLI, Codex or Claude Desktop,
+one command writes the config. Your
 agent can then ask which routes exist, who calls a function, what a change
 breaks and which table an endpoint writes, and gets answers with `path:line`
 references instead of guessing from a few open files. One more command adds a
@@ -131,7 +139,8 @@ your cursor is. [Details below.](#ai-agents-mcp)
 
 ## Languages and frameworks
 
-60+ languages, mixed freely in one workspace. A Delphi client, a .NET service
+50+ languages, mixed freely in one workspace, with the templates, schemas, API
+contracts and deployment files around them. A Delphi client, a .NET service
 and a React frontend are analyzed as one graph.
 
 | Area | Languages |
@@ -141,11 +150,13 @@ and a React frontend are analyzed as one graph.
 | **.NET** | C#, F#, VB.NET, Blazor, XAML |
 | **Backend & scripting** | Python, PHP, Ruby, Go, Rust, Perl, Raku, Lua, Elixir, Erlang, Crystal, Haxe |
 | **Functional** | Haskell, OCaml, Clojure, Racket, Scheme, Common Lisp |
-| **Native & mobile** | C, C++, CUDA, Objective-C, Swift, Zig, Nim, D, V, Dart / Flutter, Qt (QML, `.ui`) |
+| **Native** | C, C++, CUDA, Objective-C, Swift, Zig, Nim, D, V, Qt (QML, `.ui`) |
+| **Mobile** | Dart / Flutter, Expo Router, React Navigation, Jetpack Compose, Room, SwiftUI, SwiftData / Core Data, storyboards |
 | **Science & numeric** | R, Julia, Fortran, Mojo |
 | **Legacy & shell** | Delphi / Pascal (incl. DFM forms), VB6, VBScript, PowerShell, Bash, Windows batch |
 | **Desktop automation** | AutoHotkey, AutoIt, AppleScript |
-| **Data & API contracts** | SQL, Prisma, OpenAPI, GraphQL, WSDL, JSight |
+| **Data & API contracts** | SQL, Prisma, OpenAPI, GraphQL, Protocol Buffers, WSDL, JSight |
+| **Deployment** | Docker Compose, Dockerfiles, Kubernetes, Helm, Argo CD / Flux, Terraform, Serverless / AWS SAM, AWS CDK, CI pipelines |
 
 Routes come from Express, NestJS, Next.js, ASP.NET, Spring, Django, FastAPI,
 Flask, Laravel, Rails, Gin, Actix, Axum and others. Tables come from ORMs such as
@@ -243,8 +254,8 @@ parsed code, with `path:line` references — instead of inferring it from a few 
 
 - **Zero configuration in this editor.** One server per workspace folder, pointed at the analysis this extension
   already produced.
-- **One command for other agents.** Run **ClarifyDoc: Set Up MCP for an AI Agent…** and pick Claude Code, Cursor or
-  Windsurf — it writes that agent's config for you, merging into whatever is already there. (**Copy MCP Server
+- **One command for other agents.** Run **ClarifyDoc: Set Up MCP for an AI Agent…** and pick Claude Code, Cursor,
+  Windsurf, Gemini CLI, Codex or Claude Desktop — it writes that agent's config for you, merging into whatever is already there. (**Copy MCP Server
   Config** still puts the snippet on your clipboard for anything else.)
 - **Configs that keep working.** They point at a launcher in the extension's storage whose path never changes, not at
   the version-stamped extension directory — so an extension update cannot silently break your agent. It also carries
@@ -279,15 +290,25 @@ All under the **ClarifyDoc** category in the Command Palette:
 | Screens & UI / Call Traces / Blast Radius for This File | Right-click jump, file preselected |
 | Show in Architecture / Show Routes | Right-click jump to that tab |
 | Show Control Flow | Draw the function under the cursor as a flowchart |
+| Create Architecture Diagram | Draw the system as a diagram to save and commit (Mermaid, Markdown, SVG) |
+| Show a Route as a Sequence Diagram | What a route does, in order: calls, data, hops to other services |
+| Show in a Graph | The selected files with their functions, calls in and out, and the routes they serve or call |
 | Go to… | Quick-pick a route / screen / issue / hotspot and jump to it |
 | Detect Languages & Frameworks | Quick detection only |
 | Impact of Current Git Changes as Markdown | Diff → affected screens/routes/entities, as a document (the Source Control view shows it live) |
+| Compare Impact With… | The impact of everything since a branch or tag you pick, not just uncommitted changes |
+| Copy Impact for Agent | The impact, function by function, ready to paste to an agent |
+| Compare API Surface with the Base | What the branch changes in routes, guards and bodies — breaking first |
+| Resolve Calls with the Editor's Language Servers | Run layer 2 now through the language extensions you have (no Docker) |
+| Toggle Coverage Overlay | Mark the lines no test runs, from your coverage report |
 | Export Security Findings as SARIF | Write the findings as SARIF 2.1.0, without re-analyzing |
 | Ask an AI Agent… | Start an agent workflow, filled in from where your cursor is |
 | Tell AI Agents When to Use ClarifyDoc (AGENTS.md) | Add or update the guidance section, after showing a diff |
-| Set Up MCP for an AI Agent… | Write the MCP config for Claude Code / Cursor / Windsurf |
+| Set Up MCP for an AI Agent… | Write the MCP config for Claude Code / Cursor / Windsurf / Gemini CLI / Codex / Claude Desktop |
 | Copy MCP Server Config | Put the MCP config on the clipboard for any other agent |
 | Show Output Log | Reveal the ClarifyDoc output channel |
+| Bookmark This View / Open Bookmark | Save a report view and come back to it |
+| Report an Issue | Open an issue prefilled with versions, settings and what the analysis could not see |
 | Help: What ClarifyDoc Does | What you get, every right-click menu (with a button that runs each entry) and what each button in the report does. Also in the Analysis view's **…** menu, and **?** on the report's title bar |
 
 ## Settings
