@@ -36,7 +36,8 @@ export interface ContractFinding {
 
 /** A route's path from entry to effect (`ProjectAnalysis.dataFlows`). */
 export interface DataFlow {
-  entryKind: "route" | "screen";
+  /** `command`: an entry point that is not a route — a CLI command, an editor command, an MCP tool. */
+  entryKind: "route" | "screen" | "command";
   entryLabel: string;
   entryFile: string;
   effect: string;

@@ -28,3 +28,26 @@ describe.skipIf(!available)("tableUses: sample-backend", () => {
     expect(describeTable(player!)).toBe("written by 4 routes · read by 6 routes");
   });
 });
+
+// A command data flow (an entry point that is not a route: a CLI or editor command)
+// used to be counted as neither, leaving "written by " with nothing after it.
+describe("tableUses: command entry points", () => {
+  it("counts commands, jobs and tools beside routes and opens them at their handler", () => {
+    const flow = (entryKind: "route" | "command", entryLabel: string, entryFile: string, effect: string, via?: { file: string; symbol: string; line?: number }[]) =>
+      ({ entryKind, entryLabel, entryFile, effect, resource: "clubs", distance: 1, confidence: "EXTRACTED", via });
+    const a = {
+      routes: [],
+      screens: [],
+      store: { entitiesByName: new Map() },
+      crossTier: {
+        flowsByEntryFile: new Map([
+          ["src/cli/import.ts", [flow("command", "CLI import-clubs", "src/cli/import.ts", "db-write", [{ file: "src/cli/import.ts", symbol: "importClubs", line: 12 }])]],
+          ["src/api/clubs.ts", [flow("route", "GET /api/clubs", "src/api/clubs.ts", "db-read")]],
+        ]),
+      },
+    } as unknown as Parameters<typeof tableUses>[0];
+    const [clubs] = tableUses(a);
+    expect(describeTable(clubs!)).toBe("written by 1 entry point · read by 1 route");
+    expect(clubs!.entries.find((e) => e.kind === "command")).toMatchObject({ label: "CLI import-clubs", line: 12, writes: true });
+  });
+});

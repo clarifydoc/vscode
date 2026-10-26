@@ -1,12 +1,14 @@
 /**
  * The database end of the map, inverted: for each table (or collection) the
- * routes and screens that read or write it, from the analysis's data flows.
+ * routes, screens and other entry points (commands, jobs, consumers) that read
+ * or write it, from the analysis's data flows.
  * Pure — no `vscode` — so the sidebar and its tests share it.
  */
 import type { ResolvedAnalysis } from "./analysisData";
+import type { DataFlow } from "./crossTier";
 
 export interface TableEntry {
-  kind: "route" | "screen";
+  kind: DataFlow["entryKind"];
   label: string;
   file: string;
   line?: number;
@@ -33,7 +35,7 @@ export function tableUses(a: ResolvedAnalysis): TableUse[] {
       if (!entries) byTable.set(f.resource, (entries = new Map()));
       const key = `${f.entryKind}\0${f.entryFile}\0${f.entryLabel}`;
       let e = entries.get(key);
-      if (!e) entries.set(key, (e = { kind: f.entryKind, label: f.entryLabel, file: f.entryFile, line: entryLine(a, f.entryKind, f.entryFile, f.entryLabel), writes: false, reads: false }));
+      if (!e) entries.set(key, (e = { kind: f.entryKind, label: f.entryLabel, file: f.entryFile, line: entryLine(a, f), writes: false, reads: false }));
       if (f.effect === "db-write") e.writes = true;
       else e.reads = true; // `db-read`, or a use whose direction is unknown
     }
@@ -52,19 +54,27 @@ export function tableUses(a: ResolvedAnalysis): TableUse[] {
   return out.sort((x, y) => y.entries.length - x.entries.length || x.resource.localeCompare(y.resource));
 }
 
-/** `written by 2 routes · read by 1 route, 2 screens`. */
+/** What a `command` flow's entry is called here: a CLI or editor command, an MCP tool, a scheduled job, a consumer. */
+const NOUN: Record<TableEntry["kind"], string> = { route: "route", screen: "screen", command: "entry point" };
+
+/** `written by 2 routes · read by 1 route, 2 screens, 1 entry point`. */
 export function describeTable(t: TableUse): string {
-  const count = (pred: (e: TableEntry) => boolean): string => {
-    const routes = t.entries.filter((e) => pred(e) && e.kind === "route").length;
-    const screens = t.entries.filter((e) => pred(e) && e.kind === "screen").length;
-    return [routes && `${routes} route${routes === 1 ? "" : "s"}`, screens && `${screens} screen${screens === 1 ? "" : "s"}`].filter(Boolean).join(", ");
-  };
+  const count = (pred: (e: TableEntry) => boolean): string =>
+    (["route", "screen", "command"] as const)
+      .map((kind) => {
+        const n = t.entries.filter((e) => pred(e) && e.kind === kind).length;
+        return n && `${n} ${NOUN[kind]}${n === 1 ? "" : "s"}`;
+      })
+      .filter(Boolean)
+      .join(", ");
   return [t.writers && `written by ${count((e) => e.writes)}`, t.readers && `read by ${count((e) => e.reads)}`].filter(Boolean).join(" · ");
 }
 
-function entryLine(a: ResolvedAnalysis, kind: "route" | "screen", file: string, label: string): number | undefined {
-  if (kind === "route") return a.routes.find((r) => r.filePath === file && [r.httpMethod, r.path].filter(Boolean).join(" ") === label)?.line;
-  return a.screens.find((s) => s.filePath === file && (s.title === label || !s.title))?.line;
+function entryLine(a: ResolvedAnalysis, f: DataFlow): number | undefined {
+  if (f.entryKind === "route") return a.routes.find((r) => r.filePath === f.entryFile && [r.httpMethod, r.path].filter(Boolean).join(" ") === f.entryLabel)?.line;
+  if (f.entryKind === "screen") return a.screens.find((s) => s.filePath === f.entryFile && (s.title === f.entryLabel || !s.title))?.line;
+  // A command's handler: its witness path starts there, at the call that leads on.
+  return f.via?.[0]?.file === f.entryFile ? f.via[0].line : undefined;
 }
 
 /** The entity a table name belongs to: same name, else a case-insensitive / singular match. */

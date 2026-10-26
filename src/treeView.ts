@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import { ExtensionState } from "./state";
 import { loadAnalysis, ResolvedAnalysis } from "./analysisData";
 import { absFor } from "./reveal";
-import { describeTable, tableUses } from "./dataTables";
+import { describeTable, tableUses, type TableEntry } from "./dataTables";
 import { bookmarksOf } from "./bookmarks";
 import type { Bookmark } from "./bookmarkModel";
 import { milestone } from "./startupClock";
@@ -252,7 +252,7 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
   }
 
   /**
-   * Each table the analysis saw accessed, with the routes and screens that
+   * Each table the analysis saw accessed, with the routes, screens and other entry points that
    * write or read it — the "who touches `orders`?" question, answered without
    * opening the report. A table opens its entity's declaration when known.
    */
@@ -270,9 +270,9 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
         node.command = { command: "clarifydoc.revealSource", title: "Open Entity", arguments: [absFor(folder, t.entity.file), t.entity.line] };
       }
       node.children = t.entries.map((e) => {
-        const leaf = this.revealLeaf(folder, e.label, e.file, e.line, new vscode.ThemeIcon(e.kind === "route" ? "milestone" : "browser"));
+        const leaf = this.revealLeaf(folder, e.label, e.file, e.line, new vscode.ThemeIcon(ENTRY_ICON[e.kind]));
         leaf.description = [e.writes && "writes", e.reads && "reads"].filter(Boolean).join(", ");
-        leaf.tooltip = `${e.kind === "route" ? "Route" : "Screen"} ${e.label} ${leaf.description} ${t.resource}\n${e.file}${e.line ? `:${e.line}` : ""}`;
+        leaf.tooltip = `${ENTRY_NAME[e.kind]} ${e.label} ${leaf.description} ${t.resource}\n${e.file}${e.line ? `:${e.line}` : ""}`;
         return leaf;
       });
       return node;
@@ -363,6 +363,10 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
     return this.group("Frameworks", a.frameworks.length, "layers", children);
   }
 }
+
+/** How the Data group shows the entry point a table is reached from. */
+const ENTRY_ICON: Record<TableEntry["kind"], string> = { route: "milestone", screen: "browser", command: "zap" };
+const ENTRY_NAME: Record<TableEntry["kind"], string> = { route: "Route", screen: "Screen", command: "Entry point" };
 
 /** Why the route linker joined a call to nothing, in words. */
 export function missReason(reason: string): string {
