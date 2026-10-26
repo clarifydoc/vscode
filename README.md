@@ -50,7 +50,7 @@ Laravel, FastAPI `Depends` and more), not just to the interface.
 **Blast Radius** lists every file a change reaches, with the most tightly
 coupled first. The **ClarifyDoc Impact** view in Source Control turns your
 uncommitted diff into the screens, routes, entities and tests it affects, with a
-risk level, and keeps it current as you work, so you can check before you open
+risk level and the docs that name what you changed, and keeps it current as you work, so you can check before you open
 the PR. A caller the editor already reports an error at is marked, so the ones
 your change has broken stand out from the ones still to check. Compare with a branch and **Compare API Surface** lists what the branch
 changes in the API itself — a route removed or moved, a guard lost, a request body
@@ -273,9 +273,10 @@ parsed code, with `path:line` references — instead of inferring it from a few 
   useful immediately; a directory lock keeps that run from colliding with one started here or from the CLI. Turn the
   whole thing off with `clarifydoc.mcp.enabled`.
 
-Tools: `clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_services`, `clarifydoc_contract`,
-`clarifydoc_screens`, `clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_extract`, `clarifydoc_blast_radius`, `clarifydoc_data_model`,
-`clarifydoc_data_flows`, `clarifydoc_health`, `clarifydoc_impact`, `clarifydoc_analyze`.
+Tools: `clarifydoc_explain`, `clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_services`,
+`clarifydoc_contract`, `clarifydoc_screens`, `clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_extract`,
+`clarifydoc_blast_radius`, `clarifydoc_data_model`, `clarifydoc_data_flows`, `clarifydoc_health`,
+`clarifydoc_architecture`, `clarifydoc_context_docs`, `clarifydoc_impact`, `clarifydoc_control_flow`, `clarifydoc_analyze`.
 
 ## Commands
 
