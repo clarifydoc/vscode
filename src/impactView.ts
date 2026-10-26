@@ -29,6 +29,7 @@ const ICONS: Record<ImpactIcon, string> = {
   unverified: "warning",
   function: "symbol-method",
   error: "error",
+  doc: "book",
 };
 
 const RISK_COLOR: Record<ImpactResult["risk"]["level"], string | undefined> = {

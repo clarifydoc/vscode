@@ -23,6 +23,9 @@ export interface ImpactResult {
   risk: { level: "low" | "moderate" | "high"; reasons: string[] };
   /** Files that usually change with a changed one but are not in this change (git history). */
   missingCoChanges?: { file: string; with: string; count: number; score: number; hidden?: boolean }[];
+  /** Documents that name a changed file — its path, a route it serves, a class it declares: the docs to update. Capped; `docCount` is the total. */
+  docs?: { doc: string; line: number; text: string; file: string }[];
+  docCount?: number;
   /** CODEOWNERS owners of the changed files. */
   owners?: { owner: string; files: number }[];
   /** Who knows the changed files best, by commits (the change's author left out). */
@@ -88,7 +91,7 @@ export interface SymbolCaller {
   coveredBy?: { file: string; symbol: string };
 }
 
-export type ImpactIcon = "risk" | "route" | "screen" | "data" | "queue" | "test" | "file" | "unknown" | "chain" | "info" | "cochange" | "person" | "break" | "caller" | "unverified" | "function" | "error";
+export type ImpactIcon = "risk" | "route" | "screen" | "data" | "queue" | "test" | "file" | "unknown" | "chain" | "info" | "cochange" | "person" | "break" | "caller" | "unverified" | "function" | "error" | "doc";
 
 /** The 1-based lines of a file (project-relative) that the editor reports errors on now, if any. */
 export type ErrorLines = (file: string) => readonly number[] | undefined;
@@ -198,6 +201,16 @@ export function impactNodes(r: ImpactResult, errorsIn?: ErrorLines): ImpactNode[
     "cochange",
     coChanges.map((c) => ({ label: c.file, description: `with ${c.with} · ${c.count}×`, icon: "cochange", file: c.file })),
   );
+  // Markdown that names a changed file: what to reread, and maybe update, with this change.
+  const docs = r.docs ?? [];
+  if (docs.length) {
+    out.push({
+      label: "Docs to update",
+      description: String(Math.max(r.docCount ?? 0, docs.length)),
+      icon: "doc",
+      children: docs.map((d) => ({ label: `${d.doc}:${d.line}`, description: `${d.text} · ${d.file}`, icon: "doc" as const, file: d.doc, line: d.line })),
+    });
+  }
   const people: ImpactNode[] = [
     ...(r.owners ?? []).map((o) => ({ label: o.owner, description: `owns ${o.files} changed file${o.files === 1 ? "" : "s"} (CODEOWNERS)`, icon: "person" as const })),
     ...(r.reviewers ?? []).map((x) => ({ label: x.name, description: `${x.commits} commit${x.commits === 1 ? "" : "s"} to ${x.files} of these files`, icon: "person" as const })),

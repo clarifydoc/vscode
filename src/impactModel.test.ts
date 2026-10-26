@@ -36,6 +36,19 @@ describe("impactNodes", () => {
     expect(impactNodes({ ...base, truncated: true })[1].description).toBe("1+");
   });
 
+  it("lists the docs that name a changed file, at the line that names it", () => {
+    const nodes = impactNodes({
+      ...base,
+      docs: [{ doc: "docs/clubs.md", line: 12, text: "GET /Owners", file: "Api/Controllers/OwnersController.cs" }],
+      docCount: 3,
+    });
+    const docs = nodes.find((n) => n.label === "Docs to update")!;
+    expect(docs.description).toBe("3");
+    expect(docs.children).toEqual([
+      { label: "docs/clubs.md:12", description: "GET /Owners · Api/Controllers/OwnersController.cs", icon: "doc", file: "docs/clubs.md", line: 12 },
+    ]);
+  });
+
   it("lists what usually changes with the change, and who to ask", () => {
     const nodes = impactNodes({
       ...base,
