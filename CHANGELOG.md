@@ -1,5 +1,56 @@
 # Change Log
 
+## 0.1.16
+
+- **Impact lists the docs to update.** The Source Control Impact view has a *Docs to update* group: each
+  Markdown line that names a changed file — its path, a route it serves or a class it declares — with what it
+  says, opening at that line. The count is the total even when the list is capped.
+- **Every signature change is worded.** In Impact, a function moved to another file reads "moved to
+  `src/garage.ts`", a changed parameter type "takes `id: Uuid`, was `id: string`", and a function no longer
+  exported or public says so. They used to read "undefined → undefined required parameters". A kind a newer
+  analyzer reports that this extension does not know is named as it is.
+- **Tables reached from commands, jobs and tools.** The sidebar's Data group counts the entry points that are
+  not routes or screens — CLI and editor commands, MCP tools, scheduled jobs, message consumers — beside them
+  ("written by 1 entry point · read by 3 routes"), lists them with their own icon, and opens one at its handler.
+  A table only such an entry point wrote used to read "written by" with nothing after it.
+- **Before writing new code.** *Ask an AI Agent…* offers the analyzer's new *Before writing new code*
+  workflow: whether what you are about to write already exists in the project, and the installed API of a
+  package you will call. The selected text fills in what the code will do (comment markers dropped), and an
+  import line under the cursor names the package.
+- **More for Claude Code.** *Set Up MCP for an AI Agent…* → Claude Code → **Hooks** now also runs before a new
+  file is written: when the map already holds something under a similar name, Claude sees it before writing a
+  second one. The after-edit hook leads with the decision records that name the file. **Skills** include
+  *before writing*. Run the setup again to add them; it writes only what changed.
+- **New for agents.** The MCP server the extension publishes adds `clarifydoc_context_docs` (the project's
+  decision records, architecture and glossary documents and schema dumps, each flagged when files it names
+  changed after it), and `clarifydoc_extract package=…` gives an installed package's API at the version
+  installed. Answers about a file edited since the analysis say so. `clarifydoc_explain` says what a file or function is — route
+  handler, data access, publisher, screen, API client — and which other routes share its tables.
+- The control-flow panel says once, in its banner, that a graph read from source text is approximate.
+
+The bundled analyzer is now 0.8.0 (extractor 1.462.0), so each project is analyzed again once after the
+update, when you pause. It now:
+
+- **Finds more routes:** Azure Functions (C#, JavaScript/TypeScript, Python and `function.json`), Fastify,
+  hapi and Koa route objects and prefixed plugins, a plain Node `http.createServer` that dispatches by hand,
+  gorilla/mux route builders, Laravel routes registered in a loop, Django model views registered per model and
+  DRF routers that map extra verbs, Phoenix `forward`.
+- **Follows more calls to their service:** Spring Cloud Gateway and Zuul routes as forwarding rules, Spring
+  context paths, Feign clients by service name, WebClient, RestClient and HTTP interfaces, Apache HttpClient,
+  Refit interfaces, CXF endpoint addresses, and the resources a .NET Aspire AppHost adds as addresses.
+- **Reaches more tables:** a stored procedure called by name joined to the SQL routine that declares it
+  (T-SQL batches and bodies read), JPA `persist(new Match(…))`, a DAO whose implementation's SQL names its
+  table, generic repositories typed along the call chain, Ecto `Repo.preload`, receivers typed through type
+  aliases, `package.json` `#imports`, Dart constructors and Python factories.
+- **Sees more screens and events:** Angular `routerLink` and `navigate` as navigation, the pages of a Vite or
+  webpack sub-project, in-process event buses in Go and chained JavaScript emitters, Spring messaging templates
+  by declared type.
+- **Records more:** doc comments on functions and classes, data flows ranked by criticality, a seam sketch
+  for an oversized file, duplicates compared by shape rather than by call names, Gradle version catalogs, and
+  Markdown as a dependent of the files it names.
+- **Gives the same output for the same input** on every run, and an incremental run notices a changed
+  `tsconfig.json` or `package.json` alias.
+
 ## 0.1.15
 
 - **The analysis loads on a worker thread.** Reading a large project's analysis no longer holds up other
