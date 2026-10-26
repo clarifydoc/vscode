@@ -283,7 +283,7 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
 
 /**
  * Claude Code can do more than call the server: hooks that put what the map
- * knows beside a search, an edit or a new session, and skills made from the
+ * knows beside a search, a new file, an edit or a new session, and skills made from the
  * ClarifyDoc workflows. Opt-in, through the CLI's own installer pointed at
  * the extension's stable launcher, so an update never breaks them; it
  * writes only what changed.
@@ -291,8 +291,8 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
 async function offerClaudeExtras(state: ExtensionState, folder: vscode.WorkspaceFolder): Promise<void> {
   const picks = await vscode.window.showQuickPick(
     [
-      { label: "Hooks", detail: "Before Grep/Glob: what the map knows about the name. After an edit: who depends on the file. At session start: what the map covers. Never blocks.", flag: "--hooks" },
-      { label: "Skills", detail: "One Claude Code skill per ClarifyDoc workflow (before editing, trace a feature, endpoint gaps…)", flag: "--skills" },
+      { label: "Hooks", detail: "Before Grep/Glob: what the map knows about the name. Before a new file: what already exists under its name. After an edit: who depends on the file, and the decision records naming it. At session start: what the map covers. Never blocks.", flag: "--hooks" },
+      { label: "Skills", detail: "One Claude Code skill per ClarifyDoc workflow (before editing, before writing, trace a feature, review a branch…)", flag: "--skills" },
     ],
     { canPickMany: true, title: "Also set up for Claude Code (optional)", placeHolder: "Pick none to skip" },
   );

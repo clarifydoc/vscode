@@ -39,7 +39,7 @@ describe.skipIf(!fs.existsSync(bundled))("the bundled analyzer's agent exports",
 
   it("has workflows whose arguments the cursor context can fill", async () => {
     const m = await import(pathToFileURL(bundled).href);
-    const fillable = new Set(["file", "symbol", "path", "method", "screen", "feature", "base"]);
+    const fillable = new Set(["file", "symbol", "path", "method", "screen", "feature", "base", "what", "package"]);
     for (const p of m.WORKFLOW_PROMPTS as { name: string; arguments: { name: string }[] }[]) {
       for (const a of p.arguments) expect(fillable.has(a.name), `${p.name}: ${a.name}`).toBe(true);
     }
