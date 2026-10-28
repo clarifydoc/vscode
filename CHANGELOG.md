@@ -1,5 +1,35 @@
 # Change Log
 
+## 0.1.17
+
+The bundled analyzer is now 0.9.0 (extractor 1.583.0), so each project is analyzed again once after the
+update, when you pause. Call traces, impact, the sidebar and the MCP tools all read what it now finds:
+
+- **Eleven more languages read by a parser.** Go, Lua, Rust, C and C++ (C++20 and C++23 included) are read by
+  their grammars, and Swift, Dart, Elixir, Scala, Objective-C and Haskell by tree-sitter, instead of by line
+  patterns. Functions end where they end, calls inside closures, chains, generic calls and macros are found,
+  and a declaration is no longer taken for a call. Call traces gain the links that follow: on real projects up
+  to a few thousand more. A file the grammar cannot read keeps the earlier reading, so nothing is lost.
+- **Imports by what they name.** Go module paths, Dart packages, Swift modules, Scala packages, C# namespaces
+  and Ruby's autoloaded constants resolve to their files; a constant another module declares is followed to its
+  value; a Rust trait method implemented in another crate is reached.
+- **Where a route parameter comes from, and what it filters.** Call traces show which screen value feeds each
+  route parameter, and which column the backend filters on with it (Python, C#, Java, Kotlin, Go, Ruby, PHP,
+  Laravel route-model binding).
+- **Follows more requests:** URL helpers and request factories in JavaScript, Java, C# and Go, Python HTTP
+  sessions and test clients, websockets (Django Channels, `new WebSocket`), JAX-WS ports, Java's
+  `openConnection`, YARP `MapForwarder` forwarding.
+- **Reaches more tables:** Django `RunSQL` and Alembic `op.execute`, Django related managers, SQLAlchemy
+  statements, xorm and Diesel queries, PHP's `mysqli_*`/`pg_*` functions, FluentMigrator, JPQL entities — and
+  stops reporting tables that are none: caches, request bags, event hooks, message ports.
+- **Links more of the screen to its handlers:** Vue emits however the parent spells them, Angular outputs,
+  React handlers assigned in a constructor, Alpine.js directives, Nuxt auto-imports, Flutter screens through
+  their State.
+- **Guards a route inherits** from where its router or controller is declared are shown on the route; a
+  FastAPI dependency counts as a guard only when it checks the caller.
+- **For agents:** search ranks functions and classes by their doc comments and, asked in words, by what their
+  bodies say; the analysis can be exported as a spec per screen with the user flows through it.
+
 ## 0.1.16
 
 - **Impact lists the docs to update.** The Source Control Impact view has a *Docs to update* group: each
