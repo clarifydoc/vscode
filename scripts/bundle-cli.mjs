@@ -41,6 +41,9 @@ const rootVersion = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf
  */
 const isWasmGrammar = (name) => /(^|\/)tree-sitter-/.test(name);
 
+/** A package's licence file, which ships with what is copied of it. */
+const LICENSE = /[\\/](LICEN[CS]E|COPYING)[^\\/]*$/i;
+
 /**
  * Production deps that exist only to support NATIVE tree-sitter bindings the
  * analyzer never loads (it uses web-tree-sitter + WASM for everything). Skipping
@@ -53,6 +56,7 @@ const SKIP = new Set([
   "tree-sitter-vue",
   "tree-sitter-c",
   "tree-sitter-go",
+  "tree-sitter-cli", // tree-sitter-swift lists the grammar build tool as a dependency; it is never run
   "nan",
   "node-addon-api",
   "node-gyp-build",
@@ -123,9 +127,16 @@ for (const pkgDir of closure) {
   if (isWasmGrammar(name)) {
     cpSync(pkgDir, to, {
       recursive: true,
-      filter: (src) => statSafe(src)?.isDirectory() || src.endsWith(".wasm") || src.endsWith("package.json"),
+      filter: (src) => statSafe(src)?.isDirectory() || src.endsWith(".wasm") || src.endsWith("package.json") || LICENSE.test(src),
     });
     if (!readdirRec(to).some((f) => f.endsWith(".wasm"))) missingGrammarWasm.push(name);
+  } else if (name === "antlr4ng") {
+    // The runtime is one self-contained file per module format; dist/ also holds every module three times over
+    // (.js, .cjs, .mjs — 11 MB) for importers that reach inside the package, which the analyzer does not.
+    cpSync(pkgDir, to, {
+      recursive: true,
+      filter: (src) => statSafe(src)?.isDirectory() || /[\\/](package\.json|dist[\\/]index\.[cm]js)$/.test(src) || LICENSE.test(src),
+    });
   } else if (name === "web-tree-sitter") {
     cpSync(pkgDir, to, { recursive: true, filter: (src) => !src.split(/[\\/]/).includes("debug") });
   } else {
