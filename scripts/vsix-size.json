@@ -1,4 +1,4 @@
 {
   "comment": "The VSIX size CI compares against (scripts/vsix-size.mjs). Raise it in the commit that explains why the package grew.",
-  "bytes": 12373880
+  "bytes": 12485359
 }

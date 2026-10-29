@@ -1,5 +1,26 @@
 # Change Log
 
+## 0.1.18
+
+The bundled analyzer is now 0.10.0 (extractor 1.601.0), so each project is analyzed again once after the
+update, when you pause.
+
+- **A navigation map of the screens.** The report's Screens tab opens on a map of every screen and dialog from
+  the start page, joined by what moves between them: a link or navigation call, a dialog opened, a router or
+  server redirect, a form submitted. Links are read from route names, built URLs, menu arrays, navigation
+  components and the app shell around a page, in React, Vue, Angular and AngularJS, Blazor and MAUI, Phoenix,
+  Flutter's go_router (shells and tabs included) and Spring Web Flow.
+- **Call traces land on the right function more often.** A bare call inside a method resolves on its own class
+  and its bases first, a nested function on the nearest one in scope, an import on the alias it is imported
+  under, a dotted import on its package, and an overload by the kind of its arguments. A call on an abstract
+  method reaches the override that runs.
+- **More languages followed further:** C++ classes nested in classes and calls through namespaces and headers,
+  Rust module paths, Ruby routes and Grape APIs, Livewire actions, Dapr and Phoenix channel messages, C# and
+  VB operators, and the members Lombok and records generate.
+- **Large projects finish.** A file whose analysis runs out of memory or time is skipped and listed rather than
+  stopping the run, generated files past 4 MB are left out, and memory stays bounded on very large C++ and Go
+  trees.
+
 ## 0.1.17
 
 The bundled analyzer is now 0.9.0 (extractor 1.583.0), so each project is analyzed again once after the
