@@ -8,7 +8,7 @@
 
 /** The bundled analyzer's `FreshnessReport`, by the fields read here. */
 export interface FreshnessReport {
-  state: "fresh" | "changed" | "extractor-changed" | "unknown";
+  state: "fresh" | "changed" | "extractor-changed" | "engine-older" | "unknown";
   changed: string[];
   removed: string[];
   checked: number;
@@ -49,6 +49,13 @@ export function describeFreshness(report: FreshnessReport | undefined): Freshnes
         detail:
           "**Out of date:** the analyzer was updated since this analysis ran. Where analyze on save is on, it re-analyzes once you pause typing; click to re-analyze with the new version now.",
         stale: true,
+      };
+    case "engine-older":
+      return {
+        suffix: " · newer analysis",
+        detail:
+          "**Written by a newer analyzer** than the one this extension bundles. It is kept as it is: re-analyzing here would replace it with older results. Update the extension to analyze again.",
+        stale: false,
       };
     default:
       return { suffix: "", detail: "", stale: false };

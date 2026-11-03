@@ -35,4 +35,10 @@ describe("describeFreshness", () => {
     expect(note.suffix).toBe(" · analyzer updated");
     expect(note.stale).toBe(true);
   });
+
+  it("keeps an analysis a newer analyzer wrote, and never offers to redo it with the older one", () => {
+    const note = describeFreshness(report({ state: "engine-older" }));
+    expect(note.suffix).toBe(" · newer analysis");
+    expect(note.stale).toBe(false);
+  });
 });
