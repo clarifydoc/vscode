@@ -1,5 +1,32 @@
 # Change Log
 
+## 0.1.19
+
+The bundled analyzer is now 0.11.0 (extractor 1.623.0), so each project is analyzed again once after the
+update, when you pause.
+
+- **Tests count as evidence.** A browser test that opens a page (`page.goto`, `cy.visit`, `browser.url`) reaches
+  that screen and the components it uses; a request spec reaches the route it calls; a Django `call_command`
+  reaches its command. A module a test mocks is not tested by it. With a coverage report that records which test
+  ran each line, `clarifydoc_explain` lists the tests that actually ran a function.
+- **Call traces reach further.** Loop and callback variables take the element type of the collection they walk,
+  in most languages. Vue slots, props and `provide`/`inject` that pass functions, Vuex stores, Angular dialog
+  results, Ruby macros and concerns, Java calling Kotlin and C# explicit interface implementations are followed.
+  When a name exists in several sub-projects, the one the caller's project references wins.
+- **More routes and screens:** Hono, Laravel route prefixes, WebFlux predicates, FastEndpoints groups, Razor
+  Pages handlers, Nuxt/Nitro server routes, Astro, EJS views and Flutter route tables. Next.js redirects,
+  `location.assign` and Ionic navigation count as navigation.
+- **More requests and messages followed:** Ktor, RestSharp, Flurl, Go resty, `got`, Swift `URLSession`, Ruby
+  `Net::HTTP`, MQTT topics, NServiceBus and AWS SQS/SNS. dbt models show the tables they build.
+- **C and C++ are read by their parsers more often.** Macros, MSVC conventions and compiler extensions no longer
+  push a file back to pattern matching. A header is read as C or C++ to match its project. A
+  `compile_commands.json` decides the include order and which `#ifdef` branch is live.
+- **Agents learn why code is the way it is.** `clarifydoc_context_docs` now quotes comments and commit messages
+  that state a reason, with no decision record needed. `clarifydoc_file` summarizes a whole folder.
+- **An analysis written by a newer analyzer is kept.** It is no longer redone with the older one bundled here.
+- **Fixes:** wrong links in Go, Vue, Ruby and TypeScript corrected, and pattern matching hardened so crafted
+  input cannot slow the analysis down.
+
 ## 0.1.18
 
 The bundled analyzer is now 0.10.0 (extractor 1.601.0), so each project is analyzed again once after the
