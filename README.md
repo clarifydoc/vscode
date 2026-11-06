@@ -37,6 +37,29 @@ Entity   Orders · INSERT (+ OrderLines)           OrderService.cs
 No account, no Node.js install, no configuration. The analyzer ships inside the
 extension.
 
+## What do you want to know?
+
+Find your question. The row says where the answer is: in the editor, in the report, or in what your AI
+agent calls.
+
+| You want to know | In the editor | In the report | Your agent calls |
+|---|---|---|---|
+| **New to the codebase** | | | |
+| Where is the backend for this `fetch` / `axios` call? | F12 on the call's URL | Call Traces | `clarifydoc_routes` |
+| Which screens call this endpoint? | Shift+F12 on the route, or its CodeLens | Routes | `clarifydoc_routes` |
+| Which tables does this screen read and write? | Right-click → Screens & UI for This File | Screens & UI, Data Flows | `clarifydoc_data_flows` |
+| What does this function do, step by step? | Click its complexity lens: Show Control Flow | | `clarifydoc_extract` |
+| How is the system put together? | Create Architecture Diagram | Architecture, Data Model | `clarifydoc_architecture` |
+| **Changing or reviewing code** | | | |
+| What breaks if I change this file? | Right-click → Blast Radius for This File | Blast Radius | `clarifydoc_blast_radius` |
+| What does my diff reach: screens, routes, tables, tests? | The ClarifyDoc Impact view in Source Control | | `clarifydoc_impact` |
+| Does this branch break the API? | Compare API Surface with the Base | | `clarifydoc_diff` |
+| Which lines does no test run? | Toggle Coverage Overlay (reads your coverage report) | | |
+| **Owning, auditing or modernizing a system** | | | |
+| Which calls reach no route, and which routes does nothing call? | Hover on the call | Routes | `clarifydoc_routes` with `gaps` |
+| What is dead, risky or too complex? | The Problems panel | Health, Complexity | `clarifydoc_health` |
+| What is in it, for an audit: routes, tables, packages, findings? | Export Security Findings as SARIF | Routes, Data Model, Dependencies | `clarifydoc_export` |
+
 ## What you get
 
 ### Follow a click all the way to the database
@@ -168,16 +191,6 @@ EF Core, Hibernate / JPA, TypeORM, Sequelize, Mongoose, Prisma, SQLAlchemy,
 Django ORM, Eloquent, Doctrine, ActiveRecord, GORM and Diesel, as well as from
 plain SQL.
 
-## Built for
-
-- **Onboarding** to a codebase you didn't write.
-- **Legacy modernization**: scoping a rebuild of a system nobody fully remembers.
-- **Refactoring and code review**, with the blast radius in view.
-- **Audits and due diligence**: a full inventory of routes, tables, packages and
-  security findings.
-- **AI-assisted development**: grounding your agent in the architecture you
-  actually have.
-
 ---
 
 ## How it runs
@@ -277,10 +290,8 @@ parsed code, with `path:line` references — instead of inferring it from a few 
   useful immediately; a directory lock keeps that run from colliding with one started here or from the CLI. Turn the
   whole thing off with `clarifydoc.mcp.enabled`.
 
-Tools: `clarifydoc_explain`, `clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_services`,
-`clarifydoc_contract`, `clarifydoc_screens`, `clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_extract`,
-`clarifydoc_blast_radius`, `clarifydoc_data_model`, `clarifydoc_data_flows`, `clarifydoc_health`,
-`clarifydoc_architecture`, `clarifydoc_context_docs`, `clarifydoc_impact`, `clarifydoc_control_flow`, `clarifydoc_analyze`.
+<!-- fact:mcp.tools -->23<!-- /fact --> tools, all read-only but <!-- fact:mcp.writingTools word -->two<!-- /fact --> (`clarifydoc_analyze` and `clarifydoc_diff`,
+which write only to `.clarifydoc/`): <!-- fact:mcp.names.tools -->`clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_contract`, `clarifydoc_services`, `clarifydoc_screens`, `clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_extract`, `clarifydoc_blast_radius`, `clarifydoc_data_model`, `clarifydoc_data_flows`, `clarifydoc_health`, `clarifydoc_architecture`, `clarifydoc_context_docs`, `clarifydoc_impact`, `clarifydoc_control_flow`, `clarifydoc_sequence`, `clarifydoc_diff`, `clarifydoc_export`, `clarifydoc_facts`, `clarifydoc_analyze`, `clarifydoc_explain`<!-- /fact -->.
 
 ## Commands
 
