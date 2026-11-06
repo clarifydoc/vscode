@@ -1,5 +1,8 @@
 # ClarifyDoc for VS Code
 
+▶ **[Open a live report — no install](https://clarifydoc.com/examples.html)** · No telemetry · no sign-in · no LLM ·
+[What leaves your machine](https://clarifydoc.com/trust.html)
+
 **Which screen calls this endpoint, and which table does it write?** ClarifyDoc
 answers that for any codebase, straight from the source, without leaving your
 editor.
@@ -89,9 +92,9 @@ first.
 
 ### See the whole system
 
-The report has tabs for Overview, Screens & UI, Call Traces, Architecture, Data
-Access, Data Model (ER diagram), Routes, Data Flows, Health, Blast Radius,
-Complexity, Insights and Dependencies. Click a file or symbol in the report and
+The report has <!-- fact:report.tabs word -->twelve<!-- /fact --> tabs: Screens & UI, Call Traces, Architecture (with a Data
+Access mode), Data Model (ER diagram), Routes, Data Flows, Health, Blast Radius,
+Complexity, Insights, Dependencies and Overview. Click a file or symbol in the report and
 the source opens beside it. The report is one self-contained `report.html`, so
 you can open it in a browser or send it to someone who doesn't have VS Code.
 
@@ -139,9 +142,10 @@ your cursor is. [Details below.](#ai-agents-mcp)
 
 ## Languages and frameworks
 
-50+ languages, mixed freely in one workspace, with the templates, schemas, API
+<!-- fact:languages.floor -->50+<!-- /fact --> languages, mixed freely in one workspace, with the templates, schemas, API
 contracts and deployment files around them. A Delphi client, a .NET service
-and a React frontend are analyzed as one graph.
+and a React frontend are analyzed as one graph — and so is a folder holding
+several repositories, whose calls are joined across them.
 
 | Area | Languages |
 |------|-----------|
