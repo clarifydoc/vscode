@@ -7,7 +7,7 @@ import { docFacts } from "./docFacts";
 export function selectionWords(text: string): string | undefined {
   const words = text
     .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*(?:\/\/+|#+|--|\/\*+|\*+\/?|<!--)\s?/, "").replace(/\s*(?:\*\/|-->)\s*$/, ""))
+    .map((l) => l.replace(/^\s*(?:\/\/+|#+|--|\/\*+|\*+\/?|<!--)\s?/, "").replace(/\s*(?:\*\/|--!?>)\s*$/, ""))
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();

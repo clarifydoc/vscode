@@ -7,6 +7,8 @@ describe("before-writing arguments from the editor", () => {
     expect(selectionWords("// format a match date")).toBe("format a match date");
     expect(selectionWords("# rank clubs by points")).toBe("rank clubs by points");
     expect(selectionWords("/* sum the goals */")).toBe("sum the goals");
+    expect(selectionWords("<!-- list the squad -->")).toBe("list the squad");
+    expect(selectionWords("<!-- list the squad --!>")).toBe("list the squad");
     expect(selectionWords("   ")).toBeUndefined();
     expect(selectionWords("x".repeat(121))).toBeUndefined();
   });
