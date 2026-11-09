@@ -215,13 +215,67 @@ export interface RunOptions {
  *  warning loop must not grow the extension host without bound. */
 const STDERR_TAIL = 256 * 1024;
 
-/** Every analyzer process still running, so deactivation can stop them. */
-const children = new Set<ChildProcess>();
+/** What a running child was started for: the folder it works in and where it writes. */
+interface ChildInfo {
+  cwd: string;
+  /** The `-o` directory of an `analyze`/`impact` run. */
+  outputDir?: string;
+}
+
+/** Every analyzer process still running, so deactivation, a removed folder or a moved output can stop them. */
+const children = new Map<ChildProcess, ChildInfo>();
+
+/** Stop one child and, on Windows, everything it started (`kill()` ends only the process itself there). */
+function killTree(child: ChildProcess): void {
+  if (process.platform === "win32" && child.pid !== undefined) {
+    try {
+      execFile("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true }, () => {});
+      return;
+    } catch {
+      /* fall back to the plain kill below */
+    }
+  }
+  child.kill();
+}
 
 /** Stop every analyzer process this extension started (on deactivate). */
 export function killAllChildren(): void {
-  for (const child of children) child.kill();
+  for (const child of children.keys()) killTree(child);
   children.clear();
+}
+
+/** Stop the children matching `pred`; returns how many. */
+export function killChildrenWhere(pred: (info: Readonly<ChildInfo>) => boolean): number {
+  let n = 0;
+  for (const [child, info] of [...children]) {
+    if (!pred(info)) continue;
+    killTree(child);
+    children.delete(child);
+    n++;
+  }
+  return n;
+}
+
+const norm = (p: string) => path.resolve(p).replace(/[\\/]+$/, "");
+const isInside = (p: string, dir: string) => {
+  const a = norm(p), b = norm(dir);
+  const [x, y] = process.platform === "win32" ? [a.toLowerCase(), b.toLowerCase()] : [a, b];
+  return x === y || x.startsWith(y + path.sep);
+};
+
+/** Stop the children working in a folder (it was removed from the workspace). */
+export function killChildrenForFolder(folderPath: string): number {
+  return killChildrenWhere((c) => isInside(c.cwd, folderPath));
+}
+
+/**
+ * Stop the children of a folder that write to `oldOutputDir` (the storage setting moved the output away from it):
+ * their results would land where nothing reads them. A run writing anywhere else (a compare's scratch tree) goes on.
+ */
+export function killChildrenWritingTo(folderPath: string, oldOutputDir: string): number {
+  return killChildrenWhere(
+    (c) => isInside(c.cwd, folderPath) && c.outputDir !== undefined && norm(c.outputDir) === norm(oldOutputDir),
+  );
 }
 
 /**
@@ -245,7 +299,8 @@ export function runClarifyDoc(
       env,
       windowsHide: true,
     });
-    children.add(child);
+    const oi = fullArgs.indexOf("-o");
+    children.set(child, { cwd: opts.cwd, outputDir: oi >= 0 ? fullArgs[oi + 1] : undefined });
     if (opts.lowPriority && child.pid !== undefined) {
       try {
         os.setPriority(child.pid, os.constants.priority.PRIORITY_BELOW_NORMAL);

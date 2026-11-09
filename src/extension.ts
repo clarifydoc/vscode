@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { resetCliResolution, bundleAvailable, bundledAnalyzerVersion, killAllChildren } from "./cli";
+import { resetCliResolution, bundleAvailable, bundledAnalyzerVersion, killAllChildren, killChildrenForFolder, killChildrenWritingTo } from "./cli";
 import { getConfig } from "./config";
 import { analyzeWorkspace } from "./analyze";
 import { showReport } from "./report";
@@ -233,12 +233,20 @@ export function activate(context: vscode.ExtensionContext): void {
         primeControlFlowSupport(context, output);
       }
       if (e.affectsConfiguration("clarifydoc.storage")) {
+        // A run still writing to the old location would leave its result where nothing reads it.
+        const folders = vscode.workspace.workspaceFolders ?? [];
+        const before = folders.map((folder) => outputBaseDir(context, folder));
         resetStorageResolution();
+        folders.forEach((folder, i) => {
+          if (outputBaseDir(context, folder) !== before[i]) killChildrenWritingTo(folder.uri.fsPath, before[i]);
+        });
         logStorage();
       }
       state.refresh();
     }),
-    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+    vscode.workspace.onDidChangeWorkspaceFolders((e) => {
+      // A removed folder's analysis would keep running (and writing) for a folder no one has open.
+      for (const folder of e.removed) killChildrenForFolder(folder.uri.fsPath);
       resetStorageResolution();
       state.refresh();
     }),

@@ -190,7 +190,17 @@ export function registerAutoAnalyze(
         void rebuild();
       }
     }),
-    vscode.workspace.onDidChangeWorkspaceFolders(() => void rebuild()),
+    vscode.workspace.onDidChangeWorkspaceFolders((e) => {
+      // Nothing may fire for a folder that is gone: its debounce, queued catch-up and idle wait.
+      for (const folder of e.removed) {
+        const key = folder.uri.fsPath;
+        clearTimeout(timers.get(key));
+        timers.delete(key);
+        pending.delete(key);
+        cancelIdleWait(key);
+      }
+      void rebuild();
+    }),
     // Typing anywhere means the window is in use: the post-update run waits again.
     vscode.workspace.onDidChangeTextDocument((e) => {
       if (idle.size && e.contentChanges.length) [...idle.keys()].forEach(startIdleWait);
