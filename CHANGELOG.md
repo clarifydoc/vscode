@@ -1,5 +1,31 @@
 # Change Log
 
+## 0.1.20
+
+The bundled analyzer is now 0.13.0 (extractor 1.674.0), so each project is analyzed again once after the
+update, when you pause.
+
+- **Fewer wrong links.** A call on an object whose type is known no longer lands on another class's method of the
+  same name. A call through a chain (`club.league.relegate()`) is typed from its start in Ruby, Dart, Swift and
+  Scala. A route reaches only what its handler reaches, not everything the code registering it touches. API
+  schemas and database tables are never taken for functions. Running the analysis twice gives the same links.
+- **Clicks reach their data more often.** A click that only sets state reaches the request a watcher then makes.
+  Callbacks written in place, values passed down through props and stores, every page that uses a shared dialog,
+  and links built from a route path table are followed.
+- **More of the backend is followed:** factory results, repository and query helpers, Rails concerns, Devise
+  routes and instance variables, Go fields typed by their package, Dart extensions, Rust request wrappers and C++
+  overloads chosen by argument type.
+- **More routes, messages and deployments:** Express handlers built by a factory, plain `node:http` servers,
+  Next.js middleware as a route guard, Dapr pub/sub, CloudFormation and SAM templates, and Spring beans that only
+  apply under a profile. Queues and topics with one name on two brokers stay apart.
+- **Agents get better answers.** When nothing calls a function, `clarifydoc_explain` and `clarifydoc_trace` say
+  what could hide a caller. A trace that fails names where it stopped. `clarifydoc_impact` reads changes made in a
+  linked git worktree. A git rebase refreshes the analysis once.
+- **Faster re-runs.** The first incremental run after a full one reuses its work, and a cold run spends less
+  time waiting on the disk.
+- **Fixes:** removing a folder from the workspace, or changing `clarifydoc.storage`, now stops the analysis still
+  running for it, so nothing is written where no one reads it.
+
 ## 0.1.19
 
 The bundled analyzer is now 0.11.0 (extractor 1.623.0), so each project is analyzed again once after the
