@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.1.22
+
+The bundled analyzer is now 1.1.1 (extractor 1.709.0), so each project is analyzed again once after the update,
+when you pause.
+
+- **Ignored folders stay out of the architecture diagram.** A folder listed in `.clarifydocignore` no longer adds
+  containers from its compose files, Dockerfiles, Kubernetes manifests or Terraform, so a checked-out copy of
+  another project beside yours stops appearing in the C4 view. Its CI pipelines, config files and docs are no longer
+  read either.
+
 ## 0.1.21
 
 The bundled analyzer is now 1.1.0 (extractor 1.708.0), so each project is analyzed again once after the update,
