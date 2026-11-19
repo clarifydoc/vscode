@@ -290,8 +290,8 @@ parsed code, with `path:line` references — instead of inferring it from a few 
   useful immediately; a directory lock keeps that run from colliding with one started here or from the CLI. Turn the
   whole thing off with `clarifydoc.mcp.enabled`.
 
-<!-- fact:mcp.tools -->23<!-- /fact --> tools, all read-only but <!-- fact:mcp.writingTools word -->two<!-- /fact --> (`clarifydoc_analyze` and `clarifydoc_diff`,
-which write only to `.clarifydoc/`): <!-- fact:mcp.names.tools -->`clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_contract`, `clarifydoc_services`, `clarifydoc_screens`, `clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_extract`, `clarifydoc_blast_radius`, `clarifydoc_data_model`, `clarifydoc_data_flows`, `clarifydoc_health`, `clarifydoc_architecture`, `clarifydoc_context_docs`, `clarifydoc_impact`, `clarifydoc_control_flow`, `clarifydoc_sequence`, `clarifydoc_diff`, `clarifydoc_export`, `clarifydoc_facts`, `clarifydoc_analyze`, `clarifydoc_explain`<!-- /fact -->.
+<!-- fact:mcp.tools -->24<!-- /fact --> tools, all read-only but <!-- fact:mcp.writingTools word -->two<!-- /fact --> (`clarifydoc_analyze` and `clarifydoc_diff`,
+which write only to `.clarifydoc/`): <!-- fact:mcp.names.tools -->`clarifydoc_status`, `clarifydoc_search`, `clarifydoc_routes`, `clarifydoc_contract`, `clarifydoc_services`, `clarifydoc_screens`, `clarifydoc_file`, `clarifydoc_trace`, `clarifydoc_extract`, `clarifydoc_blast_radius`, `clarifydoc_rename_plan`, `clarifydoc_data_model`, `clarifydoc_data_flows`, `clarifydoc_health`, `clarifydoc_architecture`, `clarifydoc_context_docs`, `clarifydoc_impact`, `clarifydoc_control_flow`, `clarifydoc_sequence`, `clarifydoc_diff`, `clarifydoc_export`, `clarifydoc_facts`, `clarifydoc_analyze`, `clarifydoc_explain`<!-- /fact -->.
 
 ## Commands
 
