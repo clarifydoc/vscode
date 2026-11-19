@@ -1,5 +1,26 @@
 # Change Log
 
+## 0.1.21
+
+The bundled analyzer is now 1.1.0 (extractor 1.708.0), so each project is analyzed again once after the update,
+when you pause.
+
+- **Many more calls are followed to the right code.** Go package-level values and closures, Java, Kotlin and C#
+  generics (`<T extends Car>`), reactive and async Java and Kotlin chains (`Mono`, `Flux`, `CompletableFuture`,
+  `Optional`, streams), Dart and Python helpers, Perl method calls and nested classes (`Right.Builder.build()`) now
+  link by type, so callers, traces and the screen → route → table chain go further.
+- **Fewer wrong links.** A variable that is reassigned or shadowed no longer keeps its old type, an import only
+  reaches the file its path names, and a C# explicit interface member is only reached through the interface.
+- **Handlers a framework registers for you have callers.** MediatR, MassTransit and NServiceBus handlers are linked
+  from the call that scans their assembly, and Android activities and services from `AndroidManifest.xml`.
+- **Config keys show who reads them:** a Spring `@Value` or `@ConfigurationProperties` key links to its line in
+  `application.yml`, and a Terraform `.tfvars` key to its `variable` block.
+- **A clearer Data Model:** an API contract's request and response schemas are listed apart from your tables,
+  behind a toggle.
+- **Fewer false "unused file" findings** for JavaScript and TypeScript: files loaded by computed imports, Vue
+  `<script src>`, CI and Makefile run lines, migrations and generated code count as used. Each unused export says
+  how sure the finding is.
+
 ## 0.1.20
 
 The bundled analyzer is now 0.13.0 (extractor 1.674.0), so each project is analyzed again once after the
