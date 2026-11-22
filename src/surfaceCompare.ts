@@ -9,6 +9,7 @@ import { folderKey, resultsDir } from "./paths";
 import type { CompareBase } from "./compareBase";
 import type { SurfaceDiff } from "./surfaceModel";
 import { rememberTrees, sweepTrees } from "./surfaceSweep";
+import { overlayFromSurface, type ChangeOverlay } from "./changeOverlay";
 
 /**
  * The API surface of the compared base, so the Impact view can say what the
@@ -114,4 +115,9 @@ export async function diffWithBase(context: vscode.ExtensionContext, folder: vsc
   const result = await runClarifyDoc(cli, ["diff", baseAnalysisDir(context, folder, commit), resultsDir(context, folder), "--json"], { cwd: folder.uri.fsPath });
   if (result.code !== 0) throw new Error(result.stderr.trim().split("\n").pop() ?? `exit ${result.code}`);
   return JSON.parse(result.stdout) as SurfaceDiff;
+}
+
+/** The comparison as the overlay the report and the Changed Elements view mark (2.3 step 4). */
+export function surfaceOverlay(diff: SurfaceDiff, baseLabel: string): ChangeOverlay {
+  return overlayFromSurface(diff, baseLabel);
 }

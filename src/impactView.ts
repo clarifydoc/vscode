@@ -9,9 +9,11 @@ import { ImpactIcon, ImpactNode, ImpactResult, UntestedCaller, impactNodes } fro
 import { loadAnalysis, untestedFunction } from "./analysisData";
 import { CompareBase, describeBase, parseRefs } from "./compareBase";
 import { pickWorkspaceFolder } from "./workspace";
-import { analyzeBase, diffWithBase, hasBaseAnalysis } from "./surfaceCompare";
+import { analyzeBase, diffWithBase, hasBaseAnalysis, surfaceOverlay } from "./surfaceCompare";
 import { surfaceNode } from "./surfaceModel";
 import { behaviourRows, showSequenceDiff } from "./behaviourCompare";
+import { changeHub } from "./changeOverlayHub";
+import { overlayFromImpact } from "./changeOverlay";
 
 const ICONS: Record<ImpactIcon, string> = {
   risk: "warning",
@@ -146,7 +148,11 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
     try {
       const results = new Map<string, FolderImpact>();
       for (const folder of vscode.workspace.workspaceFolders ?? []) {
-        results.set(folder.uri.fsPath, await this.impactOf(folder));
+        const impact = await this.impactOf(folder);
+        results.set(folder.uri.fsPath, impact);
+        // The change, as the report and the Changed Elements view mark it.
+        changeHub.setImpact(folder.uri.fsPath, "result" in impact ? overlayFromImpact(impact.result) : null);
+        if (!this.baseOf(folder)) changeHub.setSurface(folder.uri.fsPath, null);
       }
       this.results = results;
       const routes = [...results.values()].reduce((n, r) => n + ("result" in r ? r.result.routeCount : 0), 0);
@@ -344,6 +350,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
   /** The API-surface group: the diff when the base was analyzed, else a row that offers to. */
   private async surfaceOf(folder: vscode.WorkspaceFolder, base: CompareBase, changedFiles: readonly string[] = []): Promise<ImpactNode> {
     if (!(await hasBaseAnalysis(this.state.context, folder, base.commit))) {
+      changeHub.setSurface(folder.uri.fsPath, null);
       return {
         label: `API surface vs ${base.label}`,
         description: "click to compare routes, guards and bodies",
@@ -353,6 +360,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
     }
     try {
       const diff = await diffWithBase(this.state.context, folder, base.commit);
+      changeHub.setSurface(folder.uri.fsPath, surfaceOverlay(diff, base.label));
       const behaviour = await behaviourRows(this.state.context, folder, base.commit, diff, changedFiles);
       return surfaceNode(diff, base.label, behaviour, folder);
     } catch (err) {
