@@ -112,7 +112,7 @@ function adopt(state: ExtensionState, folder: vscode.WorkspaceFolder, panel: vsc
  * Show the interactive report for a folder in a webview editor tab, optionally
  * deep-linked to a tab/file via `hash`. The report is a fully self-contained
  * single HTML file (all CSS/JS/data inlined, no external requests); it is shown
- * under a CSP that allows exactly that (`REPORT_CSP`) and no local resources.
+ * under a CSP that allows exactly that (`reportCsp`) and no local resources.
  */
 export async function openReport(
   state: ExtensionState,
