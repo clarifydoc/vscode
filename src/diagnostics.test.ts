@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as vscode from "vscode";
 import { contractDiag, routeMissDiag, securityDiag } from "./diagnostics";
+import { callSpan } from "./crossTier";
 
 const folder = { uri: vscode.Uri.file("/repo"), name: "repo", index: 0 } as unknown as vscode.WorkspaceFolder;
 
@@ -59,5 +60,28 @@ describe("securityDiag", () => {
       ["/repo/api/players.java", 5, "2. sql carries it"],
       ["/repo/api/Other.java", 2, "3. called from here"],
     ]);
+  });
+});
+
+describe("api call columns", () => {
+  const facts = (calls: Array<{ line: number; target?: string; column?: number }>) =>
+    ({ apiCalls: calls.map((c) => ({ name: "fetch", filePath: "web/a.ts", ...c })) }) as unknown as import("./analysisData").FileFacts;
+
+  it("narrows a route miss to the call's columns, up to the next call on the line", () => {
+    const f = facts([{ line: 3, target: "/api/cars", column: 12 }, { line: 3, target: "/api/clubs", column: 40 }]);
+    const span = callSpan(f, 3, "/api/cars");
+    expect(span).toEqual({ start: 12, end: 40 });
+    const d = routeMissDiag({ file: "web/a.ts", line: 3, method: "GET", url: "/api/cars", reason: "unmatched" }, folder, span);
+    expect([d.range.start.line, d.range.start.character, d.range.end.character]).toEqual([2, 12, 40]);
+    const c = contractDiag({ file: "web/a.ts", line: 3, method: "POST", url: "/api/clubs", route: { file: "api/c.ts", line: 1, path: "/api/clubs" }, kind: "missing-field", field: "name" }, folder, callSpan(f, 3, "/api/clubs"));
+    expect([c.range.start.character, c.range.end.character]).toEqual([40, 1_000_000]);
+  });
+
+  it("keeps the whole line when no column is stated or the call cannot be picked", () => {
+    expect(callSpan(facts([{ line: 3, target: "/api/cars" }]), 3, "/api/cars")).toBeUndefined();
+    expect(callSpan(facts([{ line: 3, target: "/a", column: 1 }, { line: 3, target: "/b", column: 9 }]), 3, "/other")).toBeUndefined();
+    expect(callSpan(undefined, 3, "/a")).toBeUndefined();
+    const d = routeMissDiag({ file: "web/a.ts", line: 3, method: "GET", url: "/api/cars", reason: "unmatched" }, folder, undefined);
+    expect([d.range.start.character, d.range.end.character]).toEqual([0, 1_000_000]);
   });
 });

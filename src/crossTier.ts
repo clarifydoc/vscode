@@ -76,6 +76,23 @@ export function callsAtLine(facts: FileFacts, line: number): ApiCall[] {
   return facts.apiCalls.filter((c) => c.line === line);
 }
 
+/**
+ * The columns an api call occupies on its line: from the column the analysis
+ * states to where the next call on that line starts (open-ended when none
+ * follows). `url` picks the call when several share the line; with one call it
+ * is not needed. Undefined — the caller keeps the whole line — when no call is
+ * found, the pick is ambiguous or the call states no column.
+ */
+export function callSpan(facts: FileFacts | undefined, line: number, url: string): { start: number; end?: number } | undefined {
+  const calls = facts ? callsAtLine(facts, line) : [];
+  const named = calls.length === 1 ? calls : calls.filter((c) => c.target === url || c.targetAlternatives?.includes(url));
+  const call = named.length === 1 ? named[0] : undefined;
+  const start = call?.column;
+  if (start === undefined || !Number.isInteger(start) || start < 0) return undefined;
+  const later = calls.map((c) => c.column).filter((c): c is number => typeof c === "number" && c > start);
+  return { start, ...(later.length ? { end: Math.min(...later) } : {}) };
+}
+
 /** The links F12 may jump through: one route each, never an ambiguous pick. */
 export function navigableLinks(links: ApiRouteLink[]): ApiRouteLink[] {
   return links.filter((l) => l.confidence !== "AMBIGUOUS");

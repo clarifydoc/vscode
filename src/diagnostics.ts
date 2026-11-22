@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { ExtensionState } from "./state";
 import { DeadCode, LayerViolation, loadAnalysis, ResolvedAnalysis, SecurityIssue } from "./analysisData";
-import type { CallMiss, ContractFinding } from "./crossTier";
+import { callSpan, type CallMiss, type ContractFinding } from "./crossTier";
 import { milestone } from "./startupClock";
 
 const FULL_LINE_END = 1_000_000; // Range end col; VS Code clamps to the real line length.
@@ -48,6 +48,16 @@ function severityFor(sev: string): vscode.DiagnosticSeverity {
 function lineRange(line1Based: number): vscode.Range {
   const l = Math.max(0, line1Based - 1); // analyzer lines are 1-based
   return new vscode.Range(l, 0, l, FULL_LINE_END);
+}
+
+/** Diagnostics drawn on a call's columns: their columns follow the saved text, so an edited file widens them. */
+const narrowed = new WeakSet<vscode.Diagnostic>();
+
+/** A line's range narrowed to a call's columns; the whole line when the analysis states none. */
+function callRange(line1Based: number, span?: { start: number; end?: number }): vscode.Range {
+  if (!span) return lineRange(line1Based);
+  const l = Math.max(0, line1Based - 1);
+  return new vscode.Range(l, span.start, l, span.end ?? FULL_LINE_END);
 }
 
 /** The same finding at another line (the file was edited since the analysis). */
@@ -114,13 +124,14 @@ const MISS_TEXT: Record<string, string> = {
  * routes that do serve the path are related locations, and the quick fix
  * opens them.
  */
-export function routeMissDiag(m: CallMiss, folder: vscode.WorkspaceFolder): vscode.Diagnostic {
+export function routeMissDiag(m: CallMiss, folder: vscode.WorkspaceFolder, span?: { start: number; end?: number }): vscode.Diagnostic {
   const call = `${m.method ? m.method + " " : ""}${m.url}`;
   const served = m.existing?.length ? `; the backend serves ${m.existing.map((r) => `${r.method ?? "*"} ${r.path}`).join(", ")}` : "";
   const severity = m.reason === "method-mismatch" || m.reason === "origin-mismatch"
     ? vscode.DiagnosticSeverity.Warning
     : vscode.DiagnosticSeverity.Information;
-  const d = new vscode.Diagnostic(lineRange(m.line), `${call} ${MISS_TEXT[m.reason] ?? "reaches no route"}${served}`, severity);
+  const d = new vscode.Diagnostic(callRange(m.line, span), `${call} ${MISS_TEXT[m.reason] ?? "reaches no route"}${served}`, severity);
+  if (span) narrowed.add(d);
   d.source = "ClarifyDoc";
   d.code = "route-miss";
   if (m.existing?.length) {
@@ -138,7 +149,7 @@ export function routeMissDiag(m: CallMiss, folder: vscode.WorkspaceFolder): vsco
  * an undeclared field is information, and so is a response field the call
  * reads that the route does not send. The route is the related location.
  */
-export function contractDiag(c: ContractFinding, folder: vscode.WorkspaceFolder): vscode.Diagnostic {
+export function contractDiag(c: ContractFinding, folder: vscode.WorkspaceFolder, span?: { start: number; end?: number }): vscode.Diagnostic {
   const call = `${c.method ? c.method + " " : ""}${c.url}`;
   const what = c.kind === "missing-field"
     ? `does not send "${c.field}", which ${c.route.path} requires`
@@ -148,7 +159,8 @@ export function contractDiag(c: ContractFinding, folder: vscode.WorkspaceFolder)
         ? `reads "${c.field}" from the response, which ${c.route.path} does not send`
         : `sends "${c.field}" as ${c.actual}; ${c.route.path} declares ${c.expected}`;
   const info = c.kind === "unknown-field" || c.kind === "unknown-response-field";
-  const d = new vscode.Diagnostic(lineRange(c.line), `${call} ${what}`, info ? vscode.DiagnosticSeverity.Information : vscode.DiagnosticSeverity.Warning);
+  const d = new vscode.Diagnostic(callRange(c.line, span), `${call} ${what}`, info ? vscode.DiagnosticSeverity.Information : vscode.DiagnosticSeverity.Warning);
+  if (span) narrowed.add(d);
   d.source = "ClarifyDoc";
   d.code = "contract";
   d.relatedInformation = [new vscode.DiagnosticRelatedInformation(
@@ -247,7 +259,10 @@ export class DiagnosticsManager {
     const moved: vscode.Diagnostic[] = [];
     for (const d of diags) {
       const line = this.state.lines.map(uri, d.range.start.line);
-      if (line !== undefined) moved.push(line === d.range.start.line ? d : movedTo(d, line));
+      if (line === undefined) continue;
+      // A call's columns are the saved text's; once the file is edited the whole line stands for the call.
+      if (line === d.range.start.line && !narrowed.has(d)) moved.push(d);
+      else moved.push(movedTo(d, line));
     }
     return [uri, moved];
   }
@@ -315,7 +330,7 @@ export class DiagnosticsManager {
     }
     if (s.include.contracts) {
       for (const list of a.crossTier.contractsByFile?.values() ?? []) {
-        for (const c of list) push(c.file, contractDiag(c, folder));
+        for (const c of list) push(c.file, contractDiag(c, folder, callSpan(a.byFile.get(c.file), c.line, c.url)));
       }
     }
     if (s.include.thinMap) {
@@ -343,7 +358,7 @@ export class DiagnosticsManager {
     }
     if (s.include.routeGaps) {
       for (const misses of a.crossTier.missesByFile.values()) {
-        for (const m of misses) push(m.file, routeMissDiag(m, folder));
+        for (const m of misses) push(m.file, routeMissDiag(m, folder, callSpan(a.byFile.get(m.file), m.line, m.url)));
       }
     }
   }

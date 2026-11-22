@@ -142,6 +142,8 @@ export interface ApiCall {
   /** App-relative URL as written; `{}` marks holes the analyzer could not read. */
   target?: string;
   targetAlternatives?: string[];
+  /** Where the call starts on its line (0-based UTF-16 units, as an editor Range counts); absent on older analyses and some readers. */
+  column?: number;
 }
 
 /** A call joined to the route that serves it (`ProjectAnalysis.apiRouteLinks`). */
