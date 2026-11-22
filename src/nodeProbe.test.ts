@@ -20,6 +20,14 @@ describe("the remembered node probe", () => {
     expect(probe).toHaveBeenCalledTimes(1);
   });
 
+  it("says whether the answer was remembered or spawned", async () => {
+    const m = memory();
+    const said = vi.fn();
+    await nodeOnPath(m, key, async () => true, said);
+    await nodeOnPath(m, key, async () => true, said);
+    expect(said.mock.calls).toEqual([["spawned"], ["remembered"]]);
+  });
+
   it("remembers that node is absent too", async () => {
     const m = memory();
     const probe = vi.fn(async () => false);

@@ -17,10 +17,14 @@ export function nodeProbeKey(bundledVersion: string | undefined, cliPath: string
 }
 
 /** The remembered answer for `key`, else `probe`'s, which is then remembered. */
-export async function nodeOnPath(memory: Memory | undefined, key: string, probe: () => Promise<boolean>): Promise<boolean> {
+export async function nodeOnPath(memory: Memory | undefined, key: string, probe: () => Promise<boolean>, said?: (how: "remembered" | "spawned") => void): Promise<boolean> {
   const saved = memory?.get<{ key: string; onPath: boolean }>(SLOT);
-  if (saved && saved.key === key) return saved.onPath;
+  if (saved && saved.key === key) {
+    said?.("remembered");
+    return saved.onPath;
+  }
   const onPath = await probe();
+  said?.("spawned");
   await memory?.update(SLOT, { key, onPath });
   return onPath;
 }

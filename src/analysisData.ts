@@ -512,6 +512,15 @@ export async function loadHead(
   return head.summary;
 }
 
+/**
+ * The whole summary's load when one is already under way or done, else undefined
+ * (this never starts one). The freshness check waits on it: stat'ing every
+ * analyzed file on the host thread meanwhile slows the load's own host-side work.
+ */
+export function fullLoadInFlight(context: vscode.ExtensionContext, folder: vscode.WorkspaceFolder): Promise<unknown> | undefined {
+  return cache.get(summaryPath(context, folder))?.loaded;
+}
+
 /** Whether the whole summary of this folder has been loaded: a view then reads it as cheaply as the head. */
 export function fullLoadDone(context: vscode.ExtensionContext, folder: vscode.WorkspaceFolder): boolean {
   const entry = cache.get(summaryPath(context, folder));

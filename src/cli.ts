@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { ChildProcess, execFile, spawn } from "child_process";
+import { milestone } from "./startupClock";
 import { forgetNodeOnPath, nodeOnPath, nodeProbeKey, type Memory } from "./nodeProbe";
 import { getConfig } from "./config";
 
@@ -68,6 +69,7 @@ async function resolveNode(extensionPath: string): Promise<{ command: string; el
     new Promise<boolean>((resolve) => {
       execFile("node", ["--version"], { windowsHide: true, timeout: 10_000 }, (err) => resolve(!err));
     }),
+    (how) => milestone("node probe", how),
   );
   if (onPath) return { command: "node", electronAsNode: false };
   return { command: process.execPath, electronAsNode: true };

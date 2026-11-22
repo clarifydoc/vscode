@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { freshnessOf, invalidateFreshness, loadHead, loadSummary } from "./analysisData";
+import { freshnessOf, fullLoadInFlight, invalidateFreshness, loadHead, loadSummary } from "./analysisData";
 import { describeFreshness, type FreshnessNote } from "./freshness";
 import type { AnalysisSummary } from "./summary";
 import { ExtensionState } from "./state";
@@ -77,6 +77,8 @@ export class StatusBar {
 
     const drawn = this.draw(folder, name, summary, describeFreshness(undefined));
     if (drawn) milestone("first status bar headline", head ? "from the head file" : "from the full summary");
+    await fullLoadInFlight(this.state.context, folder)?.catch(() => undefined);
+    if (folder !== this.folder() || this.state.isRunning(folder.uri.fsPath)) return;
     const note = describeFreshness(await freshnessOf(this.state.context, folder));
     if (folder !== this.folder() || this.state.isRunning(folder.uri.fsPath)) return;
     if (note.suffix || note.stale || note.detail) this.draw(folder, name, summary, note);
