@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { resetCliResolution, bundleAvailable, bundledAnalyzerVersion, killAllChildren, killChildrenForFolder, killChildrenWritingTo } from "./cli";
+import { rememberNodeProbe, resetCliResolution, bundleAvailable, bundledAnalyzerVersion, killAllChildren, killChildrenForFolder, killChildrenWritingTo } from "./cli";
 import { getConfig } from "./config";
 import { analyzeWorkspace } from "./analyze";
 import { showReport } from "./report";
@@ -67,6 +67,9 @@ export function activate(context: vscode.ExtensionContext): void {
     `ClarifyDoc extension ${String(context.extension?.packageJSON?.version ?? "?")}, ` +
       `analyzer ${bundledAnalyzerVersion(context.extensionPath) ?? "not bundled"}`,
   );
+
+  // Whether `node` runs is remembered across windows, before anything resolves the analyzer.
+  rememberNodeProbe(context.globalState);
 
   const lines = new LineTracker();
   context.subscriptions.push(lines);

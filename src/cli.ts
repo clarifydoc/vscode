@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { ChildProcess, execFile, spawn } from "child_process";
+import { forgetNodeOnPath, nodeOnPath, nodeProbeKey, type Memory } from "./nodeProbe";
 import { getConfig } from "./config";
 
 /**
@@ -23,10 +24,17 @@ export interface ResolvedCli {
 }
 
 let cachedResolution: Promise<ResolvedCli> | null = null;
+let memory: Memory | undefined;
 
-/** Reset the memoized CLI resolution (call when settings change). */
+/** Where the answer to "does `node` run" is remembered across windows (the extension's global state). */
+export function rememberNodeProbe(m: Memory): void {
+  memory = m;
+}
+
+/** Reset the memoized CLI resolution (call when settings change), and the remembered `node` probe. */
 export function resetCliResolution(): void {
   cachedResolution = null;
+  void forgetNodeOnPath(memory);
 }
 
 function existingFile(p: string): boolean {
@@ -51,14 +59,16 @@ export function bundledCliPath(extensionPath: string): string {
  * The bundled analyzer is pure JS + WASM (no native addons), so any of these
  * runs it identically.
  */
-async function resolveNode(): Promise<{ command: string; electronAsNode: boolean }> {
+async function resolveNode(extensionPath: string): Promise<{ command: string; electronAsNode: boolean }> {
   const cfg = getConfig();
   if (cfg.nodePath) return { command: cfg.nodePath, electronAsNode: false };
   // Probed asynchronously: activation resolves the CLI, and a blocking probe
   // holds every extension in the host for as long as `node` takes to start.
-  const onPath = await new Promise<boolean>((resolve) => {
-    execFile("node", ["--version"], { windowsHide: true, timeout: 10_000 }, (err) => resolve(!err));
-  });
+  const onPath = await nodeOnPath(memory, nodeProbeKey(bundledAnalyzerVersion(extensionPath), cfg.cliPath, cfg.nodePath), () =>
+    new Promise<boolean>((resolve) => {
+      execFile("node", ["--version"], { windowsHide: true, timeout: 10_000 }, (err) => resolve(!err));
+    }),
+  );
   if (onPath) return { command: "node", electronAsNode: false };
   return { command: process.execPath, electronAsNode: true };
 }
@@ -75,7 +85,7 @@ export function resolveCli(extensionPath: string): Promise<ResolvedCli> {
 
 async function resolveCliUncached(extensionPath: string): Promise<ResolvedCli> {
   const cfg = getConfig();
-  const node = await resolveNode();
+  const node = await resolveNode(extensionPath);
   const runtime = node.electronAsNode ? "VS Code (Electron-as-Node)" : node.command;
 
   // 1. Advanced override.
