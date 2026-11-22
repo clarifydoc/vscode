@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { fullLoadDone, loadAnalysis, loadHead, onFullLoad, ResolvedAnalysis } from "./analysisData";
+import { fullLoadDone, loadAnalysis, loadHead, onFullLoad, ResolvedAnalysis, RouteInfo, SecurityIssue } from "./analysisData";
 import type { AnalysisSummary } from "./summary";
+import { FindingTracker } from "./newFindings";
 import { absFor } from "./reveal";
 import { describeTable, tableUses, type TableEntry } from "./dataTables";
 import { bookmarksOf } from "./bookmarks";
@@ -21,6 +22,10 @@ export class Node extends vscode.TreeItem {
   bookmark?: Bookmark;
   /** A group drawn from the head file: its children are built once the whole summary is loaded. */
   lazyFolder?: vscode.WorkspaceFolder;
+  /** For a route leaf: the route row its actions (callers, try it) read. */
+  route?: RouteInfo;
+  /** For a security leaf: the finding its actions (suppress, reaching routes) read. */
+  finding?: SecurityIssue;
   constructor(
     public readonly kind: NodeKind,
     label: string,
@@ -50,14 +55,31 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
 
   /** Folder paths whose top level was drawn from the head file, not the whole summary. */
   private readonly fromHead = new Set<string>();
+  /** Findings the latest analysis has and the one before it did not, across folders (the view's badge). */
+  newFindings = 0;
+  private readonly _onDidChangeBadge = new vscode.EventEmitter<number>();
+  readonly onDidChangeBadge = this._onDidChangeBadge.event;
+  private readonly tracker: FindingTracker;
+  private readonly newByFolder = new Map<string, number>();
 
   constructor(private readonly state: ExtensionState) {
+    this.tracker = new FindingTracker((state as { context?: vscode.ExtensionContext } | undefined)?.context?.workspaceState);
     // Whoever started the whole load (a lens, the diagnostics), the full groups replace the head's when it lands.
     state.context?.subscriptions.push(
       onFullLoad(() => {
         if (this.fromHead.size > 0) this.refresh();
       }),
     );
+  }
+
+  private noteFindings(folder: vscode.WorkspaceFolder, a: ResolvedAnalysis): void {
+    this.tracker.update(folder.uri.fsPath, a.security);
+    this.newByFolder.set(folder.uri.fsPath, this.tracker.count(folder.uri.fsPath, a.security));
+    const total = [...this.newByFolder.values()].reduce((x, y) => x + y, 0);
+    if (total !== this.newFindings) {
+      this.newFindings = total;
+      this._onDidChangeBadge.fire(total);
+    }
   }
 
   refresh(): void {
@@ -72,6 +94,7 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
     if (node?.lazyFolder) {
       // Expanding a group drawn from the head is what starts the whole load.
       const a = await loadAnalysis(this.state.context, node.lazyFolder);
+      if (a) this.noteFindings(node.lazyFolder, a);
       return (a && this.groups(node.lazyFolder, a).find((g) => g.id === node.id)?.children) || [];
     }
     if (node) return node.children;
@@ -120,6 +143,7 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
       empty.command = { command: "clarifydoc.analyze", title: "Analyze Workspace", arguments: [folder] };
       return [empty];
     }
+    this.noteFindings(folder, a);
     return this.groups(folder, a);
   }
 
@@ -191,6 +215,14 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
     leaf.file = file;
     leaf.copyText = label;
     leaf.contextValue = "clarifydoc.located";
+    return leaf;
+  }
+
+  /** A route: opens its handler; its actions find callers, open the report on it and write a request. */
+  private routeLeaf(folder: vscode.WorkspaceFolder, r: RouteInfo): Node {
+    const leaf = this.revealLeaf(folder, [r.httpMethod, r.path].filter(Boolean).join(" ") || r.path, r.filePath, r.line, new vscode.ThemeIcon("milestone"));
+    leaf.route = r;
+    leaf.contextValue = "clarifydoc.route";
     return leaf;
   }
 
@@ -272,9 +304,7 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
   }
 
   private routesGroup(folder: vscode.WorkspaceFolder, a: ResolvedAnalysis): Node {
-    const children = a.routes.map((r) =>
-      this.revealLeaf(folder, [r.httpMethod, r.path].filter(Boolean).join(" ") || r.path, r.filePath, r.line, new vscode.ThemeIcon("milestone")),
-    );
+    const children = a.routes.map((r) => this.routeLeaf(folder, r));
     return this.group("Routes", a.routes.length, "milestone", children);
   }
 
@@ -295,9 +325,7 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
       leaf.tooltip = `${missReason(m.reason)}${served}\n${m.file}:${m.line}`;
       return leaf;
     });
-    const uncalledLeaves = uncalled.slice(0, GAP_LIMIT).map((r) =>
-      this.revealLeaf(folder, [r.httpMethod, r.path].filter(Boolean).join(" ") || r.path, r.filePath, r.line, new vscode.ThemeIcon("milestone")),
-    );
+    const uncalledLeaves = uncalled.slice(0, GAP_LIMIT).map((r) => this.routeLeaf(folder, r));
     const uncalledTotal = Math.max(a.crossTier.uncalledCount ?? 0, uncalled.length);
 
     const calls = this.group("Calls that reach no route", misses.length, "debug-disconnect", missLeaves);
@@ -353,6 +381,12 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
       const leaf = this.revealLeaf(folder, s.message, s.filePath, s.line, new vscode.ThemeIcon("shield", severityColor(s.severity)));
       leaf.tooltip = `${s.severity} · ${s.category}\n${s.filePath}:${s.line}`;
       leaf.copyText = `${s.message} (${s.filePath}:${s.line})`;
+      leaf.finding = s;
+      leaf.contextValue = "clarifydoc.finding";
+      if (this.tracker.isNew(folder.uri.fsPath, s)) {
+        leaf.description = `${leaf.description} · new`;
+        leaf.tooltip = `New since the previous analysis\n${leaf.tooltip}`;
+      }
       const key = s.severity.toLowerCase();
       bySeverity.set(key, [...(bySeverity.get(key) ?? []), leaf]);
     }
@@ -479,7 +513,7 @@ function sectionIcon(section: string): string {
 }
 
 /** Report tabs a sidebar item can open on its file. */
-export type ItemReportTab = "blast" | "traces";
+export type ItemReportTab = "blast" | "traces" | "routes";
 
 /** The report location for a sidebar item: its tab, focused on its file. */
 export function itemReportHash(node: Node, tab: ItemReportTab): string | undefined {

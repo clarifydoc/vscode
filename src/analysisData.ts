@@ -46,6 +46,12 @@ export interface RouteInfo {
   filePath: string;
   line: number;
   kind?: string;
+  /** Guards the route declares (`routeMap[].auth`); only the analyzer's summary rows carry it. */
+  auth?: { policies?: string[]; roles?: string[]; schemes?: string[]; anonymous?: boolean };
+  /** Handler parameters with where each binds in the request. */
+  params?: { name: string; type?: string | null; binding?: string | null }[];
+  /** The request body's JSON shape, when the analyzer derived one. */
+  requestSchema?: import("./tryIt").SchemaNode;
 }
 export interface SymbolLink {
   sourceFile: string;

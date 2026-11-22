@@ -314,6 +314,42 @@
         "title": "Call Traces",
         "category": "ClarifyDoc",
         "icon": "$(call-outgoing)"
+      },
+      {
+        "command": "clarifydoc.treeItemFindCallers",
+        "title": "Find Callers",
+        "category": "ClarifyDoc",
+        "icon": "$(references)"
+      },
+      {
+        "command": "clarifydoc.treeItemShowRoute",
+        "title": "Show in Report",
+        "category": "ClarifyDoc",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "clarifydoc.treeItemSuppress",
+        "title": "Suppress Finding",
+        "category": "ClarifyDoc",
+        "icon": "$(bell-slash)"
+      },
+      {
+        "command": "clarifydoc.treeItemReachingRoutes",
+        "title": "Show Reaching Routes",
+        "category": "ClarifyDoc",
+        "icon": "$(milestone)"
+      },
+      {
+        "command": "clarifydoc.tryItRoute",
+        "title": "Try It (Open .http Request)",
+        "category": "ClarifyDoc",
+        "icon": "$(play)"
+      },
+      {
+        "command": "clarifydoc.copyRouteAsCurl",
+        "title": "Copy Route as curl",
+        "category": "ClarifyDoc",
+        "icon": "$(terminal)"
       }
     ],
     "viewsContainers": {
@@ -561,6 +597,30 @@
         {
           "command": "clarifydoc.treeItemTraces",
           "when": "false"
+        },
+        {
+          "command": "clarifydoc.treeItemFindCallers",
+          "when": "false"
+        },
+        {
+          "command": "clarifydoc.treeItemShowRoute",
+          "when": "false"
+        },
+        {
+          "command": "clarifydoc.treeItemSuppress",
+          "when": "false"
+        },
+        {
+          "command": "clarifydoc.treeItemReachingRoutes",
+          "when": "false"
+        },
+        {
+          "command": "clarifydoc.tryItRoute",
+          "when": "false"
+        },
+        {
+          "command": "clarifydoc.copyRouteAsCurl",
+          "when": "false"
         }
       ],
       "view/item/context": [
@@ -571,28 +631,58 @@
         },
         {
           "command": "clarifydoc.copyTreeItem",
-          "when": "view == clarifydoc.summary && viewItem =~ /^clarifydoc\\.(located|table)$/",
+          "when": "view == clarifydoc.summary && viewItem =~ /^clarifydoc\\.(located|route|finding|table)$/",
           "group": "inline@1"
         },
         {
           "command": "clarifydoc.copyTreeItem",
-          "when": "view == clarifydoc.summary && viewItem =~ /^clarifydoc\\.(located|table)$/",
+          "when": "view == clarifydoc.summary && viewItem =~ /^clarifydoc\\.(located|route|finding|table)$/",
           "group": "1_copy@1"
         },
         {
           "command": "clarifydoc.treeItemTraces",
-          "when": "view == clarifydoc.summary && viewItem == clarifydoc.located",
+          "when": "view == clarifydoc.summary && viewItem =~ /^clarifydoc\\.(located|route|finding)$/",
           "group": "2_report@1"
         },
         {
           "command": "clarifydoc.treeItemBlast",
-          "when": "view == clarifydoc.summary && viewItem == clarifydoc.located",
+          "when": "view == clarifydoc.summary && viewItem =~ /^clarifydoc\\.(located|route|finding)$/",
           "group": "2_report@2"
         },
         {
           "command": "clarifydoc.deleteBookmark",
           "when": "view == clarifydoc.summary && viewItem == clarifydoc.bookmark",
           "group": "inline@1"
+        },
+        {
+          "command": "clarifydoc.treeItemFindCallers",
+          "when": "view == clarifydoc.summary && viewItem == clarifydoc.route",
+          "group": "2_report@0"
+        },
+        {
+          "command": "clarifydoc.treeItemShowRoute",
+          "when": "view == clarifydoc.summary && viewItem == clarifydoc.route",
+          "group": "2_report@3"
+        },
+        {
+          "command": "clarifydoc.tryItRoute",
+          "when": "view == clarifydoc.summary && viewItem == clarifydoc.route",
+          "group": "3_try@1"
+        },
+        {
+          "command": "clarifydoc.copyRouteAsCurl",
+          "when": "view == clarifydoc.summary && viewItem == clarifydoc.route",
+          "group": "3_try@2"
+        },
+        {
+          "command": "clarifydoc.treeItemReachingRoutes",
+          "when": "view == clarifydoc.summary && viewItem == clarifydoc.finding",
+          "group": "2_report@0"
+        },
+        {
+          "command": "clarifydoc.treeItemSuppress",
+          "when": "view == clarifydoc.summary && viewItem == clarifydoc.finding",
+          "group": "4_suppress@1"
         }
       ],
       "editor/title": [
@@ -789,6 +879,12 @@
           "type": "boolean",
           "default": true,
           "description": "Show a lens at the top of a file the analysis rates high or critical risk to change, with the reasons on hover.",
+          "scope": "resource"
+        },
+        "clarifydoc.codeLens.tryIt": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a \"try it\" lens on a route that opens its request as an untitled .http file (REST Client format). Nothing is sent.",
           "scope": "resource"
         },
         "clarifydoc.hover.enabled": {

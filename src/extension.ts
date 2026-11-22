@@ -10,6 +10,7 @@ import { primeControlFlowSupport, resetControlFlowSupport } from "./controlFlowS
 import { detectFrameworks, impactOfChanges } from "./extraCommands";
 import { jumpToFileView } from "./jump";
 import { itemReportHash, Node as TreeNode, SummaryTreeProvider } from "./treeView";
+import { registerTreeItemCommands } from "./treeItemCommands";
 import { StatusBar } from "./statusBar";
 import { ThinMapStatus } from "./thinStatus";
 import { pickWorkspaceFolder } from "./workspace";
@@ -120,9 +121,14 @@ export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = new DiagnosticsManager(state);
   void diagnostics.refresh();
   context.subscriptions.push(state.onAnalysisChanged(() => tree?.refresh()));
+  // A tree view (not just a provider) so the view can carry a badge: the new findings.
+  const summaryView = vscode.window.createTreeView("clarifydoc.summary", { treeDataProvider: tree });
 
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider("clarifydoc.summary", tree),
+    summaryView,
+    tree.onDidChangeBadge((n) => {
+      summaryView.badge = n > 0 ? { value: n, tooltip: `${n} new finding${n === 1 ? "" : "s"} since the previous analysis` } : undefined;
+    }),
     vscode.languages.registerCodeLensProvider({ scheme: "file" }, new ClarifyDocCodeLensProvider(state)),
     vscode.languages.registerHoverProvider({ scheme: "file" }, new ClarifyDocHoverProvider(state)),
     vscode.languages.registerDefinitionProvider({ scheme: "file" }, new ApiCallDefinitionProvider(state)),
@@ -205,6 +211,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (node?.folder && hash) await showReport(state, node.folder, { hash });
     });
   }
+  registerTreeItemCommands(state, register);
   register("clarifydoc.refresh", () => {
     resetCliResolution();
     resetControlFlowSupport();

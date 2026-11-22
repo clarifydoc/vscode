@@ -71,6 +71,7 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     this.definitionLenses(idx, document, uriArg, threshold, lenses, supportsControlFlow(document), tests);
     this.routeLenses(facts, document, lenses, analysis!, folder);
     this.untestedRouteLenses(facts, document, rel, lenses, analysis!);
+    this.tryItLenses(facts, document, lenses, folder);
     return lenses;
   }
 
@@ -138,6 +139,22 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
         tooltip: "The coverage report counts lines in this route's handler and what it calls, and no test ran any of them",
         command: "clarifydoc.openReportForFile",
         arguments: [doc.uri, "routes"],
+      }));
+    }
+  }
+
+  /** "Try it" on each endpoint the file serves: its request as an untitled .http file. Kept apart from the route lenses. */
+  private tryItLenses(facts: FileFacts, doc: vscode.TextDocument, out: vscode.CodeLens[], folder: vscode.WorkspaceFolder): void {
+    if (!vscode.workspace.getConfiguration("clarifydoc.codeLens", doc.uri).get<boolean>("tryIt", true)) return;
+    for (const r of facts.routes) {
+      if (!r.httpMethod || r.kind === "frontend") continue;
+      const range = this.rangeAt(doc, r.line);
+      if (!range) continue;
+      out.push(new vscode.CodeLens(range, {
+        title: "$(play) try it",
+        tooltip: "Open this route's request as a .http file (nothing is sent)",
+        command: "clarifydoc.tryItRoute",
+        arguments: [{ folder, route: r }],
       }));
     }
   }
