@@ -11,7 +11,7 @@ import { indexProject, num, reviveIndexed } from "./analysisIndex";
 import { readSummaryOffThread } from "./summaryThread";
 import { readTrustedHead } from "./summaryHead";
 
-export { indexProject, parseLineRanges, riskyFilesOf, testCoverageOf, thinFilesOf } from "./analysisIndex";
+export { indexProject, parseLineRanges, riskyFilesOf, routeCoverageKey, testCoverageOf, thinFilesOf, untestedFunction } from "./analysisIndex";
 import type { FreshnessReport } from "./freshness";
 
 // ─── Shapes we consume (a loose view of the analyzer's ProjectAnalysis) ──────
@@ -121,6 +121,8 @@ export interface FileTestCoverage {
   /** Report files it came from, and whether any is older than the sources. */
   sources: string[];
   stale: boolean;
+  /** Per function, for the functions with counted lines (`name` as the report spells it, 1-based lines). */
+  functions?: Array<{ name: string; line: number; endLine: number; total: number; covered: number }>;
 }
 
 
@@ -220,6 +222,8 @@ export interface ResolvedAnalysis {
   risky: Map<string, RiskVerdict>;
   /** Test coverage per file, when the analysis read a coverage report (`testCoverage`). */
   testCoverage: Map<string, FileTestCoverage>;
+  /** Routes the coverage report says no test runs (`RouteInfo.testCoverage.covered` 0), keyed by `routeCoverageKey`. */
+  untestedRoutes?: Set<string>;
   /** What the project's Markdown names that the tree no longer bears out (`docDrift.findings`). */
   docDrift: DocDriftFinding[];
   /** Project types' supertypes and subtypes, from the class graph. */

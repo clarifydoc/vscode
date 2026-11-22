@@ -30,6 +30,8 @@ export interface ImpactResult {
   owners?: { owner: string; files: number }[];
   /** Who knows the changed files best, by commits (the change's author left out). */
   reviewers?: { name: string; files: number; commits: number }[];
+  /** What this report could not judge, one sentence each (engines from the release that added it; absent on older ones). */
+  limitations?: string[];
   /** The change at the level of functions, when the diff's lines were known. */
   symbolImpact?: {
     changed: { file: string; symbol: string; line: number; endLine: number }[];
@@ -106,8 +108,20 @@ export interface ImpactNode {
   children?: ImpactNode[];
   /** For the risk node: its level, to color it. */
   level?: ImpactResult["risk"]["level"];
+  /** One finding as Markdown an agent can read on its own; set on single findings, offered by "Copy Finding for Agent". */
+  agentText?: string;
   /** Runs this command when clicked (a node with no file). */
   command?: { id: string; title: string; arguments?: unknown[] };
+}
+
+/** One finding as Markdown for an agent: the section it is in, what it is, where, and why it matters. */
+export function findingText(section: string, node: Pick<ImpactNode, "label" | "description" | "file" | "line">): string {
+  const where = node.file ? `${node.file}${node.line ? `:${node.line}` : ""}` : undefined;
+  return [
+    `ClarifyDoc impact — ${section}`,
+    `- \`${node.label}\`${node.description ? ` — ${node.description}` : ""}`,
+    ...(where && !node.description?.includes(where) ? [`- at ${where}`] : []),
+  ].join("\n");
 }
 
 /** "3" or "3+" when the analyzer capped the list it counted from. */
@@ -115,8 +129,11 @@ function count(n: number, truncated: boolean): string {
   return `${n}${truncated ? "+" : ""}`;
 }
 
+/** Whether the coverage report counts lines in a function and no test ran any of them. */
+export type UntestedCaller = (file: string, symbol: string, line: number) => boolean;
+
 /** The tree for one impact result. Empty sections are left out. `errorsIn` marks the callers the editor reports errors at. */
-export function impactNodes(r: ImpactResult, errorsIn?: ErrorLines): ImpactNode[] {
+export function impactNodes(r: ImpactResult, errorsIn?: ErrorLines, untestedIn?: UntestedCaller): ImpactNode[] {
   if (r.changedFiles.length === 0 && r.unknownFiles.length === 0) {
     return [{ label: "No changes against the last commit", icon: "info" }];
   }
@@ -128,7 +145,7 @@ export function impactNodes(r: ImpactResult, errorsIn?: ErrorLines): ImpactNode[
     children: r.risk.reasons.map((reason) => ({ label: reason, icon: "info" })),
   });
   const section = (label: string, total: number, icon: ImpactIcon, children: ImpactNode[]) => {
-    if (children.length) out.push({ label, description: count(total, r.truncated), icon, children });
+    if (children.length) out.push({ label, description: count(total, r.truncated), icon, children: children.map((c) => ({ ...c, agentText: findingText(label, c) })) });
   };
   // Function level, when the diff's lines were known: what breaks first.
   const si = r.symbolImpact;
@@ -156,7 +173,8 @@ export function impactNodes(r: ImpactResult, errorsIn?: ErrorLines): ImpactNode[
     };
     const caller = (c: SymbolCaller): ImpactNode => {
       const err = errors(c);
-      return { label: `${c.symbol}()`, description: `${c.file}:${c.line}${c.depth > 1 ? ` · ${c.depth} hops` : ""}${c.confidence !== "EXTRACTED" ? ` · ${c.confidence.toLowerCase()}` : ""}${stand(c)}${err}`, icon: err.endsWith("the call") ? "error" : c.standing === "unverified" ? "unverified" : "caller", file: c.file, line: c.line };
+      const untested = untestedIn?.(c.file, c.symbol, c.line) ? " · untested" : "";
+      return { label: `${c.symbol}()`, description: `${c.file}:${c.line}${c.depth > 1 ? ` · ${c.depth} hops` : ""}${c.confidence !== "EXTRACTED" ? ` · ${c.confidence.toLowerCase()}` : ""}${stand(c)}${untested}${err}`, icon: err.endsWith("the call") ? "error" : c.standing === "unverified" ? "unverified" : "caller", file: c.file, line: c.line };
     };
     // A caller that is a route handler is named by its route.
     const route = (x: NonNullable<typeof si.routes>[number]): ImpactNode => {
@@ -208,7 +226,10 @@ export function impactNodes(r: ImpactResult, errorsIn?: ErrorLines): ImpactNode[
       label: "Docs to update",
       description: String(Math.max(r.docCount ?? 0, docs.length)),
       icon: "doc",
-      children: docs.map((d) => ({ label: `${d.doc}:${d.line}`, description: `${d.text} · ${d.file}`, icon: "doc" as const, file: d.doc, line: d.line })),
+      children: docs.map((d) => {
+        const node = { label: `${d.doc}:${d.line}`, description: `${d.text} · ${d.file}`, icon: "doc" as const, file: d.doc, line: d.line };
+        return { ...node, agentText: findingText("Docs to update", node) };
+      }),
     });
   }
   const people: ImpactNode[] = [
@@ -234,6 +255,14 @@ export function impactNodes(r: ImpactResult, errorsIn?: ErrorLines): ImpactNode[
       ],
     })),
   });
+  if (r.limitations?.length) {
+    out.push({
+      label: "What this could not judge",
+      description: String(r.limitations.length),
+      icon: "info",
+      children: r.limitations.map((l) => ({ label: l, icon: "info" as const })),
+    });
+  }
   if (r.unknownFiles.length) {
     out.push({
       label: "Not in the analysis",

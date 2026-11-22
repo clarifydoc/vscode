@@ -189,6 +189,12 @@
         "icon": "$(copy)"
       },
       {
+        "command": "clarifydoc.impactCopyFinding",
+        "title": "Copy Finding for Agent",
+        "category": "ClarifyDoc",
+        "icon": "$(copy)"
+      },
+      {
         "command": "clarifydoc.impactCompareSurface",
         "title": "Compare API Surface with the Base",
         "category": "ClarifyDoc",
@@ -521,6 +527,10 @@
       ],
       "commandPalette": [
         {
+          "command": "clarifydoc.impactCopyFinding",
+          "when": "false"
+        },
+        {
           "command": "clarifydoc.openBookmark",
           "when": "false"
         },
@@ -554,6 +564,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "clarifydoc.impactCopyFinding",
+          "when": "view == clarifydoc.impact && viewItem == clarifydoc.impactFinding",
+          "group": "1_copy@1"
+        },
         {
           "command": "clarifydoc.copyTreeItem",
           "when": "view == clarifydoc.summary && viewItem =~ /^clarifydoc\\.(located|table)$/",

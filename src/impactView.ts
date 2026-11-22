@@ -5,7 +5,8 @@ import { ExtensionState } from "./state";
 import { resolveCli, runClarifyDoc } from "./cli";
 import { outputBaseDir, summaryPath } from "./paths";
 import { absFor } from "./reveal";
-import { ImpactIcon, ImpactNode, ImpactResult, impactNodes } from "./impactModel";
+import { ImpactIcon, ImpactNode, ImpactResult, UntestedCaller, impactNodes } from "./impactModel";
+import { loadAnalysis, untestedFunction } from "./analysisData";
 import { CompareBase, describeBase, parseRefs } from "./compareBase";
 import { pickWorkspaceFolder } from "./workspace";
 import { analyzeBase, diffWithBase, hasBaseAnalysis } from "./surfaceCompare";
@@ -55,7 +56,7 @@ const DEBOUNCE_MS = 1500;
 type Row = { node: ImpactNode; folder: vscode.WorkspaceFolder } | { folder: vscode.WorkspaceFolder; header: true };
 
 /** One folder's impact: the analyzer's answer, kept so the editor's errors can be laid over it again without a rerun. */
-type FolderImpact = { result: ImpactResult; surface?: ImpactNode; nodes: ImpactNode[]; callerFiles: Set<string> } | { message: string };
+type FolderImpact = { result: ImpactResult; surface?: ImpactNode; untested?: UntestedCaller; nodes: ImpactNode[]; callerFiles: Set<string> } | { message: string };
 
 /** The slice of the built-in Git extension's API used here. */
 interface GitApi {
@@ -98,6 +99,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       vscode.commands.registerCommand("clarifydoc.refreshImpact", () => this.schedule(0)),
       vscode.commands.registerCommand("clarifydoc.impactCompareWith", (target, ref?: string) => this.pickBase(target, ref)),
       vscode.commands.registerCommand("clarifydoc.impactCopyForAgent", (target) => this.copyForAgent(target)),
+      vscode.commands.registerCommand("clarifydoc.impactCopyFinding", (row?: Row) => this.copyFinding(row)),
       vscode.commands.registerCommand("clarifydoc.impactCompareSurface", (target) => this.compareSurface(target)),
     );
     this.describe();
@@ -155,7 +157,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
   }
 
   /** The tree for an impact, with the callers the editor reports errors at marked. */
-  private render(folder: vscode.WorkspaceFolder, result: ImpactResult, surface: ImpactNode | undefined): FolderImpact {
+  private render(folder: vscode.WorkspaceFolder, result: ImpactResult, surface: ImpactNode | undefined, untested?: UntestedCaller): FolderImpact {
     const memo = new Map<string, number[]>();
     // Compiler and linter errors only: our own findings are not what breaks a caller.
     const errorsIn = (file: string) => {
@@ -169,11 +171,11 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       }
       return lines;
     };
-    const nodes = impactNodes(result, errorsIn);
+    const nodes = impactNodes(result, errorsIn, untested);
     if (surface) nodes.unshift(surface);
     const si = result.symbolImpact;
     const callerFiles = new Set([...(si?.direct ?? []), ...(si?.transitive ?? []), ...(si?.routes ?? [])].map((c) => vscode.Uri.file(absFor(folder, c.file)).toString()));
-    return { result, surface, nodes, callerFiles };
+    return { result, surface, untested, nodes, callerFiles };
   }
 
   /** Errors came or went in a caller's file: lay them over the same impact again, without rerunning the analyzer. */
@@ -185,7 +187,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
     this.diagnosticsTimer = setTimeout(() => {
       for (const folder of vscode.workspace.workspaceFolders ?? []) {
         const r = this.results.get(folder.uri.fsPath);
-        if (r && "result" in r) this.results.set(folder.uri.fsPath, this.render(folder, r.result, r.surface));
+        if (r && "result" in r) this.results.set(folder.uri.fsPath, this.render(folder, r.result, r.surface, r.untested));
       }
       this.changed.fire(undefined);
     }, 300);
@@ -293,6 +295,14 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
     void vscode.window.showInformationMessage(`ClarifyDoc: the impact of your changes${base ? ` ${describeBase(base)}` : ""} is on the clipboard, as Markdown.`);
   }
 
+  /** One finding of the view, as Markdown on the clipboard. */
+  private async copyFinding(row?: Row): Promise<void> {
+    const text = row && "node" in row ? row.node.agentText : undefined;
+    if (!text) return;
+    await vscode.env.clipboard.writeText(text);
+    void vscode.window.setStatusBarMessage("ClarifyDoc: the finding is on the clipboard, for an agent", 2500);
+  }
+
   /**
    * "Compare API Surface": analyze the compared base once (a temporary
    * worktree, seeded from this analysis), so the view can list what the
@@ -359,7 +369,9 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
         return { message: result.stderr.includes("git") ? "Needs a git repository" : "Could not compute the impact (see the output)" };
       }
       const parsed = JSON.parse(result.stdout) as ImpactResult;
-      return this.render(folder, parsed, base ? await this.surfaceOf(folder, base) : undefined);
+      const coverage = (await loadAnalysis(this.state.context, folder).catch(() => undefined))?.testCoverage;
+      const untested: UntestedCaller | undefined = coverage?.size ? (file, symbol, line) => untestedFunction(coverage, file, symbol, line) : undefined;
+      return this.render(folder, parsed, base ? await this.surfaceOf(folder, base) : undefined, untested);
     } catch (err) {
       this.state.output.warn(`[impact] ${folder.name}: ${err instanceof Error ? err.message : String(err)}`);
       return { message: "Could not compute the impact (see the output)" };
@@ -398,6 +410,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       : vscode.TreeItemCollapsibleState.None;
     const item = new vscode.TreeItem(node.label, collapsible);
     item.description = node.description;
+    if (node.agentText) item.contextValue = "clarifydoc.impactFinding";
     const color = node.level ? RISK_COLOR[node.level] : undefined;
     item.iconPath = new vscode.ThemeIcon(ICONS[node.icon], color ? new vscode.ThemeColor(color) : undefined);
     if (node.file) {

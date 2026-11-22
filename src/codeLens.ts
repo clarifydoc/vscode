@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { loadAnalysis, loadFileIndex, linkCommands, relPathOf, FileFacts, FileIndex, ResolvedAnalysis } from "./analysisData";
+import { loadAnalysis, loadFileIndex, linkCommands, relPathOf, routeCoverageKey, FileFacts, FileIndex, ResolvedAnalysis } from "./analysisData";
 import { callersOf, describeRoute, isUncalled, routeData, screensReaching } from "./crossTier";
 import { callerLocations } from "./apiCallProvider";
 import { crossTierEnabled } from "./docFacts";
@@ -70,6 +70,7 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     const tests = analysis!.isTest ? { isTest: analysis!.isTest, hasTests: analysis!.hasTests === true } : undefined;
     this.definitionLenses(idx, document, uriArg, threshold, lenses, supportsControlFlow(document), tests);
     this.routeLenses(facts, document, lenses, analysis!, folder);
+    this.untestedRouteLenses(facts, document, rel, lenses, analysis!);
     return lenses;
   }
 
@@ -123,6 +124,22 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
   private rangeAt(doc: vscode.TextDocument, line1: number): vscode.Range | undefined {
     const line = this.state.lines.map(doc.uri, Math.max(0, line1 - 1));
     return line === undefined ? undefined : new vscode.Range(line, 0, line, 0);
+  }
+
+  /** `untested` on an API route that a coverage report says no test runs (the handler and what it calls, three deep). */
+  private untestedRouteLenses(facts: FileFacts, doc: vscode.TextDocument, rel: string, out: vscode.CodeLens[], analysis: ResolvedAnalysis): void {
+    if (!analysis.untestedRoutes?.size) return;
+    for (const r of facts.routes) {
+      if (r.kind === "frontend" || !analysis.untestedRoutes.has(routeCoverageKey({ ...r, filePath: rel }))) continue;
+      const range = this.rangeAt(doc, r.line);
+      if (!range) continue;
+      out.push(new vscode.CodeLens(range, {
+        title: "$(beaker) untested",
+        tooltip: "The coverage report counts lines in this route's handler and what it calls, and no test ran any of them",
+        command: "clarifydoc.openReportForFile",
+        arguments: [doc.uri, "routes"],
+      }));
+    }
   }
 
   private routeLenses(

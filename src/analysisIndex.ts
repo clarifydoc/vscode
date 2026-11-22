@@ -50,14 +50,37 @@ export function parseLineRanges(text: string): Array<[number, number]> {
 /** Per-file test coverage, from the analysis's `testCoverage`. */
 export function testCoverageOf(raw: unknown): Map<string, FileTestCoverage> {
   const out = new Map<string, FileTestCoverage>();
-  const r = raw as { sources?: Array<{ file: string; stale?: boolean }>; files?: Array<{ file: string; total: number; covered: number; uncovered?: string }> } | undefined;
+  const r = raw as { sources?: Array<{ file: string; stale?: boolean }>; files?: Array<{ file: string; total: number; covered: number; uncovered?: string; functions?: Array<{ name: string; line: number; endLine: number; total: number; covered: number }> }> } | undefined;
   const sources = (r?.sources ?? []).map((s) => s.file);
   const stale = (r?.sources ?? []).some((s) => s.stale);
   for (const f of r?.files ?? []) {
     if (typeof f?.file !== "string" || !(f.total > 0)) continue;
-    out.set(f.file, { total: f.total, covered: f.covered, uncovered: parseLineRanges(f.uncovered ?? ""), sources, stale });
+    const functions = (f.functions ?? []).filter((fn) => typeof fn?.name === "string" && num(fn.line) !== undefined && num(fn.endLine) !== undefined && num(fn.total) !== undefined && num(fn.covered) !== undefined);
+    out.set(f.file, { total: f.total, covered: f.covered, uncovered: parseLineRanges(f.uncovered ?? ""), sources, stale, ...(functions.length ? { functions } : {}) });
   }
   return out;
+}
+
+/** Key of a route in `untestedRoutes`: its file and label. */
+export function routeCoverageKey(r: { filePath: string; httpMethod?: string | null; path: string }): string {
+  return `${r.filePath}\u0000${(r.httpMethod ?? "USE").toUpperCase()} ${r.path}`;
+}
+
+/** The routes whose handler and what it calls (three deep) have counted lines and no test ran any: the analysis states `covered: 0`. */
+export function untestedRoutesOf(routes: ReadonlyArray<{ filePath: string; httpMethod?: string | null; path: string; testCoverage?: { covered: number; total: number } }>): Set<string> {
+  const out = new Set<string>();
+  for (const r of routes) if (r.testCoverage && r.testCoverage.covered === 0 && r.testCoverage.total > 0) out.add(routeCoverageKey(r));
+  return out;
+}
+
+/**
+ * Whether the coverage report counts lines in the function at `line` of `file` and no test ran any: the function
+ * the report names at that line, else one whose span holds `line` and whose name ends in the symbol's last part.
+ */
+export function untestedFunction(coverage: Map<string, FileTestCoverage>, file: string, symbol: string, line: number): boolean {
+  const leaf = symbol.split(".").pop()!;
+  const fn = coverage.get(file)?.functions?.find((f) => f.line === line || (line >= f.line && line <= f.endLine && (f.name === leaf || f.name.endsWith(`.${leaf}`))));
+  return !!fn && fn.total > 0 && fn.covered === 0;
 }
 
 /** The files `coverage` names: the worst parse errors and the most unresolved imports (each list capped by the analyzer). */
@@ -220,6 +243,7 @@ export function indexProjectData(p: any, buildIndex: AnalysisReader["buildIndex"
     thinFiles: thinFilesOf(p.coverage),
     risky: riskyFilesOf(p.blastRadius),
     testCoverage: testCoverageOf(p.testCoverage),
+    untestedRoutes: untestedRoutesOf(routes),
     docDrift: arr<DocDriftFinding>(p.docDrift?.findings).filter((f) => typeof f?.doc === "string" && typeof f?.line === "number"),
     // Only the entities: the per-file part of the store is `byFile` above, in the shapes the views read.
     store: { entitiesByName: store.entitiesByName },

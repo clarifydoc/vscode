@@ -45,7 +45,7 @@ describe("impactNodes", () => {
     const docs = nodes.find((n) => n.label === "Docs to update")!;
     expect(docs.description).toBe("3");
     expect(docs.children).toEqual([
-      { label: "docs/clubs.md:12", description: "GET /Owners · Api/Controllers/OwnersController.cs", icon: "doc", file: "docs/clubs.md", line: 12 },
+      { label: "docs/clubs.md:12", description: "GET /Owners · Api/Controllers/OwnersController.cs", icon: "doc", file: "docs/clubs.md", line: 12, agentText: expect.any(String) },
     ]);
   });
 
@@ -60,7 +60,7 @@ describe("impactNodes", () => {
       reviewers: [{ name: "Ada", files: 1, commits: 9 }],
     });
     expect(nodes.map((n) => n.label)).toEqual(["Risk: moderate", "API routes", "Data", "Usually changed with", "Reviewers", "Changed files"]);
-    expect(nodes[3].children).toEqual([{ label: "Application/Owners/OwnerDto.cs", description: "with Application/Owners/GetOwnersQuery.cs · 6×", icon: "cochange", file: "Application/Owners/OwnerDto.cs" }]);
+    expect(nodes[3].children).toEqual([{ label: "Application/Owners/OwnerDto.cs", description: "with Application/Owners/GetOwnersQuery.cs · 6×", icon: "cochange", file: "Application/Owners/OwnerDto.cs", agentText: expect.any(String) }]);
     expect(nodes[4].children!.map((c) => `${c.label} — ${c.description}`)).toEqual([
       "@acme/owners-team — owns 1 changed file (CODEOWNERS)",
       "Ada — 9 commits to 1 of these files",
@@ -179,5 +179,41 @@ describe("impactNodes", () => {
 
   it("says so when nothing changed", () => {
     expect(impactNodes({ ...base, changedFiles: [] }).map((n) => n.label)).toEqual(["No changes against the last commit"]);
+  });
+});
+
+describe("impact findings, limitations and untested callers", () => {
+  const withCaller: ImpactResult = {
+    ...base,
+    symbolImpact: {
+      changed: [{ file: "src/garage.ts", symbol: "park", line: 3, endLine: 9 }],
+      direct: [{ file: "src/match.ts", symbol: "playMatch", line: 12, depth: 1, confidence: "EXTRACTED", standing: "unverified" }],
+      transitive: [],
+      reviewOnly: [],
+    },
+  };
+  const findCaller = (nodes: ReturnType<typeof impactNodes>) => nodes.find((n) => n.label.startsWith("Will break"))!.children![0]!;
+
+  it("marks a caller no test runs, in words, only where the coverage says so", () => {
+    expect(findCaller(impactNodes(withCaller, undefined, (file, symbol, line) => file === "src/match.ts" && symbol === "playMatch" && line === 12)).description).toContain(" · untested");
+    expect(findCaller(impactNodes(withCaller, undefined, () => false)).description).not.toContain("untested");
+    expect(findCaller(impactNodes(withCaller)).description).not.toContain("untested");
+  });
+
+  it("gives one finding the text an agent can read alone", () => {
+    expect(findCaller(impactNodes(withCaller)).agentText).toBe(
+      "ClarifyDoc impact — Will break — direct callers\n- `playMatch()` — src/match.ts:12 · unverified",
+    );
+    expect(impactNodes(withCaller).find((n) => n.label === "API routes")!.children![0]!.agentText).toBe(
+      "ClarifyDoc impact — API routes\n- `GET /Owners` — Api/Controllers/OwnersController.cs\n- at Api/Controllers/OwnersController.cs:15",
+    );
+    expect(impactNodes(base).find((n) => n.label === "Changed files")!.agentText).toBeUndefined();
+  });
+
+  it("lists the report's limitations, and nothing when there are none", () => {
+    const n = impactNodes({ ...base, limitations: ["2 changed file(s) are not in the analysis"] }).find((x) => x.label === "What this could not judge")!;
+    expect([n.description, n.children!.map((c) => c.label)]).toEqual(["1", ["2 changed file(s) are not in the analysis"]]);
+    expect(impactNodes(base).some((x) => x.label === "What this could not judge")).toBe(false);
+    expect(impactNodes({ ...base, limitations: [] }).some((x) => x.label === "What this could not judge")).toBe(false);
   });
 });
