@@ -81,7 +81,12 @@ the PR. A caller the editor already reports an error at is marked, so the ones
 your change has broken stand out from the ones still to check. Compare with a branch and **Compare API Surface** lists what the branch
 changes in the API itself — a route removed or moved, a guard lost, a request body
 that now requires a field, a call that no longer reaches its route — breaking
-first.
+first — plus the import cycles the branch introduces or grows and the routes
+whose behaviour changed, each opening its sequence diff. The **Changed Elements**
+view beside it lists every file, route, screen and table the change or the
+compare touched, and the report marks the same elements on every tab (a glyph
+and a border style as well as colour). Copy any single Impact finding for an
+agent from its menu.
 
 ### Answers in the editor, where you're reading
 
@@ -112,6 +117,12 @@ first.
 - **Right-click any file → ClarifyDoc** to open its screens, traces or blast
   radius in the report.
 - **Go to…**: fuzzy-jump to any route, screen, issue or hotspot.
+- **Sidebar actions**: a route finds its callers, opens in the report, or opens
+  as a ready-to-send `.http` request or curl command (*Try it*; nothing is sent).
+  A finding can be suppressed or show the routes that reach it. The view's badge
+  counts findings that are new since the previous analysis.
+- **`untested`** on a route no test runs, when a coverage report is present; the
+  Impact view marks untested callers the same way.
 
 ### See the whole system
 
@@ -336,6 +347,7 @@ All under the **ClarifyDoc** category in the Command Palette:
 | `clarifydoc.diagnostics.include` | `security`, `complexity`, `layers` | Categories; add `deadCode` for unused exports and unreachable files as faded text |
 | `clarifydoc.diagnostics.complexityThreshold` | `15` | Flag functions at/above this complexity |
 | `clarifydoc.codeLens.enabled` | `true` | CodeLens above functions, classes and routes |
+| `clarifydoc.codeLens.tryIt` | `true` | A "try it" lens on each route that opens its request as a `.http` file |
 | `clarifydoc.hover.enabled` | `true` | ClarifyDoc hover cards |
 | `clarifydoc.crossTier.enabled` | `true` | Go to Definition from API calls to routes, Find References on routes, and the route CodeLens/hover |
 | `clarifydoc.incremental` | `true` | Reuse cache for unchanged files |

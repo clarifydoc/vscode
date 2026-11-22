@@ -1,5 +1,33 @@
 # Change Log
 
+## Unreleased
+
+- **The report follows your VS Code theme.** Editor and side-bar colours, borders, links and status colours come
+  from your theme, and the high-contrast dark and light themes get their own look.
+- **The report works from the keyboard.** `/` focuses the current tab's filter and `?` the global search; list rows
+  and graphs can be focused and operated with Enter, Space, `+`, `-` and the arrow keys. Confidence and risk show a
+  pattern or glyph as well as colour.
+- **See what a change reached, everywhere.** The report marks what changed, was added, removed or reached on Screens,
+  Traces, the navigation map, Data Access and Overview as well as Routes, each with a glyph (`~ + − →`) and a border
+  style besides its colour. A new **Changed Elements** view in Source Control lists those files, routes, screens and
+  tables, for your working tree and for the compare-with base.
+- **Compare API Surface sees more.** It lists the import cycles the branch introduces or grows, and the routes whose
+  behaviour changed — each opening a sequence diff against the base — and marks the report through the same overlay.
+  Temporary worktrees an interrupted compare left behind are cleaned up.
+- **Act on routes and findings from the sidebar.** Routes have Find Callers, Show in Report, Try It (the request as an
+  untitled `.http` file — nothing is sent) and Copy as curl, with a "try it" lens on each route
+  (`clarifydoc.codeLens.tryIt`). Findings have Suppress and Show Reaching Routes, and the view's badge counts findings
+  new since the previous analysis.
+- **Untested routes and callers.** With a coverage report, a route no test runs shows an `untested` lens and the
+  Impact view marks untested callers.
+- **Impact, one finding at a time.** Copy a single Impact finding for an agent, and see what the impact report could
+  not judge.
+- **Problems on the call itself.** Route-gap and request-contract problems underline the API call, not the whole line.
+- **Faster start on large projects.** The status bar and the sidebar show health, route, screen and security counts
+  almost at once, before the whole analysis has loaded; the window remembers whether Node is installed.
+- **A stricter report panel.** Its scripts run on a per-load nonce, so the panel no longer allows arbitrary inline
+  scripts.
+
 ## 0.1.22
 
 The bundled analyzer is now 1.1.1 (extractor 1.709.0), so each project is analyzed again once after the update,
