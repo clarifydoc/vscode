@@ -9,6 +9,20 @@ import { prepareReportHtml } from "./reportHtml";
 import { getConfig } from "./config";
 import { loadAnalysis } from "./analysisData";
 import { answerReportRequest } from "./notesHost";
+import { changeHub } from "./changeOverlayHub";
+import { overlayMessage } from "./changeOverlay";
+
+/**
+ * Messages between this host and the report page (the viewer's
+ * `report/data-source.ts` states the same list — one written, both written):
+ *
+ * - host → page `clarifydoc:reload` `{ data, json, impact?, overlay?, hash? }` — a new analysis, same panel;
+ * - host → page `clarifydoc:navigate` `{ hash }` — move to a tab or file;
+ * - host → page `clarifydoc:overlay` `{ overlay: ChangeOverlay | null }` — what a change did to elements
+ *   (changed `~`, added `+`, removed `−`, reached `→`); `null` clears the marks;
+ * - page → host `clarifydoc:ready`, `clarifydoc:reloaded`, `clarifydoc:hash`, `clarifydoc:open`, `clarifydoc:save`, `clarifydoc:request`
+ *   (answered by `clarifydoc:reply`).
+ */
 
 /** One reusable webview panel per workspace folder path. */
 const panels = new Map<string, vscode.WebviewPanel>();
@@ -47,7 +61,7 @@ async function reportHtml(context: vscode.ExtensionContext, folder: vscode.Works
   const raw = await fs.readFile(reportPath(context, folder), "utf8");
   const impact = await readLatestImpact(context, folder);
   // The viewer keeps this in its webview state, so a reload knows the folder.
-  return prepareReportHtml(raw, hash, { folder: folder.uri.toString() }, impact ?? undefined);
+  return prepareReportHtml(raw, hash, { folder: folder.uri.toString() }, impact ?? undefined, changeHub.get(folder.uri.fsPath) ?? undefined);
 }
 
 /**
@@ -81,6 +95,9 @@ function adopt(state: ExtensionState, folder: vscode.WorkspaceFolder, panel: vsc
     }
     if (msg?.type === "clarifydoc:ready") {
       ready.add(panel);
+      // What a change did, as of now: the page was built before it may have been computed.
+      const overlay = changeHub.get(key);
+      if (overlay) void panel.webview.postMessage(overlayMessage(overlay));
       return;
     }
     if (msg?.type === "clarifydoc:hash" && typeof msg.hash === "string") {
@@ -98,9 +115,15 @@ function adopt(state: ExtensionState, folder: vscode.WorkspaceFolder, panel: vsc
     void openSourceAt(path.join(folder.uri.fsPath, rel), line, vscode.ViewColumn.Beside);
   });
 
+  // The change overlay follows the comparison and the working tree: a new one, or none, is sent as it is computed.
+  const overlayFollow = changeHub.onDidChange((changed) => {
+    if (changed === key && ready.has(panel)) void panel.webview.postMessage(overlayMessage(changeHub.get(key)));
+  });
+
   panels.set(key, panel);
   panel.onDidDispose(() => {
     onMessage.dispose();
+    overlayFollow.dispose();
     if (panels.get(key) === panel) {
       panels.delete(key);
       lastHash.delete(key);
@@ -217,7 +240,7 @@ export async function refreshOpenReport(
       const data = embeddedPayload(raw);
       if (data) {
         const impact = await readLatestImpact(context, folder);
-        void panel.webview.postMessage({ type: "clarifydoc:reload", ...data, impact: impact ?? undefined, hash: lastHash.get(key) });
+        void panel.webview.postMessage({ type: "clarifydoc:reload", ...data, impact: impact ?? undefined, overlay: changeHub.get(key) ?? undefined, hash: lastHash.get(key) });
         return;
       }
     }

@@ -44,7 +44,7 @@ function nonceScripts(html: string, nonce: string): string {
  * VS Code webviews can block fragment navigation, so `location.hash` alone is
  * unreliable there; the global always survives (the hash is set too).
  */
-export function prepareReportHtml(html: string, hash?: string, viewState?: Record<string, string>, impact?: unknown): string {
+export function prepareReportHtml(html: string, hash?: string, viewState?: Record<string, string>, impact?: unknown, overlay?: unknown): string {
   // JSON is a JS literal; `<` is escaped so a value cannot close the tag.
   const literal = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c");
   const nonce = randomBytes(16).toString("base64");
@@ -53,6 +53,8 @@ export function prepareReportHtml(html: string, hash?: string, viewState?: Recor
   if (viewState) script.push(`window.__CLARIFYDOC_VIEW_STATE__=${literal(viewState)};`);
   // The last incremental run's impact (impact-latest.json): the viewer marks what it changed and reached.
   if (impact) script.push(`window.__CLARIFYDOC_IMPACT__=${literal(impact)};`);
+  // What a change did to elements (changed / added / removed / reached): the viewer marks them on every surface.
+  if (overlay) script.push(`window.__CLARIFYDOC_OVERLAY__=${literal(overlay)};`);
   if (hash) {
     const h = literal("#" + hash);
     script.push(`window.__CLARIFYDOC_HASH__=${h};try{location.hash=${h}}catch(e){}`);
