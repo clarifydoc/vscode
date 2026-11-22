@@ -201,6 +201,12 @@
         "icon": "$(diff)"
       },
       {
+        "command": "clarifydoc.showSequenceDiff",
+        "title": "Show How a Route's Sequence Changed",
+        "category": "ClarifyDoc",
+        "icon": "$(diff)"
+      },
+      {
         "command": "clarifydoc.resolveWithEditorLsp",
         "title": "Resolve Calls with the Editor's Language Servers",
         "category": "ClarifyDoc"
@@ -564,6 +570,10 @@
       "commandPalette": [
         {
           "command": "clarifydoc.impactCopyFinding",
+          "when": "false"
+        },
+        {
+          "command": "clarifydoc.showSequenceDiff",
           "when": "false"
         },
         {

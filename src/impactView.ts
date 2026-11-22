@@ -11,6 +11,7 @@ import { CompareBase, describeBase, parseRefs } from "./compareBase";
 import { pickWorkspaceFolder } from "./workspace";
 import { analyzeBase, diffWithBase, hasBaseAnalysis } from "./surfaceCompare";
 import { surfaceNode } from "./surfaceModel";
+import { behaviourRows, showSequenceDiff } from "./behaviourCompare";
 
 const ICONS: Record<ImpactIcon, string> = {
   risk: "warning",
@@ -101,6 +102,10 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       vscode.commands.registerCommand("clarifydoc.impactCopyForAgent", (target) => this.copyForAgent(target)),
       vscode.commands.registerCommand("clarifydoc.impactCopyFinding", (row?: Row) => this.copyFinding(row)),
       vscode.commands.registerCommand("clarifydoc.impactCompareSurface", (target) => this.compareSurface(target)),
+      vscode.commands.registerCommand("clarifydoc.showSequenceDiff", (folder: vscode.WorkspaceFolder | undefined, route: string, file?: string) => {
+        const base = folder && this.baseOf(folder);
+        return folder && base ? showSequenceDiff(this.state.context, folder, base.commit, base.label, route, file) : undefined;
+      }),
     );
     this.describe();
     if (this.view.visible) this.watchGit();
@@ -337,7 +342,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
   }
 
   /** The API-surface group: the diff when the base was analyzed, else a row that offers to. */
-  private async surfaceOf(folder: vscode.WorkspaceFolder, base: CompareBase): Promise<ImpactNode> {
+  private async surfaceOf(folder: vscode.WorkspaceFolder, base: CompareBase, changedFiles: readonly string[] = []): Promise<ImpactNode> {
     if (!(await hasBaseAnalysis(this.state.context, folder, base.commit))) {
       return {
         label: `API surface vs ${base.label}`,
@@ -347,7 +352,9 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       };
     }
     try {
-      return surfaceNode(await diffWithBase(this.state.context, folder, base.commit), base.label);
+      const diff = await diffWithBase(this.state.context, folder, base.commit);
+      const behaviour = await behaviourRows(this.state.context, folder, base.commit, diff, changedFiles);
+      return surfaceNode(diff, base.label, behaviour, folder);
     } catch (err) {
       this.state.output.warn(`[surface] ${folder.name}: ${err instanceof Error ? err.message : String(err)}`);
       return { label: `API surface vs ${base.label}`, description: "could not diff (see the output)", icon: "info" };
@@ -371,7 +378,7 @@ export class ImpactView implements vscode.TreeDataProvider<Row> {
       const parsed = JSON.parse(result.stdout) as ImpactResult;
       const coverage = (await loadAnalysis(this.state.context, folder).catch(() => undefined))?.testCoverage;
       const untested: UntestedCaller | undefined = coverage?.size ? (file, symbol, line) => untestedFunction(coverage, file, symbol, line) : undefined;
-      return this.render(folder, parsed, base ? await this.surfaceOf(folder, base) : undefined, untested);
+      return this.render(folder, parsed, base ? await this.surfaceOf(folder, base, parsed.changedFiles) : undefined, untested);
     } catch (err) {
       this.state.output.warn(`[impact] ${folder.name}: ${err instanceof Error ? err.message : String(err)}`);
       return { message: "Could not compute the impact (see the output)" };
