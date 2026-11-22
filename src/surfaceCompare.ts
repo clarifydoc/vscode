@@ -8,6 +8,7 @@ import { resolveCli, runClarifyDoc } from "./cli";
 import { folderKey, resultsDir } from "./paths";
 import type { CompareBase } from "./compareBase";
 import type { SurfaceDiff } from "./surfaceModel";
+import { rememberTrees, sweepTrees } from "./surfaceSweep";
 
 /**
  * The API surface of the compared base, so the Impact view can say what the
@@ -73,6 +74,9 @@ export async function analyzeBase(
   const head = resultsDir(context, folder);
   const repo = folder.uri.fsPath;
 
+  // A run that died before its cleanup leaves its worktree: sweep them all first.
+  rememberTrees(repo, path.dirname(tree));
+  await sweepTrees(repo, path.dirname(tree));
   await git(repo, ["worktree", "remove", "--force", tree]).catch(() => undefined);
   await fs.rm(tree, { recursive: true, force: true });
   await fs.mkdir(path.dirname(tree), { recursive: true });

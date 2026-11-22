@@ -5,6 +5,7 @@ import { getConfig } from "./config";
 import { analyzeWorkspace } from "./analyze";
 import { showReport } from "./report";
 import { showControlFlow } from "./controlFlowPanel";
+import { sweepKnownTrees } from "./surfaceSweep";
 import { createArchitectureDiagram, showSequence } from "./architectureDiagram";
 import { primeControlFlowSupport, resetControlFlowSupport } from "./controlFlowSupport";
 import { detectFrameworks, impactOfChanges } from "./extraCommands";
@@ -323,8 +324,10 @@ export function activate(context: vscode.ExtensionContext): void {
   }
 }
 
-export function deactivate(): void {
+export async function deactivate(): Promise<void> {
   // An analysis outliving its window would keep writing into a workspace no
   // one is looking at; everything else is a disposable registered above.
   killAllChildren();
+  // A compare run cut short leaves its seeded worktree behind.
+  await sweepKnownTrees().catch(() => undefined);
 }
