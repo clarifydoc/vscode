@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { loadAnalysis, ResolvedAnalysis } from "./analysisData";
+import { fullLoadDone, loadAnalysis, loadHead, onFullLoad, ResolvedAnalysis } from "./analysisData";
+import type { AnalysisSummary } from "./summary";
 import { absFor } from "./reveal";
 import { describeTable, tableUses, type TableEntry } from "./dataTables";
 import { bookmarksOf } from "./bookmarks";
@@ -18,6 +19,8 @@ export class Node extends vscode.TreeItem {
   copyText?: string;
   /** For a bookmark leaf: the view it opens. */
   bookmark?: Bookmark;
+  /** A group drawn from the head file: its children are built once the whole summary is loaded. */
+  lazyFolder?: vscode.WorkspaceFolder;
   constructor(
     public readonly kind: NodeKind,
     label: string,
@@ -45,7 +48,17 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
   private readonly _onDidChange = new vscode.EventEmitter<Node | undefined>();
   readonly onDidChangeTreeData = this._onDidChange.event;
 
-  constructor(private readonly state: ExtensionState) {}
+  /** Folder paths whose top level was drawn from the head file, not the whole summary. */
+  private readonly fromHead = new Set<string>();
+
+  constructor(private readonly state: ExtensionState) {
+    // Whoever started the whole load (a lens, the diagnostics), the full groups replace the head's when it lands.
+    state.context?.subscriptions.push(
+      onFullLoad(() => {
+        if (this.fromHead.size > 0) this.refresh();
+      }),
+    );
+  }
 
   refresh(): void {
     this._onDidChange.fire(undefined);
@@ -56,6 +69,11 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
   }
 
   async getChildren(node?: Node): Promise<Node[]> {
+    if (node?.lazyFolder) {
+      // Expanding a group drawn from the head is what starts the whole load.
+      const a = await loadAnalysis(this.state.context, node.lazyFolder);
+      return (a && this.groups(node.lazyFolder, a).find((g) => g.id === node.id)?.children) || [];
+    }
     if (node) return node.children;
     const top = await this.topLevel();
     milestone("first tree children", `${top.length} row(s)`);
@@ -84,6 +102,16 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
       return [running];
     }
 
+    // The head file draws the top level without the whole summary; a folder whose
+    // summary is already loaded, or has no trusted head, is drawn from the summary as before.
+    if (!fullLoadDone(this.state.context, folder)) {
+      const head = await loadHead(this.state.context, folder);
+      if (head) {
+        this.fromHead.add(folder.uri.fsPath);
+        return this.headGroups(folder, head);
+      }
+    }
+    this.fromHead.delete(folder.uri.fsPath);
     const a = await loadAnalysis(this.state.context, folder);
     if (!a) {
       const empty = new Node("action", "Analyze Workspace");
@@ -115,7 +143,37 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
     if (dead) out.push(dead);
     out.push(this.subProjectsGroup(a));
     out.push(this.frameworksGroup(a));
-    return out.filter((n): n is Node => !!n);
+    return withIds(folder, out.filter((n): n is Node => !!n));
+  }
+
+  /**
+   * The top level from the head file: the groups whose size it states. Each
+   * expands to its rows once the whole summary is loaded; the groups it cannot
+   * size (API gaps, Data, hotspots, dead code) join when it has.
+   */
+  private headGroups(folder: vscode.WorkspaceFolder, head: AnalysisSummary): Node[] {
+    const out: Node[] = [];
+    const marks = this.bookmarksGroup(folder);
+    if (marks) out.push(marks);
+    const lazy = (g: Node): Node => {
+      if (g.collapsibleState !== vscode.TreeItemCollapsibleState.None) g.lazyFolder = folder;
+      return g;
+    };
+    if (head.health) {
+      const grade = head.health.grade || "—";
+      const g = new Node("group", `Health: ${grade}`, vscode.TreeItemCollapsibleState.Collapsed);
+      g.description = `${head.health.score}/100`;
+      g.iconPath = new vscode.ThemeIcon(gradeIcon(grade), gradeColor(grade));
+      out.push(lazy(g));
+    }
+    out.push(lazy(this.group("Routes", head.counts.routes, "milestone", [])));
+    out.push(lazy(this.group("Screens", head.counts.screens, "browser", [])));
+    out.push(lazy(this.group("Security", head.counts.security, "shield", [])));
+    out.push(lazy(this.group("Sub-projects", head.counts.subProjects, "project", [])));
+    out.push(
+      this.frameworksGroup({ frameworks: head.frameworks } as ResolvedAnalysis),
+    );
+    return withIds(folder, out);
   }
 
   private revealLeaf(folder: vscode.WorkspaceFolder, label: string, file: string, line: number | undefined, icon: vscode.ThemeIcon): Node {
@@ -362,6 +420,12 @@ export class SummaryTreeProvider implements vscode.TreeDataProvider<Node> {
     });
     return this.group("Frameworks", a.frameworks.length, "layers", children);
   }
+}
+
+/** A stable id per top-level group, so one expanded while the head's groups give way to the full ones stays open. */
+function withIds(folder: vscode.WorkspaceFolder, nodes: Node[]): Node[] {
+  for (const n of nodes) n.id = `${folder.uri.fsPath}|${String(n.label).replace(/:.*$/, "")}`;
+  return nodes;
 }
 
 /** How the Data group shows the entry point a table is reached from. */

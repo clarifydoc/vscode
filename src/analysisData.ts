@@ -9,6 +9,7 @@ import type { CrossTierData } from "./crossTier";
 import type { TypeGraph } from "./typeGraph";
 import { indexProject, num, reviveIndexed } from "./analysisIndex";
 import { readSummaryOffThread } from "./summaryThread";
+import { readTrustedHead } from "./summaryHead";
 
 export { indexProject, parseLineRanges, riskyFilesOf, testCoverageOf, thinFilesOf } from "./analysisIndex";
 import type { FreshnessReport } from "./freshness";
@@ -462,6 +463,10 @@ function loadSummaryFile(
       // A failed read (a summary caught mid-write) is retried on the next ask.
       void loaded.then((l) => {
         if (!l && cache.get(sp) === entry) cache.delete(sp);
+        if (l) {
+          completed.add(entry);
+          fullLoadListeners.forEach((fn) => fn());
+        }
       });
       return loaded;
     },
@@ -470,6 +475,47 @@ function loadSummaryFile(
       return undefined;
     },
   );
+}
+
+const completed = new WeakSet<object>();
+const fullLoadListeners = new Set<() => void>();
+
+/** Calls `fn` each time a whole summary finished loading (a view drawn from the head redraws from it). */
+export function onFullLoad(fn: () => void): { dispose(): void } {
+  fullLoadListeners.add(fn);
+  return { dispose: () => void fullLoadListeners.delete(fn) };
+}
+
+/** The head's mtime last read per summary path: a write the watcher need not announce again. */
+const seenHeads = new Map<string, number>();
+
+/** Whether the head's mtime is one a load already read (see `seenHeads`). */
+export async function headAlreadySeen(context: vscode.ExtensionContext, folder: vscode.WorkspaceFolder): Promise<boolean> {
+  const sp = summaryPath(context, folder);
+  const head = await readTrustedHead(sp);
+  return !!head && seenHeads.get(sp) === head.mtimeMs;
+}
+
+/**
+ * The headline numbers from `summary-head.json` when it can be trusted (see
+ * `readTrustedHead`), without loading the whole summary; undefined when there
+ * is no trusted head — the caller then asks `loadSummary`.
+ */
+export async function loadHead(
+  context: vscode.ExtensionContext,
+  folder: vscode.WorkspaceFolder,
+): Promise<AnalysisSummary | undefined> {
+  const sp = summaryPath(context, folder);
+  const head = await readTrustedHead(sp);
+  if (!head) return undefined;
+  seenHeads.set(sp, head.mtimeMs);
+  return head.summary;
+}
+
+/** Whether the whole summary of this folder has been loaded: a view then reads it as cheaply as the head. */
+export function fullLoadDone(context: vscode.ExtensionContext, folder: vscode.WorkspaceFolder): boolean {
+  const entry = cache.get(summaryPath(context, folder));
+  return !!entry && completed.has(entry);
 }
 
 /**

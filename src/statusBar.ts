@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
-import { freshnessOf, invalidateFreshness, loadSummary } from "./analysisData";
-import { describeFreshness } from "./freshness";
+import { freshnessOf, invalidateFreshness, loadHead, loadSummary } from "./analysisData";
+import { describeFreshness, type FreshnessNote } from "./freshness";
+import type { AnalysisSummary } from "./summary";
 import { ExtensionState } from "./state";
 import { escapeMd } from "./markdown";
 import { bundledAnalyzerVersion } from "./cli";
@@ -60,7 +61,11 @@ export class StatusBar {
       return;
     }
 
-    const summary = await loadSummary(this.state.context, folder);
+    // The headline comes from the small head file when it can be trusted; the
+    // whole summary is read only without one. The freshness check (a stat of
+    // every analyzed file) follows: the headline is drawn first, its note after.
+    const head = await loadHead(this.state.context, folder);
+    const summary = head ?? (await loadSummary(this.state.context, folder));
     if (folder !== this.folder()) return; // the active editor moved on while loading
     if (!summary) {
       this.item.text = `$(book) ClarifyDoc${name}`;
@@ -70,9 +75,15 @@ export class StatusBar {
       return;
     }
 
+    const drawn = this.draw(folder, name, summary, describeFreshness(undefined));
+    if (drawn) milestone("first status bar headline", head ? "from the head file" : "from the full summary");
     const note = describeFreshness(await freshnessOf(this.state.context, folder));
     if (folder !== this.folder() || this.state.isRunning(folder.uri.fsPath)) return;
+    if (note.suffix || note.stale || note.detail) this.draw(folder, name, summary, note);
+  }
 
+  private draw(folder: vscode.WorkspaceFolder, name: string, summary: AnalysisSummary, note: FreshnessNote): boolean {
+    if (folder !== this.folder() || this.state.isRunning(folder.uri.fsPath)) return false;
     const grade = summary.health?.grade;
     const icon = note.stale ? "$(sync)" : "$(book)";
     this.item.text = `${icon} ClarifyDoc${name}${grade ? `: ${grade}` : ""}${note.suffix}`;
@@ -94,6 +105,6 @@ export class StatusBar {
       ? { title: "Re-analyze", command: "clarifydoc.analyze", arguments: [folder] }
       : { title: "Open Report", command: "clarifydoc.openReport", arguments: [folder] };
     this.item.show();
-    milestone("first status bar headline");
+    return true;
   }
 }

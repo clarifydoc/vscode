@@ -38,6 +38,7 @@ import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
 import { registerAutoAnalyze } from "./watch";
+import { registerHeadWatch } from "./headWatch";
 import { ignoreFolders } from "./ignore";
 import { registerMcpProvider } from "./mcp";
 import { maybeOfferMcpInstall } from "./mcpInstall";
@@ -265,6 +266,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Debounced auto re-analysis via a FileSystemWatcher (analyzeOnSave: auto — on where the last analysis was quick).
   registerAutoAnalyze(state, (folder) => analyzeWorkspace(state, folder, { quiet: true }));
+  // An analysis written from outside this window (the head file lands last) refreshes the views.
+  registerHeadWatch(state);
 
   // The analyzer is bundled inside the extension; warn once if the bundle is
   // absent (e.g. running from source without `npm run bundle`) unless a custom
