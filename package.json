@@ -389,6 +389,12 @@
           "name": "ClarifyDoc Impact",
           "icon": "media/sidebar.svg",
           "contextualTitle": "ClarifyDoc"
+        },
+        {
+          "id": "clarifydoc.changedElements",
+          "name": "ClarifyDoc Changed Elements",
+          "icon": "media/sidebar.svg",
+          "contextualTitle": "ClarifyDoc"
         }
       ]
     },

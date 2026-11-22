@@ -23,6 +23,7 @@ import { ClarifyDocCallHierarchyProvider } from "./callHierarchy";
 import { ClarifyDocCodeActions } from "./codeActions";
 import { ClarifyDocWorkspaceSymbols } from "./workspaceSymbols";
 import { ImpactView } from "./impactView";
+import { ChangedElementsView } from "./changedElementsView";
 import { ClarifyDocTypeHierarchyProvider } from "./typeHierarchy";
 import { exportSarif } from "./sarifExport";
 import { onboard } from "./onboarding";
@@ -110,6 +111,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerProposalProvider(state);
   tree = new SummaryTreeProvider(state);
   new ImpactView(state);
+  new ChangedElementsView(state);
   statusBar = new StatusBar(state);
   new ThinMapStatus(state);
   new RiskDecorations(state);
