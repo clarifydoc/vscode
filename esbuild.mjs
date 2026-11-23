@@ -1,7 +1,18 @@
+import { readFileSync } from "node:fs";
 import { build, context } from "esbuild";
 
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
+
+/** The bundled analyzer's version, compiled in so activation never reads it from disk ("" when not bundled). */
+function bundledAnalyzerVersion() {
+  try {
+    const version = JSON.parse(readFileSync("clarifydoc/package.json", "utf8")).version;
+    return typeof version === "string" ? version : "";
+  } catch {
+    return "";
+  }
+}
 
 /**
  * Emits the begin/end markers the `$esbuild-watch`-style background problem
@@ -35,6 +46,7 @@ const options = {
   target: "node18",
   // `vscode` is provided by the extension host at runtime and must never be bundled.
   external: ["vscode"],
+  define: { __BUNDLED_ANALYZER_VERSION__: JSON.stringify(bundledAnalyzerVersion()) },
   sourcemap: !production,
   minify: production,
   logLevel: "silent",

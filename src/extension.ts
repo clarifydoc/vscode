@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ExtensionState } from "./state";
-import { rememberNodeProbe, resetCliResolution, bundleAvailable, bundledAnalyzerVersion, killAllChildren, killChildrenForFolder, killChildrenWritingTo } from "./cli";
+import { rememberNodeProbe, resetCliResolution, bundleAvailableAsync, bundledAnalyzerVersion, killAllChildren, killChildrenForFolder, killChildrenWritingTo } from "./cli";
 import { getConfig } from "./config";
 import { analyzeWorkspace } from "./analyze";
 import { showReport } from "./report";
@@ -287,11 +287,13 @@ export function activate(context: vscode.ExtensionContext): void {
   // The analyzer is bundled inside the extension; warn once if the bundle is
   // absent (e.g. running from source without `npm run bundle`) unless a custom
   // cliPath is configured.
-  if (!bundleAvailable(context.extensionPath) && !getConfig().cliPath) {
-    output.warn(
-      "bundled analyzer not found at clarifydoc/dist/cli.js — run `npm run bundle`, or set clarifydoc.cliPath.",
-    );
-  }
+  void bundleAvailableAsync(context.extensionPath).then((bundled) => {
+    if (!bundled && !getConfig().cliPath) {
+      output.warn(
+        "bundled analyzer not found at clarifydoc/dist/cli.js — run `npm run bundle`, or set clarifydoc.cliPath.",
+      );
+    }
+  });
 
   // Where each folder's analysis lives, so the output log explains it without
   // the user having to go looking.

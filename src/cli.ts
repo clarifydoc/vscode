@@ -153,19 +153,43 @@ export async function rememberedAnswer<T>(
   return value;
 }
 
-/** The bundled analyzer's version (from `clarifydoc/package.json`), if bundled. */
+/** Written into the bundle by esbuild.mjs from `clarifydoc/package.json`; "" when the build had no bundled analyzer. */
+declare const __BUNDLED_ANALYZER_VERSION__: string | undefined;
+let analyzerVersionRead: { value: string | undefined } | undefined;
+
+/**
+ * The bundled analyzer's version, if bundled. A packaged build knows it without touching the disk: activation
+ * asks for it first, and a synchronous read there once held the whole extension host for ten seconds while the
+ * disk stalled. A build without the bundled analyzer (F5, tests) reads `clarifydoc/package.json` once.
+ */
 export function bundledAnalyzerVersion(extensionPath: string): string | undefined {
-  try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(extensionPath, "clarifydoc", "package.json"), "utf8"));
-    return typeof pkg.version === "string" ? pkg.version : undefined;
-  } catch {
-    return undefined;
+  const built = typeof __BUNDLED_ANALYZER_VERSION__ === "string" ? __BUNDLED_ANALYZER_VERSION__ : "";
+  if (built) return built;
+  if (!analyzerVersionRead) {
+    let value: string | undefined;
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(extensionPath, "clarifydoc", "package.json"), "utf8"));
+      if (typeof pkg.version === "string") value = pkg.version;
+    } catch {
+      // not bundled
+    }
+    analyzerVersionRead = { value };
   }
+  return analyzerVersionRead.value;
 }
 
 /** Whether the bundled analyzer is present (false ⇒ the bundle step didn't run). */
 export function bundleAvailable(extensionPath: string): boolean {
   return existingFile(bundledCliPath(extensionPath));
+}
+
+/** {@link bundleAvailable} without blocking the extension host on the disk (for activation). */
+export async function bundleAvailableAsync(extensionPath: string): Promise<boolean> {
+  try {
+    return (await fs.promises.stat(bundledCliPath(extensionPath))).isFile();
+  } catch {
+    return false;
+  }
 }
 
 /**
