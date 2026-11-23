@@ -98,7 +98,9 @@ agent from its menu.
   handler, then who calls them, from which screens, and what they read and
   write (`1 caller · 2 screens · writes Order`).
 - **Hover cards** with complexity, callers/callees and findings; on a call, the
-  route it reaches (or why it reaches none); on a route, the path to its data.
+  route it reaches (or why it reaches none); on a route, the path to its data. On
+  a file's first line, the decision records and architecture documents that name
+  it, each current or possibly stale; on a WHY:/DECISION: comment, its record.
 - **Call and type hierarchies** across tiers: a controller action's incoming
   calls are the frontend functions that call its route. Used where no language
   extension provides a hierarchy.
@@ -109,7 +111,11 @@ agent from its menu.
 - **Neighbourhood** in the ClarifyDoc sidebar: the open file's functions, the
   calls between them, what calls in and what they call out to, and the routes it
   serves or calls, redrawn as you switch files, with the function under the
-  cursor outlined. Click a node to open it.
+  cursor outlined. Switch it to **File** (what the file imports and what imports
+  it) or **Architecture** (its unit and the units around it); unreachable files
+  and unused exports are marked. Click a node to open it.
+- **Blast lens**: a file many others depend on shows at its top how far a change
+  reaches; **Check Blast Before Edit** copies its nearest dependents for an agent.
 - **Problems panel**: security findings (with their CWE and the routes that reach
   them), overly complex functions and layer violations, at their exact lines,
   with quick fixes. They follow their line while you edit. Dead code can be
@@ -284,7 +290,10 @@ parsed code, with `path:line` references — instead of inferring it from a few 
   already produced.
 - **One command for other agents.** Run **ClarifyDoc: Set Up MCP for an AI Agent…** and pick Claude Code, Cursor,
   Windsurf, Gemini CLI, Codex or Claude Desktop — it writes that agent's config for you, merging into whatever is already there. (**Copy MCP Server
-  Config** still puts the snippet on your clipboard for anything else.)
+  Config** still puts the snippet on your clipboard for anything else.) A project file others share (`.mcp.json`,
+  Cursor's and Gemini's project files) gets the portable `npx -y clarifydoc mcp` when the analysis lives in the
+  project, so you can commit it; a machine-only entry is kept out of git through `.git/info/exclude`.
+  **Remove ClarifyDoc from Agent Configs…** takes it all out again, after showing what will change.
 - **Configs that keep working.** They point at a launcher in the extension's storage whose path never changes, not at
   the version-stamped extension directory — so an extension update cannot silently break your agent. It also carries
   the Node runtime, so the agent needs no Node install of its own.
@@ -348,6 +357,7 @@ All under the **ClarifyDoc** category in the Command Palette:
 | `clarifydoc.diagnostics.complexityThreshold` | `15` | Flag functions at/above this complexity |
 | `clarifydoc.codeLens.enabled` | `true` | CodeLens above functions, classes and routes |
 | `clarifydoc.codeLens.tryIt` | `true` | A "try it" lens on each route that opens its request as a `.http` file |
+| `clarifydoc.codeLens.blastThreshold` | `40` | Show a file-top lens when this many files import it directly (0 turns it off) |
 | `clarifydoc.hover.enabled` | `true` | ClarifyDoc hover cards |
 | `clarifydoc.crossTier.enabled` | `true` | Go to Definition from API calls to routes, Find References on routes, and the route CodeLens/hover |
 | `clarifydoc.incremental` | `true` | Reuse cache for unchanged files |

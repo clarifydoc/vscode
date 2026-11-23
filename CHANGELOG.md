@@ -23,6 +23,28 @@
 - **Impact, one finding at a time.** Copy a single Impact finding for an agent, and see what the impact report could
   not judge.
 - **Problems on the call itself.** Route-gap and request-contract problems underline the API call, not the whole line.
+- **Links to a function or a route.** Show in Report on a route opens Routes with that route selected, and with
+  `clarifydoc.report.followEditor` on, moving the cursor into a function moves Call Traces to it.
+- **The Neighbourhood panel has three modes.** Symbol (functions and calls), File (what the file imports and what imports
+  it) and Architecture (its unit and the units around it), without opening the report; unreachable files and unused
+  exports are marked, and the mode is remembered per workspace.
+- **How far a change reaches, before you edit.** A file many others import shows a lens at its top ("a change here
+  reaches 143 files, 60 directly") that opens its Blast Radius; **Check Blast Before Edit** copies its nearest
+  dependents, as paths only, for an agent (`clarifydoc.codeLens.blastThreshold`, default 40 direct importers, 0 off).
+- **Decisions on hover.** Hover a file's first line for the decision records and architecture documents that name it,
+  each current or possibly stale (something it names changed after it was written); hover a WHY:/DECISION: comment
+  for its record.
+- **Shareable MCP configs.** Project files others share (`.mcp.json`, Cursor's and Gemini's) get the portable
+  `npx -y clarifydoc mcp` when the analysis lives in the project; a machine-only `.mcp.json` entry is kept out of git
+  through `.git/info/exclude`. **Remove ClarifyDoc from Agent Configs…** takes the entries, hooks and guidance out
+  again, after showing what will change.
+- **Added files in the change overlay.** Files your change adds are marked added, and after a compare the files of an
+  import cycle the branch introduces or grows are marked changed.
+- **More of the report follows your theme.** Every graph colour is themable; in dark themes the graph ground and label
+  outlines match the editor, and in light themes graphs keep a dark panel so their colours stay readable.
+- **More of the report works with a screen reader.** Headings are announced in order, expandable rows say whether they
+  are open, and the Screens component tree works with the arrow keys (Up/Down, Right to open or enter, Left to close or
+  leave, Home/End, Enter for details).
 - **Faster start on large projects.** The status bar and the sidebar show health, route, screen and security counts
   almost at once, before the whole analysis has loaded; the window remembers whether Node is installed.
 - **A stricter report panel.** Its scripts run on a per-load nonce, so the panel no longer allows arbitrary inline
