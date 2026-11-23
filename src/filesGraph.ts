@@ -36,7 +36,7 @@ export interface GraphOptions {
   maxOutside?: number;
 }
 
-const label = (s: string) => `"${s.replace(/"/g, "#quot;").replace(/[<>]/g, (c) => (c === "<" ? "#lt;" : "#gt;"))}"`;
+export const label = (s: string) => `"${s.replace(/"/g, "#quot;").replace(/[<>]/g, (c) => (c === "<" ? "#lt;" : "#gt;"))}"`;
 const routeName = (method: string | undefined | null, p: string) => `${method ? method.toUpperCase() + " " : ""}${p}`;
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 

@@ -240,6 +240,15 @@ export function indexProjectData(p: any, buildIndex: AnalysisReader["buildIndex"
     hotspots,
     byFile,
     crossTier,
+    neighbourhood: p.componentGraph && typeof p.componentGraph === "object"
+      ? {
+          componentGraph: p.componentGraph,
+          communities: p.communities ?? {},
+          communityNames: p.communityNames ?? {},
+          fileProjects: p.fileProjects ?? {},
+          subProjects: (p.subProjects ?? []).map((s: any) => ({ id: s.id, name: s.name })),
+        }
+      : undefined,
     deadCode: p.deadCode && Array.isArray(p.deadCode.files) && Array.isArray(p.deadCode.exports) ? p.deadCode : undefined,
     thinFiles: thinFilesOf(p.coverage),
     risky: riskyFilesOf(p.blastRadius),

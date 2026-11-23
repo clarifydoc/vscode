@@ -220,6 +220,8 @@ export interface ResolvedAnalysis {
   byFile: Map<string, FileFacts>;
   /** What cross-tier navigation joins: screens, data flows, unlinked calls, uncalled routes. */
   crossTier: CrossTierData;
+  /** The import graph and communities the Neighbourhood panel's file and architecture cuts read. */
+  neighbourhood?: import("./neighbourhoodModes").NeighbourhoodFacts;
   /** Unreachable files and unused exports, when the analysis judged any language. */
   deadCode?: DeadCode;
   /** Files the map stands on thinly: read in part, or importing what resolves nowhere (`coverage`). */

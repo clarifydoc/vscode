@@ -2,9 +2,13 @@ import * as vscode from "vscode";
 import { randomBytes } from "crypto";
 import * as path from "path";
 import { loadAnalysis, loadFileIndex, relPathOf } from "./analysisData";
-import { filesGraph, nodeAtLine, type GraphView } from "./filesGraph";
+import { nodeAtLine } from "./filesGraph";
+import { allCuts, deadFactsOf, MODES, type Mode, type ModeCut } from "./neighbourhoodModes";
 import { openSourceAt } from "./reveal";
 import { ExtensionState } from "./state";
+
+const MODE_KEY = "clarifydoc.neighbourhood.mode";
+const isMode = (v: unknown): v is Mode => MODES.some((m) => m.id === v);
 
 /**
  * The docked graph (VSCODE 2.2): a view in the ClarifyDoc sidebar showing the
@@ -12,16 +16,22 @@ import { ExtensionState } from "./state";
  * and what they call out to, the routes it serves and the HTTP calls it makes —
  * redrawn when another file comes forward or the analysis changes, with the
  * function under the cursor outlined as the cursor moves. A node opens its
- * source. Two views of the same facts: functions, or files only.
+ * source. Three cuts of the same facts, chosen by a mode control that is
+ * remembered per workspace (VSCODE 12.5): the file's symbols and calls, its
+ * import neighbours, and the architecture units around it.
  */
+
 export class NeighbourhoodView implements vscode.WebviewViewProvider {
   static readonly id = "clarifydoc.neighbourhood";
   private view?: vscode.WebviewView;
-  private shown: { folder: vscode.WorkspaceFolder; rel: string; views: GraphView[] } | null = null;
+  private shown: { folder: vscode.WorkspaceFolder; rel: string; cuts: ModeCut[] } | null = null;
   private current = 0;
+  private mode: Mode = "symbol";
   private timer?: ReturnType<typeof setTimeout>;
 
   constructor(private readonly state: ExtensionState) {
+    const saved = state.context.workspaceState.get<unknown>(MODE_KEY);
+    if (isMode(saved)) this.mode = saved;
     state.context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(NeighbourhoodView.id, this, { webviewOptions: { retainContextWhenHidden: true } }),
       vscode.window.onDidChangeActiveTextEditor(() => this.schedule()),
@@ -46,19 +56,26 @@ export class NeighbourhoodView implements vscode.WebviewViewProvider {
     view.webview.html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="${uri("controlFlow.css")}"><title>Neighbourhood</title>
-<style>body{padding:4px 6px}.nb-head{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;margin-bottom:4px}.nb-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.nb-graph svg{max-width:100%;height:auto}.nb-focus rect,.nb-focus polygon,.nb-focus path{stroke:var(--vscode-focusBorder)!important;stroke-width:3px!important}.nb-note{opacity:.75;font-size:11px}</style></head>
+<style>body{padding:4px 6px}.nb-head{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11px;margin-bottom:4px}.nb-title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.nb-graph svg{max-width:100%;height:auto}.nb-focus rect,.nb-focus polygon,.nb-focus path{stroke:var(--vscode-focusBorder)!important;stroke-width:3px!important}.nb-note{opacity:.75;font-size:11px}.nb-modes{display:flex;gap:4px;margin-bottom:4px}.nb-modes button[aria-selected=true]{font-weight:700;text-decoration:underline}</style></head>
 <body>
   <div class="nb-head"><span class="nb-title" id="nb-title">Open a file</span><span id="nb-views"></span></div>
+  <div class="nb-modes" id="nb-modes" role="tablist" aria-label="Graph mode"></div>
   <div class="nb-note" id="nb-note">The open file's functions, its calls in and out, and the routes it serves or calls.</div>
   <div id="nb-graph" class="nb-graph"></div>
   <script nonce="${nonce}" src="${uri("vendor", "mermaid.min.js")}"></script>
   <script nonce="${nonce}" src="${uri("neighbourhood.js")}"></script>
 </body></html>`;
-    view.webview.onDidReceiveMessage((m: { type: string; node?: string; view?: number }) => {
+    view.webview.onDidReceiveMessage((m: { type: string; node?: string; view?: number; mode?: string }) => {
+      if (isMode(m.mode)) this.mode = m.mode;
       if (typeof m.view === "number") this.current = m.view;
+      if (m.type === "mode") {
+        this.current = 0;
+        void this.state.context.workspaceState.update(MODE_KEY, this.mode);
+        this.focusCursor();
+      }
       if (m.type === "ready") void this.refresh();
       if (m.type === "open" && m.node && this.shown) {
-        const at = this.shown.views[this.current]?.nodes[m.node];
+        const at = this.viewNow()?.nodes[m.node];
         if (at) void openSourceAt(path.join(this.shown.folder.uri.fsPath, at.file), at.line, vscode.ViewColumn.One);
       }
     });
@@ -92,22 +109,32 @@ export class NeighbourhoodView implements vscode.WebviewViewProvider {
       return;
     }
     const idx = await loadFileIndex(this.state.context, folder, rel, facts);
-    const g = filesGraph([{ file: rel, defs: idx.defs, outbound: facts.outbound, inbound: facts.inbound, callsRoutes: facts.callsRoutes, servesCalls: facts.servesCalls, routes: facts.routes }], { maxPerFile: 25, maxOutside: 10 });
-    this.shown = { folder, rel, views: [g.functions, g.files] };
+    const cuts = allCuts(
+      { file: rel, defs: idx.defs, outbound: facts.outbound, inbound: facts.inbound, callsRoutes: facts.callsRoutes, servesCalls: facts.servesCalls, routes: facts.routes },
+      analysis.neighbourhood,
+      deadFactsOf(analysis.deadCode),
+    );
+    this.shown = { folder, rel, cuts };
     this.post({
       type: "show",
       title: rel,
-      note: g.summary,
+      mode: this.mode,
       current: this.current,
-      views: this.shown.views.map((v) => ({ label: v.label, diagram: v.mermaid, nodes: Object.keys(v.nodes) })),
+      modes: cuts.map((c) => ({ id: c.id, label: c.label, note: c.note, views: c.views.map((v) => ({ label: v.label, diagram: v.mermaid, nodes: Object.keys(v.nodes) })) })),
     });
     this.focusCursor();
   }
 
+  private viewNow() {
+    return this.shown?.cuts.find((c) => c.id === this.mode)?.views[this.current];
+  }
+
   private focusCursor(): void {
     const editor = vscode.window.activeTextEditor;
-    if (!this.shown || !editor) return;
-    const node = nodeAtLine(this.shown.views[this.current]!, this.shown.rel, editor.selection.active.line + 1);
+    const view = this.viewNow();
+    if (!this.shown || !editor || !view) return;
+    // The file and architecture cuts centre on the open file; only the symbol cut follows the cursor.
+    const node = this.mode === "symbol" ? nodeAtLine(view, this.shown.rel, editor.selection.active.line + 1) : this.mode === "file" ? "c" : "u";
     this.post({ type: "focus", node });
   }
 }
