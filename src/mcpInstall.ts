@@ -7,6 +7,15 @@ import { resultsDir, storageFor } from "./paths";
 import { cliShimPath, shimPath } from "./shim";
 import { resolveCli, runClarifyDoc } from "./cli";
 import { ExtensionState } from "./state";
+import {
+  CLIENT_OF_TARGET,
+  describeRemoval,
+  excludeFromGit,
+  parseRemovalReport,
+  portableEntry,
+  removeArgs,
+  type ServerEntry,
+} from "./mcpShared";
 
 /**
  * Wiring the MCP server into agents that keep their OWN config file (Claude
@@ -17,10 +26,7 @@ import { ExtensionState } from "./state";
  * there — and points it at the version-independent launcher from shim.ts.
  */
 
-export interface ServerEntry {
-  command: string;
-  args?: string[];
-}
+export type { ServerEntry };
 
 /**
  * The entry an external agent needs. With the analysis in the project
@@ -43,7 +49,7 @@ export function configJson(entry: ServerEntry): string {
 
 type Target =
   | { kind: "claude-cli"; label: string; detail: string }
-  | { kind: "json"; label: string; detail: string; file: string; key: "mcpServers"; claude?: true; userLevel?: true }
+  | { kind: "json"; label: string; detail: string; file: string; key: "mcpServers"; claude?: true; userLevel?: true; shared?: true }
   | { kind: "toml"; label: string; detail: string; file: string }
   | { kind: "clipboard"; label: string; detail: string };
 
@@ -104,6 +110,10 @@ async function targetsFor(folder: vscode.WorkspaceFolder): Promise<Target[]> {
   const cursorGlobal = path.join(home, ".cursor", "mcp.json");
   const windsurf = path.join(home, ".codeium", "windsurf", "mcp_config.json");
 
+  // A project file may be committed. With the analysis in the project the entry needs no path of this
+  // machine, so it is written portable; with it in the extension's private storage it cannot be.
+  const portable = storageFor(folder).mode === "workspace";
+  const sharedNote = portable ? "shared — the portable `npx -y clarifydoc mcp`, safe to commit" : "this machine only; the entry holds your local path, so don't commit it";
   const targets: Target[] = [];
   if (await claudeAvailable()) {
     targets.push({
@@ -115,19 +125,21 @@ async function targetsFor(folder: vscode.WorkspaceFolder): Promise<Target[]> {
   targets.push({
     kind: "json",
     label: "Claude Code (this project)",
-    // The entry names this machine's extension install, so the file works
+    // Machine-only entries name this machine's extension install, so the file works
     // here only — committed, it would hand teammates a path they do not have.
-    detail: `${projectMcp} — this machine only; the entry holds your local path, so don't commit it`,
+    detail: `${projectMcp} — ${sharedNote}`,
     file: projectMcp,
     key: "mcpServers",
     claude: true,
+    shared: true,
   });
   targets.push({
     kind: "json",
     label: (await fileExists(cursorProject)) ? "Cursor (this project)" : "Cursor",
-    detail: (await fileExists(cursorProject)) ? cursorProject : cursorGlobal,
+    detail: (await fileExists(cursorProject)) ? `${cursorProject} — ${sharedNote}` : cursorGlobal,
     file: (await fileExists(cursorProject)) ? cursorProject : cursorGlobal,
     key: "mcpServers",
+    ...((await fileExists(cursorProject)) ? { shared: true as const } : { userLevel: true as const }),
   });
   targets.push({
     kind: "json",
@@ -138,7 +150,7 @@ async function targetsFor(folder: vscode.WorkspaceFolder): Promise<Target[]> {
     userLevel: true,
   });
   const gemini = path.join(folder.uri.fsPath, ".gemini", "settings.json");
-  targets.push({ kind: "json", label: "Gemini CLI (this project)", detail: gemini, file: gemini, key: "mcpServers" });
+  targets.push({ kind: "json", label: "Gemini CLI (this project)", detail: `${gemini} — ${sharedNote}`, file: gemini, key: "mcpServers", shared: true });
   const codex = path.join(home, ".codex", "config.toml");
   targets.push({ kind: "toml", label: "Codex", detail: `${codex} — names this project`, file: codex });
   const desktop = claudeDesktopConfig();
@@ -246,6 +258,7 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
         await fs.writeFile(target.file, next, "utf-8");
       }
       output.info(`[mcp] installed clarifydoc into ${target.file}`);
+      await rememberClient(state, folder, "codex");
       void vscode.window.showInformationMessage(`ClarifyDoc: added to ${target.file}. Restart Codex to pick it up.`, GUIDANCE_ACTION).then((c) => offerGuidance(c, folder));
     } catch (err) {
       await vscode.env.clipboard.writeText(mergeCodexToml("", entry, folder.uri.fsPath));
@@ -255,7 +268,9 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
   }
 
   // A user-level config has no working directory to find the project from: name it.
-  const written = target.userLevel && !entry.args?.length ? { ...entry, args: [folder.uri.fsPath] } : entry;
+  // A shared project file carries the portable command when nothing in it is machine-specific.
+  const machineOnly = !!entry.args?.length || storageFor(folder).mode !== "workspace";
+  const written = target.shared && !machineOnly ? portableEntry() : target.userLevel && !entry.args?.length ? { ...entry, args: [folder.uri.fsPath] } : entry;
   const merged = await mergeIntoJson(target.file, target.key, written).catch((err: Error) => {
     output.error(`[mcp] could not write ${target.file}: ${err.message}`);
     return false;
@@ -268,6 +283,12 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
     return;
   }
   output.info(`[mcp] installed clarifydoc into ${target.file}`);
+  await rememberClient(state, folder, CLIENT_OF_TARGET[target.label as keyof typeof CLIENT_OF_TARGET]);
+  // A machine-only entry in a project file stays out of git: one line in .git/info/exclude, never .gitignore.
+  if (target.shared && machineOnly && path.basename(target.file) === ".mcp.json") {
+    const done = await excludeFromGit(target.file).catch(() => "not-git" as const);
+    if (done === "added") output.info(`[mcp] added /${path.basename(target.file)} to .git/info/exclude (machine-only entry)`);
+  }
   if (target.claude) await offerClaudeExtras(state, folder);
   const choice = await vscode.window.showInformationMessage(
     `ClarifyDoc: added to ${path.basename(target.file)}. Restart ${target.label} to pick it up.`,
@@ -279,6 +300,61 @@ export async function installMcpServer(state: ExtensionState, folder: vscode.Wor
     await vscode.window.showTextDocument(doc);
   }
   await offerGuidance(choice, folder);
+}
+
+const CLIENTS_KEY = "clarifydoc.mcpClients.v1";
+
+/** Remember which agents this extension wrote for in a folder, so Remove undoes those and no others. */
+async function rememberClient(state: ExtensionState, folder: vscode.WorkspaceFolder, client: string | undefined): Promise<void> {
+  if (!client) return;
+  const all = state.context.workspaceState.get<Record<string, string[]>>(CLIENTS_KEY) ?? {};
+  const mine = new Set(all[folder.uri.fsPath] ?? []);
+  mine.add(client);
+  await state.context.workspaceState.update(CLIENTS_KEY, { ...all, [folder.uri.fsPath]: [...mine].sort() });
+}
+
+/**
+ * "ClarifyDoc: Remove from Agent Configs": the analyzer's own `install --remove`, for the agents we installed
+ * for (every agent when none is remembered). It takes out only ClarifyDoc's entries, hooks, skills and sections,
+ * leaving the rest of each file as it was — nothing is merged here. What would change is shown first, and
+ * what was removed after.
+ */
+export async function removeAgentConfigs(state: ExtensionState, folder: vscode.WorkspaceFolder): Promise<void> {
+  const root = folder.uri.fsPath;
+  const known = (state.context.workspaceState.get<Record<string, string[]>>(CLIENTS_KEY) ?? {})[root] ?? [];
+  const cli = await resolveCli(state.context.extensionPath);
+  const run = async (preview: boolean) => {
+    const res = await runClarifyDoc(cli, removeArgs(root, known, preview), { cwd: root });
+    state.output[res.code === 0 ? "info" : "warn"](`[mcp] clarifydoc ${removeArgs(root, known, preview).join(" ")}: ${res.stdout.trim() || res.stderr.trim()}`);
+    return res.code === 0 ? parseRemovalReport(res.stdout) : undefined;
+  };
+  const plan = await run(true);
+  if (!plan) {
+    void vscode.window.showWarningMessage("ClarifyDoc: the analyzer could not work out what to remove (see the output).");
+    return;
+  }
+  const lines = describeRemoval(plan, root);
+  if (!plan.removed.length && !plan.edited.length) {
+    void vscode.window.showInformationMessage(`ClarifyDoc: nothing to remove${known.length ? ` for ${known.join(", ")}` : ""} in agent configs.`);
+    return;
+  }
+  const ok = await vscode.window.showWarningMessage(
+    "Remove ClarifyDoc from agent configs?",
+    { modal: true, detail: `${known.length ? `Agents set up from here: ${known.join(", ")}.\n` : ""}${lines.join("\n")}\n\nOnly ClarifyDoc's own entries go; the rest of each file stays.` },
+    "Remove",
+  );
+  if (ok !== "Remove") return;
+  const done = await run(false);
+  if (!done) {
+    void vscode.window.showWarningMessage("ClarifyDoc: removing failed (see the output).");
+    return;
+  }
+  const rest = { ...(state.context.workspaceState.get<Record<string, string[]>>(CLIENTS_KEY) ?? {}) };
+  delete rest[root];
+  await state.context.workspaceState.update(CLIENTS_KEY, rest);
+  state.output.info(`[mcp] removed:\n${describeRemoval(done, root).join("\n")}`);
+  const choice = await vscode.window.showInformationMessage(`ClarifyDoc removed from agent configs:\n${describeRemoval(done, root).join("\n")}`, "Show Output");
+  if (choice === "Show Output") state.output.show(true);
 }
 
 /**

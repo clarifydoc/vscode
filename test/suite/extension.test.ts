@@ -28,6 +28,7 @@ suite("ClarifyDoc extension", () => {
       "clarifydoc.revealSource",
       "clarifydoc.copyMcpConfig",
       "clarifydoc.installMcpServer",
+      "clarifydoc.removeAgentConfigs",
     ]) {
       assert.ok(cmds.includes(c), `missing command ${c}`);
     }

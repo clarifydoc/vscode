@@ -3,7 +3,7 @@ import { getConfig } from "./config";
 import { bundleAvailable, resolveCli, type ResolvedCli } from "./cli";
 import * as fs from "fs";
 import { resultsDir, summaryPath } from "./paths";
-import { configJson, installMcpServer, serverEntry } from "./mcpInstall";
+import { configJson, installMcpServer, removeAgentConfigs, serverEntry } from "./mcpInstall";
 import { writeMcpShim } from "./shim";
 import { ExtensionState } from "./state";
 
@@ -86,6 +86,10 @@ export function registerMcpProvider(state: ExtensionState): void {
     vscode.commands.registerCommand("clarifydoc.installMcpServer", async () => {
       const folder = await pickFolder();
       if (folder) await installMcpServer(state, folder);
+    }),
+    vscode.commands.registerCommand("clarifydoc.removeAgentConfigs", async () => {
+      const folder = await pickFolder();
+      if (folder) await removeAgentConfigs(state, folder);
     }),
   );
 

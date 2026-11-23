@@ -241,6 +241,12 @@
         "icon": "$(clippy)"
       },
       {
+        "command": "clarifydoc.removeAgentConfigs",
+        "title": "Remove ClarifyDoc from Agent Configs…",
+        "category": "ClarifyDoc",
+        "icon": "$(trash)"
+      },
+      {
         "command": "clarifydoc.toggleCoverage",
         "title": "Toggle Coverage Overlay",
         "category": "ClarifyDoc"
@@ -515,6 +521,11 @@
           "command": "clarifydoc.copyMcpConfig",
           "when": "view == clarifydoc.summary",
           "group": "overflow@6"
+        },
+        {
+          "command": "clarifydoc.removeAgentConfigs",
+          "when": "view == clarifydoc.summary",
+          "group": "overflow@6.5"
         },
         {
           "command": "clarifydoc.openSettings",
