@@ -226,6 +226,8 @@ export interface ResolvedAnalysis {
   thinFiles: Map<string, ThinFile>;
   /** Files the risk verdict rates high or critical to change, with why (`blastRadius[].verdict`). */
   risky: Map<string, RiskVerdict>;
+  /** What a change to each file reaches (`blastRadius`): counts and the nearest dependents. */
+  blast?: Map<string, import("./blastCounts").FileBlast>;
   /** Test coverage per file, when the analysis read a coverage report (`testCoverage`). */
   testCoverage: Map<string, FileTestCoverage>;
   /** Routes the coverage report says no test runs (`RouteInfo.testCoverage.covered` 0), keyed by `routeCoverageKey`. */

@@ -156,6 +156,11 @@
         "category": "ClarifyDoc"
       },
       {
+        "command": "clarifydoc.checkBlastBeforeEdit",
+        "title": "Check Blast Before Edit",
+        "category": "ClarifyDoc"
+      },
+      {
         "command": "clarifydoc.jumpArchitecture",
         "title": "Show in Architecture",
         "category": "ClarifyDoc"
@@ -906,6 +911,13 @@
           "type": "boolean",
           "default": true,
           "description": "Show a lens at the top of a file the analysis rates high or critical risk to change, with the reasons on hover.",
+          "scope": "resource"
+        },
+        "clarifydoc.codeLens.blastThreshold": {
+          "type": "number",
+          "default": 40,
+          "minimum": 0,
+          "description": "Show a lens at the top of a file when at least this many files depend on it directly (\"a change here reaches N files\"; it opens the Blast Radius). 0 turns it off. The default is the top few percent of files in a large project.",
           "scope": "resource"
         },
         "clarifydoc.codeLens.tryIt": {

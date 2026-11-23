@@ -26,6 +26,7 @@ import type {
   ApiCall,
   ApiRouteLink,
 } from "./analysisData";
+import { blastCountsOf } from "./blastCounts";
 
 /** The files rated high or critical to change. */
 export function riskyFilesOf(blast: unknown): Map<string, RiskVerdict> {
@@ -242,6 +243,7 @@ export function indexProjectData(p: any, buildIndex: AnalysisReader["buildIndex"
     deadCode: p.deadCode && Array.isArray(p.deadCode.files) && Array.isArray(p.deadCode.exports) ? p.deadCode : undefined,
     thinFiles: thinFilesOf(p.coverage),
     risky: riskyFilesOf(p.blastRadius),
+    blast: blastCountsOf(p.blastRadius),
     testCoverage: testCoverageOf(p.testCoverage),
     untestedRoutes: untestedRoutesOf(routes),
     docDrift: arr<DocDriftFinding>(p.docDrift?.findings).filter((f) => typeof f?.doc === "string" && typeof f?.line === "number"),

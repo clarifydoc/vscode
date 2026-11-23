@@ -5,6 +5,8 @@ import { loadAnalysis, loadFileIndex, linkCommands, relPathOf, routeCoverageKey,
 import { callersOf, describeRoute, isUncalled, routeData, screensReaching } from "./crossTier";
 import { callerLocations } from "./apiCallProvider";
 import { crossTierEnabled } from "./docFacts";
+import { blastShows, blastTitle } from "./blastCounts";
+import { blastThreshold } from "./blastLens";
 import { onDidChangeControlFlowSupport, supportsControlFlow } from "./controlFlowSupport";
 
 function enabled(scope: vscode.Uri): boolean {
@@ -66,6 +68,8 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
       }));
     }
 
+    this.blastLens(rel, document, lenses, analysis!);
+
     const idx = await loadFileIndex(this.state.context, folder, rel, facts);
     const tests = analysis!.isTest ? { isTest: analysis!.isTest, hasTests: analysis!.hasTests === true } : undefined;
     this.definitionLenses(idx, document, uriArg, threshold, lenses, supportsControlFlow(document), tests);
@@ -73,6 +77,19 @@ export class ClarifyDocCodeLensProvider implements vscode.CodeLensProvider {
     this.untestedRouteLenses(facts, document, rel, lenses, analysis!);
     this.tryItLenses(facts, document, lenses, folder);
     return lenses;
+  }
+
+  /** A file many others depend on: one lens at the top stating how many a change reaches (`clarifydoc.codeLens.blastThreshold`). */
+  private blastLens(rel: string, doc: vscode.TextDocument, out: vscode.CodeLens[], analysis: ResolvedAnalysis): void {
+    if (analysis.isTest?.(rel)) return; // a test file's dependents are not a reason to pause
+    const b = analysis.blast?.get(rel);
+    if (!blastShows(b, blastThreshold(doc.uri))) return;
+    out.push(new vscode.CodeLens(new vscode.Range(0, 0, 0, 0), {
+      title: blastTitle(b),
+      tooltip: "Open the Blast Radius for this file. \"ClarifyDoc: Check Blast Before Edit\" copies a short pack of the nearest dependents for an agent.",
+      command: "clarifydoc.openReportForFile",
+      arguments: [doc.uri, "blast"],
+    }));
   }
 
   private definitionLenses(

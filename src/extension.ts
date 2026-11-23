@@ -37,6 +37,7 @@ import { CoverageOverlay } from "./coverageOverlay";
 import { registerFollowEditor, registerReportSerializer } from "./reportPanel";
 import { installAgentGuidance, registerProposalProvider } from "./agentGuidance";
 import { askAgent } from "./askAgent";
+import { checkBlastBeforeEdit } from "./blastLens";
 import { openReportForFile, showLinkedSymbols } from "./navCommands";
 import { gotoQuickPick } from "./goto";
 import { openSourceAt } from "./reveal";
@@ -192,6 +193,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Navigation commands (invoked from CodeLens, hover, and the sidebar).
   register("clarifydoc.goto", () => gotoQuickPick(state));
+  register("clarifydoc.checkBlastBeforeEdit", (target?: vscode.Uri | string) => checkBlastBeforeEdit(state, target));
   register("clarifydoc.openReportForFile", (uri, tab) => openReportForFile(state, uri, tab));
   register("clarifydoc.showControlFlow", (uri?: string | vscode.Uri, fn?: string, line?: number) =>
     showControlFlow(state, uri, fn, line),
