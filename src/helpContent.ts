@@ -86,6 +86,7 @@ export const MORE_MENU: HelpEntry[] = [
   { command: "clarifydoc.detectFrameworks", label: "Detect Languages & Frameworks", runOn: "free", does: "A quick look at what the analyzer recognizes, without a full run." },
   { command: "clarifydoc.impact", label: "Impact of Current Git Changes as Markdown", runOn: "free", does: "Your uncommitted diff as the screens, routes, entities and tests it affects, in a document." },
   { command: "clarifydoc.installMcpServer", label: "Set Up MCP for an AI Agent…", runOn: "free", does: "Writes the config for Claude Code, Cursor or Windsurf. Copilot's agent mode needs none." },
+  { command: "clarifydoc.removeAgentConfigs", label: "Remove ClarifyDoc from Agent Configs…", runOn: "free", does: "Shows what it will change, then takes ClarifyDoc's entries, hooks and guidance out of the agent configs it set up." },
   { command: "clarifydoc.copyMcpConfig", label: "Copy MCP Server Config (for external agents)", runOn: "free", does: "Puts the MCP config on the clipboard for any other agent." },
   { command: "clarifydoc.openSettings", label: "Open Settings", runOn: "free", does: "CodeLens, diagnostics, analyze on save, storage." },
   { command: "clarifydoc.exportSarif", label: "Export Security Findings as SARIF", runOn: "free", does: "The security findings as SARIF 2.1.0, for code scanning tools." },
