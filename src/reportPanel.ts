@@ -7,7 +7,8 @@ import { openSourceAt } from "./reveal";
 import { relativeInside } from "./pathUtil";
 import { prepareReportHtml } from "./reportHtml";
 import { getConfig } from "./config";
-import { loadAnalysis } from "./analysisData";
+import { loadAnalysis, loadFileIndex } from "./analysisData";
+import { functionAtLine, parseReportLink, reportLink } from "./deepLink";
 import { answerReportRequest } from "./notesHost";
 import { changeHub } from "./changeOverlayHub";
 import { overlayMessage } from "./changeOverlay";
@@ -17,7 +18,8 @@ import { overlayMessage } from "./changeOverlay";
  * `report/data-source.ts` states the same list — one written, both written):
  *
  * - host → page `clarifydoc:reload` `{ data, json, impact?, overlay?, hash? }` — a new analysis, same panel;
- * - host → page `clarifydoc:navigate` `{ hash }` — move to a tab or file;
+ * - host → page `clarifydoc:navigate` `{ hash }` — move to a tab, file, function or route
+ *   (`#<tab>[/<section>][~<file>[::<symbol>]]`, built by `deepLink.ts`, read by the viewer's `report/deep-link.ts`);
  * - host → page `clarifydoc:overlay` `{ overlay: ChangeOverlay | null }` — what a change did to elements
  *   (changed `~`, added `+`, removed `−`, reached `→`); `null` clears the marks;
  * - page → host `clarifydoc:ready`, `clarifydoc:reloaded`, `clarifydoc:hash`, `clarifydoc:open`, `clarifydoc:save`, `clarifydoc:request`
@@ -279,28 +281,45 @@ async function saveFromReport(folder: vscode.WorkspaceFolder, filename: unknown,
 /** The report tabs that focus one file, and so can follow the editor. */
 const FOLLOWING_TABS = /^(ui|traces|blast)(?=~|$)/;
 
-/** The deep link that follows `rel` from where a viewer is, or undefined when its tab does not focus a file. */
-export function followHash(current: string | undefined, rel: string): string | undefined {
+/**
+ * The deep link that follows `rel` — and, on Call Traces, the function the
+ * cursor is in — from where a viewer is, or undefined when its tab does not
+ * focus a file, or it is already there. Leaving every function of the file the
+ * viewer is on keeps its function: the report is not reset to the file's first.
+ */
+export function followHash(current: string | undefined, rel: string, symbol?: string): string | undefined {
   const tab = FOLLOWING_TABS.exec(current ?? "")?.[1];
   if (!tab) return undefined;
-  const next = `${tab}~${encodeURIComponent(rel)}`;
+  const here = parseReportLink(current ?? "");
+  if (!symbol && here.file === rel) return undefined;
+  const next = reportLink(tab, rel, tab === "traces" ? symbol : undefined);
   return next === current ? undefined : next;
 }
+
+/** How long the cursor rests before the report follows it. */
+export const FOLLOW_DELAY_MS = 400;
 
 /**
  * VSCODE-PLAN 2.2, `clarifydoc.report.followEditor` (off by default): with a
  * report open on a tab that focuses one file — traces, screens, blast radius
- * — switching editors moves it to the new file, by message, debounced. Only a
+ * — switching editors moves it to the new file, and on Call Traces the cursor
+ * moves it to the function under it, by message, debounced. Only a
  * viewer that can move in place is followed; nothing is ever reloaded for it.
  */
 export function registerFollowEditor(state: ExtensionState): void {
   let timer: NodeJS.Timeout | undefined;
+  const schedule = (editor: vscode.TextEditor | undefined): void => {
+    clearTimeout(timer);
+    if (!editor || editor.document.uri.scheme !== "file") return;
+    const doc = editor.document;
+    const line = editor.selection.active.line;
+    timer = setTimeout(() => void follow(doc, line), FOLLOW_DELAY_MS);
+  };
   state.context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor((editor) => {
-      clearTimeout(timer);
-      if (!editor || editor.document.uri.scheme !== "file") return;
-      const uri = editor.document.uri;
-      timer = setTimeout(() => void follow(uri), 400);
+    vscode.window.onDidChangeActiveTextEditor(schedule),
+    // The cursor moving inside a file moves the report to the function under it (Call Traces).
+    vscode.window.onDidChangeTextEditorSelection((e) => {
+      if (e.textEditor === vscode.window.activeTextEditor) schedule(e.textEditor);
     }),
     { dispose: () => clearTimeout(timer) },
     vscode.commands.registerCommand("clarifydoc.internal.reportState", (folder: vscode.WorkspaceFolder) => {
@@ -308,17 +327,24 @@ export function registerFollowEditor(state: ExtensionState): void {
       return panel ? { ready: ready.has(panel), viewerHash: viewerHash.get(panel), pageLoads: pageLoads.get(panel) ?? 0 } : null;
     }),
   );
-  async function follow(uri: vscode.Uri): Promise<void> {
+  async function follow(doc: vscode.TextDocument, line: number): Promise<void> {
+    const uri = doc.uri;
     const folder = vscode.workspace.getWorkspaceFolder(uri);
     if (!folder || !getConfig(folder.uri).reportFollowEditor) return;
     const key = folder.uri.fsPath;
     const panel = panels.get(key);
-    if (!panel || !ready.has(panel)) return;
+    // Following is for a report the reader can see: a hidden one moves when it is shown again, by the next move.
+    if (!panel || !ready.has(panel) || !panel.visible) return;
     const rel = relativeInside(folder.uri.fsPath, uri.fsPath);
     if (!rel) return;
-    const hash = followHash(lastHash.get(key), rel);
+    const facts = (await loadAnalysis(state.context, folder))?.byFile.get(rel);
     // A file the analysis never read would land on the tab's first entry: stay where the reader is.
-    if (!hash || !(await loadAnalysis(state.context, folder))?.files.has(rel)) return;
+    if (!facts) return;
+    // The function under the cursor, from the analysis' own spans — nothing is parsed here.
+    const idx = await loadFileIndex(state.context, folder, rel, facts);
+    const symbol = functionAtLine(idx.defs, line, (l) => state.lines.map(uri, Math.max(0, l - 1)));
+    const hash = followHash(lastHash.get(key), rel, symbol);
+    if (!hash) return;
     lastHash.set(key, hash);
     void panel.webview.postMessage({ type: "clarifydoc:navigate", hash });
   }

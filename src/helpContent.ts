@@ -61,7 +61,7 @@ export const MENU_GROUPS: MenuGroup[] = [
       { command: "clarifydoc.treeItemTraces", label: "Call Traces", does: "Opens the report's Call Traces on that item." },
       { command: "clarifydoc.treeItemBlast", label: "Blast Radius", does: "Opens the report's Blast Radius on that item's file." },
       { command: "clarifydoc.treeItemFindCallers", label: "Find Callers", does: "On a route: lists the calls in the workspace that reach it." },
-      { command: "clarifydoc.treeItemShowRoute", label: "Show in Report", does: "On a route: opens the report's Routes on that route's file." },
+      { command: "clarifydoc.treeItemShowRoute", label: "Show in Report", does: "On a route: opens the report's Routes with that route selected." },
       { command: "clarifydoc.tryItRoute", label: "Try It (Open .http Request)", does: "On a route: opens its request (method, path placeholders, auth header, body skeleton) as an untitled .http file. Nothing is sent." },
       { command: "clarifydoc.copyRouteAsCurl", label: "Copy Route as curl", does: "On a route: copies the same request as a curl command." },
       { command: "clarifydoc.treeItemReachingRoutes", label: "Show Reaching Routes", does: "On a security finding: lists the routes whose handlers reach it." },

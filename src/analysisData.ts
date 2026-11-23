@@ -590,6 +590,8 @@ export interface Definition {
   symbol: string;
   kind: "function" | "class";
   line: number; // 1-based
+  /** Last line (1-based), where the analysis states it — the function-following in the report reads it. */
+  endLine?: number;
   /** Only where the analyzer measured it: complexity needs a syntax tree, so
    *  the regex-extracted languages (Ruby, Go, Rust, …) never have one. */
   complexity?: number;
@@ -619,12 +621,16 @@ export interface FileIndex {
  * or hover. A measured function with no matching definition (no per-file JSON,
  * say) is kept, so nothing the summary alone could show is lost.
  */
+function endOf(fn: { endLine?: unknown; line: number }): { endLine?: number } {
+  return typeof fn.endLine === "number" && fn.endLine >= fn.line ? { endLine: fn.endLine } : {};
+}
+
 function definitionsOf(raw: any, measured: FnComplexity[]): Definition[] {
   const defs: Definition[] = [];
   for (const fn of Array.isArray(raw?.functions) ? raw.functions : []) {
     // `<setup>` and kin stand for top-level code, not something written as a function.
     if (typeof fn?.name === "string" && !fn.name.startsWith("<") && num(fn.line) !== undefined) {
-      defs.push({ symbol: fn.name, kind: "function", line: fn.line });
+      defs.push({ symbol: fn.name, kind: "function", line: fn.line, ...endOf(fn) });
     }
   }
   // A method can be credited to more than one owner (Ruby lists a nested
@@ -639,7 +645,7 @@ function definitionsOf(raw: any, measured: FnComplexity[]): Definition[] {
       const key = `${m.line}:${m.name}`;
       const prev = methods.get(key);
       if (prev && prev.ownerLine >= cls.line) continue;
-      methods.set(key, { def: { symbol: `${cls.name}.${m.name}`, kind: "function", line: m.line }, ownerLine: cls.line });
+      methods.set(key, { def: { symbol: `${cls.name}.${m.name}`, kind: "function", line: m.line, ...endOf(m) }, ownerLine: cls.line });
     }
   }
   for (const { def } of methods.values()) defs.push(def);

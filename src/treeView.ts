@@ -8,6 +8,7 @@ import { describeTable, tableUses, type TableEntry } from "./dataTables";
 import { bookmarksOf } from "./bookmarks";
 import type { Bookmark } from "./bookmarkModel";
 import { milestone } from "./startupClock";
+import { reportLink, routeSymbol } from "./deepLink";
 
 type NodeKind = "folder" | "group" | "leaf" | "action";
 
@@ -517,5 +518,7 @@ export type ItemReportTab = "blast" | "traces" | "routes";
 
 /** The report location for a sidebar item: its tab, focused on its file. */
 export function itemReportHash(node: Node, tab: ItemReportTab): string | undefined {
-  return node.file ? `${tab}~${encodeURIComponent(node.file)}` : undefined;
+  if (!node.file) return undefined;
+  // A route opens the report on that route, not only on its file.
+  return reportLink(tab, node.file, tab === "routes" && node.route ? routeSymbol(node.route) : undefined);
 }
