@@ -6,9 +6,11 @@
  *
  * What the analyzer states bounds what is claimed here. `impact --json` names
  * changed files, and the routes, screens and tables above and below them
- * (reached); it does not say which changed file is new, so nothing is "added"
- * from it. `diff --json` against a base states routes added and removed, so
- * those are.
+ * (reached); `addedFiles`, when the CLI states it, names the files the change
+ * adds, so those are "added" — an older CLI omits it and nothing is. `unknownFiles`
+ * is never read as added (it also holds unanalysed and non-source paths).
+ * `diff --json` against a base states routes added and removed, so those are,
+ * and the files of the import cycles it introduced or grew are changed.
  */
 import type { ImpactResult } from "./impactModel";
 import type { SurfaceDiff } from "./surfaceModel";
@@ -40,9 +42,11 @@ export const KIND_GLYPH: Record<ChangeKind, string> = { changed: "~", added: "+"
 export const KIND_LABEL: Record<ChangeKind, string> = { changed: "Changed", added: "Added", removed: "Removed", reached: "Reached" };
 
 /** The working-tree change (`impact --json`): the files changed and what they reach. */
-export function overlayFromImpact(r: Pick<ImpactResult, "changedFiles" | "screens" | "routes" | "entities" | "baseLabel"> & { baseLabel?: string }): ChangeOverlay {
+export function overlayFromImpact(r: Pick<ImpactResult, "changedFiles" | "addedFiles" | "screens" | "routes" | "entities" | "baseLabel"> & { baseLabel?: string }): ChangeOverlay {
   const entries: ChangeEntry[] = [];
-  for (const f of r.changedFiles) entries.push({ kind: "changed", of: "file", id: f });
+  const added = new Set(r.addedFiles ?? []);
+  for (const f of added) entries.push({ kind: "added", of: "file", id: f });
+  for (const f of r.changedFiles) if (!added.has(f)) entries.push({ kind: "changed", of: "file", id: f });
   for (const s of r.screens) entries.push({ kind: "reached", of: "screen", id: s.file, file: s.file, note: s.name });
   for (const x of r.routes) entries.push({ kind: "reached", of: "route", id: x.path, method: x.method, file: x.file, line: x.line });
   for (const e of r.entities) entries.push({ kind: "reached", of: "entity", id: e });
@@ -61,7 +65,7 @@ export function splitRoute(route: string): { method: string | null; path: string
  * route's file is changed too; a removed route's file may be gone, so it is
  * not marked.
  */
-export function overlayFromSurface(d: Pick<SurfaceDiff, "changes">, baseLabel: string): ChangeOverlay {
+export function overlayFromSurface(d: Pick<SurfaceDiff, "changes"> & Partial<Pick<SurfaceDiff, "cycles">>, baseLabel: string): ChangeOverlay {
   const entries: ChangeEntry[] = [];
   for (const c of d.changes) {
     const { method, path } = splitRoute(c.route);
@@ -70,6 +74,14 @@ export function overlayFromSurface(d: Pick<SurfaceDiff, "changes">, baseLabel: s
     entries.push({ kind, of: "route", id: path, method, ...(c.file ? { file: c.file } : {}), ...(c.line ? { line: c.line } : {}), ...(note ? { note } : {}) });
     if (kind !== "removed" && c.file) entries.push({ kind: "changed", of: "file", id: c.file });
   }
+  const inCycle = new Set<string>();
+  const cycleFile = (f: string, note: string) => {
+    if (inCycle.has(f)) return;
+    inCycle.add(f);
+    entries.push({ kind: "changed", of: "file", id: f, note });
+  };
+  for (const c of d.cycles?.introduced ?? []) for (const f of c) cycleFile(f, "in a new import cycle");
+  for (const g of d.cycles?.grown ?? []) for (const f of g.files) cycleFile(f, g.added.includes(f) ? "joined an import cycle" : "in a grown import cycle");
   return { label: `API surface vs ${baseLabel}`, entries };
 }
 

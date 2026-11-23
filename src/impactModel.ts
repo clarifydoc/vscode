@@ -8,6 +8,8 @@ export interface ImpactResult {
   baseLabel: string;
   changedFiles: string[];
   unknownFiles: string[];
+  /** Files the change adds (git: new against the base, or untracked); absent from an older CLI. */
+  addedFiles?: string[];
   screens: { name: string; file: string; route: string | null }[];
   screenCount: number;
   routes: { method: string | null; path: string; file: string; line: number }[];

@@ -38,6 +38,30 @@ describe("overlayFromSurface", () => {
   });
 });
 
+describe("added files and cycle files", () => {
+  const base = { baseLabel: "HEAD", screens: [], routes: [], entities: [] };
+
+  it("marks addedFiles added (once, even when also changed); unknownFiles stay unmarked; an older CLI changes nothing", () => {
+    const o = overlayFromImpact({ ...base, changedFiles: ["src/clubs.ts", "src/garage.ts"], addedFiles: ["src/garage.ts", "src/cars.ts"], unknownFiles: ["notes.md"] } as never);
+    expect(o.entries.map((e) => `${e.kind}:${e.id}`).sort()).toEqual(["added:src/cars.ts", "added:src/garage.ts", "changed:src/clubs.ts"]);
+    const old = overlayFromImpact({ ...base, changedFiles: ["src/garage.ts"] });
+    expect(old.entries.map((e) => e.kind)).toEqual(["changed"]);
+  });
+
+  it("marks the files of introduced and grown cycles changed, with a note; no cycles, no entries", () => {
+    const o = overlayFromSurface(
+      { changes: [], cycles: { introduced: [["src/club.ts", "src/player.ts"]], grown: [{ files: ["src/car.ts", "src/garage.ts", "src/club.ts"], added: ["src/garage.ts"] }] } },
+      "main",
+    );
+    const by = Object.fromEntries(o.entries.map((e) => [e.id, e]));
+    expect(Object.keys(by).sort()).toEqual(["src/car.ts", "src/club.ts", "src/garage.ts", "src/player.ts"]);
+    expect(by["src/player.ts"]).toMatchObject({ kind: "changed", of: "file", note: "in a new import cycle" });
+    expect(by["src/garage.ts"]!.note).toBe("joined an import cycle");
+    expect(by["src/car.ts"]!.note).toBe("in a grown import cycle");
+    expect(overlayFromSurface({ changes: [] }, "main").entries).toEqual([]);
+  });
+});
+
 describe("overlayFromImpact and merge", () => {
   const impact = overlayFromImpact({
     baseLabel: "HEAD",
@@ -47,7 +71,7 @@ describe("overlayFromImpact and merge", () => {
     entities: ["Club"],
   });
 
-  it("states changed files and what they reach — no added, which the analyzer does not say", () => {
+  it("states changed files and what they reach — no added without addedFiles", () => {
     expect(impact.entries.map((e) => e.kind)).toEqual(["changed", "reached", "reached", "reached"]);
     expect(impact.label).toBe("Uncommitted changes");
   });
