@@ -1,11 +1,12 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { ExtensionState } from "./state";
-import { ApiRouteLink, loadAnalysis, loadFileIndex, linkCommands } from "./analysisData";
+import { ApiRouteLink, loadAnalysis, loadDecisions, loadFileIndex, linkCommands } from "./analysisData";
 import { ownershipLine } from "./ownership";
 import { escapeMd } from "./markdown";
 import { absFor } from "./reveal";
 import { DocFacts, crossTierEnabled, docFacts } from "./docFacts";
+import { decisionSections } from "./decisionsHover";
 import { callersOf, describeRoute, isUncalled, linksAtLine, missesAtLine, routeData, screensReaching } from "./crossTier";
 
 /** The only commands the card's links may run. Everything else in it is text. */
@@ -90,6 +91,10 @@ export class ClarifyDocHoverProvider implements vscode.HoverProvider {
         sections.push(`$(globe) **${routeLabel(r)}**${r.handler ? ` → ${escapeMd(r.handler)}` : ""}`);
       }
     }
+
+    // Why the code is so: the documents that name this file (first line) and a marker's record.
+    const decisions = await loadDecisions(this.state.context, d.folder, d.rel);
+    if (decisions) sections.push(...decisionSections(decisions, position.line, (file, line, label) => sourceLink(d, file, line, label)));
 
     if (sections.length === 0) return undefined;
     const md = new vscode.MarkdownString(sections.join("\n\n---\n\n"));

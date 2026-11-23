@@ -306,6 +306,21 @@ export interface AnalysisReader {
   ownersOf?(rules: readonly { pattern: string; owners: string[] }[], relPath: string): string[];
   /** Whether an analysis still matches the files on disk. Absent in an older analyzer. */
   assessFreshness?(outputDir: string, projectRoot: string): Promise<FreshnessReport>;
+  /** The documents naming a file (with staleness) and its decision markers. Absent in an older analyzer. */
+  decisionsAbout?(projectRoot: string, analysisDir: string, file: string): Promise<FileDecisions | undefined>;
+}
+
+/** What `decisionsAbout` answers for one file. */
+export interface FileDecisions {
+  docs: {
+    path: string;
+    kind: "decision" | "context" | "schema";
+    title: string;
+    status?: string;
+    description?: string;
+    staleness?: { governs: string[]; changedSince: { file: string; at: number }[]; writtenAt?: number };
+  }[];
+  markers: { file: string; line: number; tag: string; text: string }[];
 }
 
 /** One of the MCP server's workflows: the order of tool calls that answers one question. */
@@ -730,4 +745,16 @@ export function linkCommands(
 /** Project-relative, forward-slashed path of a document within a folder (or undefined). */
 export function relPathOf(folder: vscode.WorkspaceFolder, uri: vscode.Uri): string | undefined {
   return relativeInside(folder.uri.fsPath, uri.fsPath);
+}
+
+/** The decisions about one file, or undefined when the analyzer cannot say or has none. */
+export async function loadDecisions(context: vscode.ExtensionContext, folder: vscode.WorkspaceFolder, rel: string): Promise<FileDecisions | undefined> {
+  const reader = await loadReader(context);
+  if (!reader?.decisionsAbout) return undefined;
+  try {
+    return await reader.decisionsAbout(folder.uri.fsPath, resultsDir(context, folder), rel);
+  } catch (err) {
+    log("warn", `[decisions] ${folder.name}: ${errorText(err)}`);
+    return undefined;
+  }
 }
