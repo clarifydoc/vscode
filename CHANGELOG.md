@@ -1,6 +1,10 @@
 # Change Log
 
-## Unreleased
+## 0.1.23
+
+The bundled analyzer is now 1.2.0 (extractor 1.723.0), so each project is analyzed again once after the update,
+when you pause. It links more calls by type, follows request input to risky calls in Go, Ruby and Rust, reads Jupyter
+notebooks, and narrows the Impact view to the files that actually name what you changed.
 
 - **The report follows your VS Code theme.** Editor and side-bar colours, borders, links and status colours come
   from your theme, and the high-contrast dark and light themes get their own look.
