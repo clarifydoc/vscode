@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { pathToFileURL } from "url";
 import { indexProject } from "./analysisData";
@@ -17,9 +18,20 @@ async function load(fixture: string) {
 
 describe.skipIf(!available)("indexProject on a real summary", () => {
   it("reads layer violations from the fields the analyzer writes", async () => {
-    // sample-frontend: an API service imports a page (services → ui).
-    const a = await load("sample-frontend");
-    expect(a.layerViolations.length).toBeGreaterThan(0);
+    // The fixture's own violation was a router importing its pages, which the analyzer rightly no longer flags; a
+    // copy of its summary carries one as the analyzer encodes it (file indexes), read back through the real loader.
+    const summary = JSON.parse(fs.readFileSync(path.join(fixtures, "sample-frontend", "project-summary.json"), "utf8"));
+    const index = (file: string) => summary.files.indexOf(file);
+    summary.layerViolations = [
+      { sourceFile: index("services/api.ts"), sourceLayer: "services", targetFile: index("pages/LoginPage.vue"), targetLayer: "ui", importSpecifier: "LoginPage.vue", line: 2 },
+    ];
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "layer-"));
+    fs.writeFileSync(path.join(dir, "project-summary.json"), JSON.stringify(summary));
+    const analyzer = await import(pathToFileURL(reader).href);
+    const a = indexProject(await analyzer.loadReportSummary(dir), analyzer.buildIndex);
+    fs.rmSync(dir, { recursive: true, force: true });
+    expect(a.layerViolations.length).toBe(1);
+    expect(a.layerViolations[0]!.sourceFile).toBe("services/api.ts");
     for (const v of a.layerViolations) {
       expect(typeof v.sourceFile).toBe("string");
       expect(v.line).toBeGreaterThan(0);
