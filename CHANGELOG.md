@@ -1,5 +1,21 @@
 # Change Log
 
+## 0.1.24
+
+The bundled analyzer is now 1.3.0 (extractor 1.775.0), so each project is analyzed again once after the update,
+when you pause. It links more screens to the data they change — a form that posts to an "update" or an "add" route
+depending on a condition now reaches both — reads Apex, Salesforce markup and Tcl, and records which fields each
+function reads and writes and which exceptions it throws in most languages.
+
+- **Namesakes are told apart.** Two nested classes with the same name, overloaded methods and functions inside a Rust
+  `mod` each get their own entry in traces, the class graph and the data model, instead of being merged into one.
+  Searching by the plain name still finds all of them.
+- **Quieter hints for AI agents.** The search hook that tells Claude Code and other agents where a symbol already is
+  no longer fires when the agent searches a log, a note, a temporary file or a build, or when the map only matches
+  part of what was searched.
+- **Faster start.** Activation no longer reads from disk before VS Code is ready, and analyses use less memory on
+  large projects.
+
 ## 0.1.23
 
 The bundled analyzer is now 1.2.0 (extractor 1.723.0), so each project is analyzed again once after the update,
